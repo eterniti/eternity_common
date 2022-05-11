@@ -1,0 +1,255 @@
+#include "SrstFile.h"
+#include "debug.h"
+
+#define READ_BUF_SIZE   (8*1024*1024)
+
+static const uint8_t adpcm_hdr[90] =
+{
+    0x52, 0x49, 0x46, 0x46, 0x74, 0x54, 0x19, 0x00, 0x57, 0x41, 0x56, 0x45, 0x66, 0x6D, 0x74, 0x20,
+    0x32, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01, 0x00, 0x5C, 0xBB, 0x00, 0x00, 0x80, 0x3E, 0x00, 0x00,
+    0x46, 0x00, 0x04, 0x00, 0x20, 0x00, 0xF4, 0x07, 0x07, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02,
+    0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0xC0, 0x00, 0x40, 0x00, 0xF0, 0x00, 0x00, 0x00, 0xCC, 0x01,
+    0x30, 0xFF, 0x88, 0x01, 0x18, 0xFF, 0x66, 0x61, 0x63, 0x74, 0x04, 0x00, 0x00, 0x00, 0x04, 0x5C,
+    0x32, 0x00, 0x64, 0x61, 0x74, 0x61, 0x00, 0x54, 0x19, 0x00
+};
+
+SrstFile::SrstFile()
+{
+    cont = nullptr;
+    big_endian = false;
+}
+
+SrstFile::~SrstFile()
+{
+    if (cont)
+        delete cont;
+}
+
+void SrstFile::Reset()
+{
+    if (cont)
+    {
+        delete cont;
+        cont = nullptr;
+    }
+
+    entries.clear();
+}
+
+bool SrstFile::LoadInternal()
+{
+    if (!cont)
+        return false;
+
+    cont->Seek(0, SEEK_SET);
+
+    SRSTHeader hdr;
+
+    if (!cont->Read(&hdr, sizeof(SRSTHeader)))
+        return false;
+
+    if (hdr.srst_signature != SRST_SIGNATURE)
+        return false;
+
+    if (hdr.file_size > cont->GetSize())
+        return false;
+
+    SRSTEntry native_entry;
+
+    while (cont->Read(&native_entry, sizeof(SRSTEntry)))
+    {
+        SrsEntry entry;
+        KOVSEntry kovs;
+
+        if (native_entry.signature != SRST_ENTRY_SIGNATURE)
+            return false;
+
+        entry.srst_offset = cont->Tell() - sizeof(SRSTEntry);
+        entry.srst_size = native_entry.entry_size;
+
+        if (native_entry.header_size != sizeof(SRSTEntry))
+        {
+            DPRINTF("Warning: header size not 0x20 around offset %Ix\n", (size_t)cont->Tell());
+            cont->Seek(native_entry.entry_size - sizeof(SRSTEntry), SEEK_CUR);
+        }
+
+        if (!cont->Read(&kovs, sizeof(KOVSEntry)))
+            return false;
+
+        if (kovs.signature != KOVS_SIGNATURE)
+            return false;
+
+        entry.data_offset = cont->Tell();
+        entry.data_size = kovs.ogg_size;
+        entry.is_ogg = true;        
+        entry.name = Utils::ToString(entries.size()) + ".ogg";
+
+        cont->Seek(entry.srst_offset + entry.srst_size, SEEK_SET);
+        entries.push_back(entry);
+    }
+
+    return true;
+}
+
+bool SrstFile::SaveInternal(FileStream *out)
+{
+
+    DPRINTF("TODO: implement this in srst.\n");
+    if (!out)
+        return false;
+
+    return false;
+}
+
+bool SrstFile::LoadFromFile(const std::string &path, bool show_error)
+{
+    Reset();
+
+    cont = new FileStream("rb");
+    if (!cont->LoadFromFile(path, show_error))
+    {
+        Reset();
+        return false;
+    }
+
+    bool ret = LoadInternal();
+    if (!ret)
+        Reset();
+
+    return ret;
+}
+
+bool SrstFile::Extract(size_t idx, Stream *stream)
+{
+    if (idx >= entries.size())
+        return false;
+
+    const SrsEntry &entry = entries[idx];
+    if (!cont->Seek(entry.data_offset, SEEK_SET))
+        return false;
+
+    uint32_t written = 0;
+
+    if (entry.is_ogg)
+    {
+        uint8_t *hdr = new uint8_t[0x100];
+        uint16_t h_size = (entry.data_size < 0x100) ? (uint16_t)entry.data_size : 0x100;
+
+        if (!cont->Read(hdr, h_size))
+        {
+            delete[] hdr;
+            return false;
+        }
+
+        for (uint16_t i = 0; i < h_size; i++)
+        {
+            hdr[i] ^= (uint8_t)i;
+        }
+
+        if (!stream->Write(hdr, h_size))
+        {
+            delete[] hdr;
+            return false;
+        }
+
+        delete[] hdr;
+
+        if (entry.data_size <= 0x100)
+            return true;
+
+        written = 0x100;
+    }
+    else if (entry.is_adpcm)
+    {
+        uint8_t *hdr = new uint8_t[sizeof(adpcm_hdr)];
+        memcpy(hdr, adpcm_hdr, sizeof(adpcm_hdr));
+
+        float duration = (float)entry.num_samples / (float)entry.sample_rate;
+        uint32_t byte_rate = (uint32_t) ((float)entry.data_size / duration);
+
+        *(uint32_t *)&hdr[4] = sizeof(adpcm_hdr) + entry.data_size - 8;
+        *(uint32_t *)&hdr[0x18] = entry.sample_rate;
+        *(uint32_t *)&hdr[0x1C] = byte_rate;
+        *(uint16_t *)&hdr[0x20] = (uint16_t)entry.block_align;
+        *(uint16_t *)&hdr[0x26] = (uint16_t)(entry.block_align * 2 - 12);
+        *(uint32_t *)&hdr[0x4E] = entry.num_samples;
+        *(uint32_t *)&hdr[0x56] = entry.data_size;
+
+        bool ret = stream->Write(hdr, sizeof(adpcm_hdr));
+        delete[] hdr;
+
+        if (!ret)
+            return ret;
+    }
+
+    uint8_t *buf = new uint8_t[READ_BUF_SIZE];
+    uint32_t remaining = entry.data_size - written;
+
+    while (remaining > 0)
+    {
+        uint32_t to_read = (remaining > READ_BUF_SIZE) ? READ_BUF_SIZE : remaining;
+        if (!cont->Read(buf, to_read))
+        {
+            delete[] buf;
+            return false;
+        }
+
+        if (!stream->Write(buf, to_read))
+        {
+            delete[] buf;
+            return false;
+        }
+
+        remaining -= to_read;
+    }
+
+    delete[] buf;
+    return true;
+}
+
+bool SrstFile::Extract(size_t idx, const std::string &dir_path)
+{
+    if (idx >= entries.size())
+        return false;
+
+    FileStream *stream = new FileStream("wb");
+    if (!stream->LoadFromFile(Utils::MakePathString(dir_path, entries[idx].name)))
+    {
+        delete stream;
+        return false;
+    }
+
+    bool ret = Extract(idx, stream);
+    delete stream;
+
+    return ret;
+}
+
+bool SrstFile::SaveToFile(const std::string &path, bool show_error, bool build_path)
+{
+    FileStream *out;
+
+    if (path.length() == 0)
+    {
+        if (!cont->Reopen("r+b"))
+            return false;
+
+        out = cont;
+    }
+    else
+    {
+        if (build_path)
+            Utils::CreatePath(path);
+
+        out = new FileStream("r+b");
+        if (!out->LoadFromFile(path, show_error))
+            return false;
+    }
+
+    bool ret = SaveInternal(out);
+
+    if (out != cont)
+        delete out;
+
+    return ret;
+}

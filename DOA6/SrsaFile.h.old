@@ -1,0 +1,84 @@
+#ifndef SRSAFILE_H
+#define SRSAFILE_H
+
+#include "SrstFile.h"
+
+#define SRSA_SIGNATURE  0x53525341
+#define SUBP_SIGNATURE  0x368C88BD
+#define AUDIO_SIGNATURE 0x70CBCCC5
+
+#ifdef _MSC_VER
+#pragma pack(push,1)
+#endif
+
+struct PACKED SRSAEntry
+{
+    uint32_t signature;
+    uint32_t entry_size;
+};
+CHECK_STRUCT_SIZE(SRSAEntry, 8);
+
+struct PACKED SUBPEntry
+{
+    uint32_t signature; // 0
+    uint32_t entry_size; // 4 - Entry size
+    uint8_t unk_data[0x20];
+    uint32_t name_position; // 0x28
+    uint32_t unk_2C;
+    // ...
+};
+CHECK_STRUCT_SIZE(SUBPEntry, 0x30);
+
+struct PACKED AUDIOEntryHeader
+{
+    uint32_t signature; // 0
+    uint32_t entry_size; // 4
+    uint32_t unk_08;
+    uint32_t type; // C - if 0 assume adpm, else ogg
+    uint32_t unk_10;
+    uint32_t ptrptr_data_header; // 0x14
+    uint32_t name_position; // 0x18
+};
+CHECK_STRUCT_SIZE(AUDIOEntryHeader, 0x1C);
+
+struct PACKED AUDIODataHeader
+{
+    uint32_t unk_00; // probably some signature
+    uint32_t entry_size; // 4 - all file size including audio, since beginning of this header
+    uint32_t unk_08;
+    uint32_t num_channels; // 0xC - "Maybe"
+    uint32_t unk_10;
+    uint32_t sample_rate; // 0x14 -
+    uint32_t num_samples; // 0x18 - May be rounded.
+    uint32_t plattform; // 0x1C
+    uint32_t unk_20; // 0xFFFFFFFF
+    uint32_t unk_24;
+    uint32_t ptr_format; // 0x28
+    uint32_t unk_2C;
+    uint32_t ptrptr_data; // 0x30
+    uint32_t ptr_datasize; // 0x34
+};
+CHECK_STRUCT_SIZE(AUDIODataHeader, 0x38);
+
+#ifdef _MSC_VER
+#pragma pack(pop)
+#endif
+
+class SrsaFile : public SrstFile
+{
+private:
+
+    std::string ReadString();
+
+protected:
+
+    virtual bool LoadInternal() override;
+    virtual bool SaveInternal(FileStream *out) override;
+
+public:
+
+    SrsaFile();
+    virtual ~SrsaFile() override;
+};
+
+#endif // SRSAFILE_H

@@ -1,0 +1,203 @@
+#include "SrsaFile.h"
+#include "debug.h"
+
+SrsaFile::SrsaFile() : SrstFile ()
+{
+
+}
+
+SrsaFile::~SrsaFile()
+{
+
+}
+
+std::string SrsaFile::ReadString()
+{
+    std::string ret;
+    int8_t ch;
+
+    while (cont->Read8(&ch))
+    {
+        if (ch == 0)
+            break;
+
+        ret.push_back((char)ch);
+    }
+
+    return ret;
+}
+
+bool SrsaFile::LoadInternal()
+{
+    if (!cont)
+        return false;
+	
+	//DPRINTF("Load internal start.\n");
+
+    cont->Seek(0, SEEK_SET);
+
+    SRSTHeader hdr;
+
+    if (!cont->Read(&hdr, sizeof(SRSTHeader)))
+        return false;
+
+    if (hdr.srst_signature != SRSA_SIGNATURE)
+        return false;
+
+    if (hdr.file_size > cont->GetSize())
+        return false;
+
+    SRSAEntry native_entry;
+
+    while (cont->Read(&native_entry, sizeof(SRSAEntry)))
+    {
+        SrsEntry entry;
+        cont->Seek(0 - (int64_t)sizeof(SRSAEntry), SEEK_CUR);
+
+        entry.srst_offset = cont->Tell();
+        entry.srst_size = native_entry.entry_size;
+		
+		//DPRINTF("In 0x%Ix 0x%Ix\n", (size_t)entry.srst_offset, (size_t)entry.srst_size);
+
+        if (native_entry.signature == SUBP_SIGNATURE)
+        {
+            SUBPEntry subp;
+
+            entry.data_offset = entry.srst_offset;
+            entry.data_size = entry.srst_size;
+            entry.is_ogg = false;
+
+            if (!cont->Read(&subp, sizeof(SUBPEntry)))
+                return false;
+
+            cont->Seek(entry.srst_offset + subp.name_position, SEEK_SET);
+            entry.name = ReadString() + ".subd";
+        }
+        else if (native_entry.signature == AUDIO_SIGNATURE)
+        {
+            AUDIOEntryHeader audio_hdr;
+            uint32_t data_ptr_offset;
+            KOVSEntry kovs;
+
+            if (!cont->Read(&audio_hdr, sizeof(AUDIOEntryHeader)))
+                return false;
+
+            cont->Seek(entry.srst_offset + audio_hdr.name_position, SEEK_SET);
+            entry.name = ReadString();
+			
+			DPRINTF("%s\n", entry.name.c_str());
+
+            cont->Seek(entry.srst_offset + audio_hdr.ptrptr_data_header, SEEK_SET);
+            if (!cont->Read32(&data_ptr_offset))
+                return false;			
+
+            cont->Seek(entry.srst_offset + data_ptr_offset, SEEK_SET);
+
+            if (audio_hdr.type < 0x10000)
+            {			
+				// ADPCM
+                AUDIODataHeader data_hdr;
+                uint64_t section2_start = cont->Tell();
+                uint16_t block_align;
+                uint32_t data_offset;
+
+                entry.name += ".wav";
+
+                if (!cont->Read(&data_hdr, sizeof(AUDIODataHeader)))
+                    return false;	
+
+                if (data_hdr.num_channels != 1 && data_hdr.num_channels != 2)
+                {
+                    DPRINTF("Warning: number of channels > 2 at %Ix\n", (size_t)entry.srst_offset);
+                    //return false;
+                }
+
+                entry.is_adpcm = true;
+                //entry.sample_rate = data_hdr.sample_rate;
+                entry.sample_rate = 48000; // Let's set to exactly 48 Khz.
+                entry.num_samples = data_hdr.num_samples;
+
+                cont->Seek(section2_start + data_hdr.ptr_format + 2, SEEK_SET);
+
+                if (!cont->Read16(&block_align))
+                    return false;
+
+                entry.block_align = block_align;
+
+                cont->Seek(section2_start + data_hdr.ptr_datasize, SEEK_SET);
+
+                if (!cont->Read32(&entry.data_size))
+                    return false;
+
+                cont->Seek(section2_start + data_hdr.ptrptr_data, SEEK_SET);
+
+                if (!cont->Read32(&data_offset))
+                    return false;
+
+                entry.data_offset = section2_start + data_offset;
+            }
+            else
+            {
+                entry.name += ".ogg";
+
+                while (true)
+                {
+                    uint32_t signature;
+
+                    if (!cont->Read32(&signature))
+                    {
+                        DPRINTF("Failed here, in file 0x%Ix (pos=0x%Ix)\n", (size_t)entry.srst_offset, (size_t)cont->Tell());
+                        return false;
+                    }
+
+                    if (signature == KOVS_SIGNATURE)
+                    {
+                        cont->Seek(-4, SEEK_CUR);
+
+                        if (!cont->Read(&kovs, sizeof(KOVSEntry)))
+                            return false;
+
+                        break;
+                    }
+                }
+
+                entry.data_offset = cont->Tell();
+                entry.data_size = kovs.ogg_size;
+                entry.is_ogg = true;
+            }
+        }
+        else
+        {
+            //DPRINTF("Failed here. Offset %Ix\n", (size_t)cont->Tell());
+            return false;
+        }
+
+        cont->Seek(entry.srst_offset + entry.srst_size, SEEK_SET);
+		
+		if (cont->Tell() >= cont->GetSize())
+			break;
+		
+        entry.header_size = entry.data_offset - entry.srst_offset; 
+        entry.header = new uint8_t[entry.header_size];
+
+        if (!cont->Read(entry.header, entry.header_size))
+            return false;	
+
+        cont->Seek(entry.srst_offset + entry.srst_size, SEEK_SET); 
+        entries.push_back(entry);
+    }
+	
+	//DPRINTF("Load internal end.\n");
+
+    return true;
+}
+
+bool SrsaFile::SaveInternal(FileStream *out)
+{
+    // TODO
+
+    if (!out)
+        return false;
+
+    return true;
+}
