@@ -6,6 +6,8 @@
 #include <vector>
 
 #include "CmsFile.h"
+// It conflicts with my names in the XxxFile classes...
+#undef CreateFile
 
 #define MAX_SLOTS	10
 
