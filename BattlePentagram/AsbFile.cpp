@@ -1208,7 +1208,7 @@ bool AsbFile::AssembleStrings(std::queue<AsbLine> &lines)
 
             /* ***** For testing */
             std::vector<std::string> llines;
-            Utils::GetMultipleStrings(right, llines, '\n');
+            Utils::GetMultipleStrings(right, llines, '\n', false);
             if (llines.size() > 3)
             {
                 DPRINTF("Warning, string with more than 3 lines. At line %d.\n", line.number);

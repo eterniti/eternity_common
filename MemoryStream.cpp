@@ -137,13 +137,13 @@ bool MemoryStream::Write(const void *buf, size_t size)
 {
 	if (!mem)
 	{
-		if (!Grow(size))
+        if (!Grow((int64_t)size))
 			return false;
 	}
 	
 	else if (file_pos+size > file_size)
 	{
-		if (!Grow(file_pos+size-file_size))
+        if (!Grow((int64_t)(file_pos+size-file_size)))
 			return false;
 	}
 	
@@ -160,15 +160,15 @@ bool MemoryStream::Seek(int64_t offset, int whence)
 	
 	if (whence == SEEK_SET)
 	{
-		new_pos = offset;
+        new_pos = (size_t)offset;
 	}
 	else if (whence == SEEK_CUR)
 	{
-		new_pos = file_pos + offset;
+        new_pos = (size_t)((int64_t)file_pos + offset);
 	}
 	else if (whence == SEEK_END)
 	{
-		new_pos = file_size + offset;
+        new_pos = (size_t)((int64_t)file_size + offset);
 	}
 	else
 	{

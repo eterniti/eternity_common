@@ -59,13 +59,18 @@
 namespace Utils
 {
 	
-    bool FileExists(const std::string & path);
-    bool DirExists(const std::string & path);
+    bool FileExists(const std::string &path);
+    bool FileExists(const std::u16string &path);
+    bool DirExists(const std::string &path);
+    bool DirExists(const std::u16string &path);
 
     bool AppDataFileExists(const std::string &rel_path);
+    bool AppDataFileExists(const std::u16string &rel_path);
 
     size_t GetFileSize(const std::string &path);
+    size_t GetFileSize(const std::u16string &path);
     bool GetFileDate(const std::string &path, time_t *mtime, time_t *ctime=nullptr, time_t *atime=nullptr);
+    bool GetFileDate(const std::u16string &path, time_t *mtime, time_t *ctime=nullptr, time_t *atime=nullptr);
 
     uint8_t *ReadFile(const std::string &path, size_t *psize, bool show_error=true);
     uint8_t *ReadFileFrom(const std::string &path, size_t from, size_t size, bool show_error=true);
@@ -190,8 +195,11 @@ namespace Utils
     bool BinaryStringToBuf(const std::string &str, uint8_t *buf, size_t size);
 	
 	std::string NormalizePath(const std::string &path);
+    std::u16string NormalizePath(const std::u16string &path);
     std::string WindowsPath(const std::string &path);
+    std::u16string WindowsPath(const std::u16string &path);
     std::string SamePath(const std::string &file_path, const std::string &file_name);
+    std::u16string SamePath(const std::u16string &file_path, const std::u16string &file_name);
 
     std::string RandomString(size_t len);
     size_t Replace(std::string &str, const std::string &from, const std::string &to);
@@ -341,8 +349,8 @@ namespace Utils
     std::string GetRandomString(size_t len);
     void GetRandomData(void *buf, size_t len);
 
-    std::u16string Utf8ToUcs2(const std::string & utf8);
-	std::string Ucs2ToUtf8(const std::u16string & ucs2);
+    std::u16string Utf8ToUcs2(const std::string &utf8);
+    std::string Ucs2ToUtf8(const std::u16string &ucs2);
 	
     std::string Base64Encode(const uint8_t *buf, size_t size, bool add_new_line);
     uint8_t *Base64Decode(const std::string &data, size_t *ret_size);
@@ -381,7 +389,9 @@ namespace Utils
     bool UncompressZlib(void* uncomp_buf, uint32_t *uncomp_size, const void* comp_buf, uint32_t comp_size, int window=15);
 	
 	std::string GetAppData();
-    std::string GetAppDataPath(const std::string rel_path);
+    std::u16string GetAppData16();
+    std::string GetAppDataPath(const std::string &rel_path);
+    std::u16string GetAppDataPath(const std::u16string &rel_path);
 
     std::string GetTempFile(const std::string &prefix, const std::string &extension);
     std::string GetTempFileLocal(const std::string &extension, bool subdir=true);
@@ -397,6 +407,8 @@ namespace Utils
     bool SetRegistryValueBinary(HKEY key, const std::string &value_path, const void *data, size_t data_size);
 
     bool GetRegistryValueString(HKEY key, const std::string &value_path, std::string &string);
+
+    bool IsWine();
 
 #endif
 

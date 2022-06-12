@@ -72,7 +72,7 @@ DdsFile::DdsFile(int format, uint32_t width, uint32_t height, int mip_maps, cons
             header.pf.flags = DDS_PF_FOURCC;
             header.pf.fourCC = DX10_FCC;
             has_dxt10 = true;
-            dxt10.dxgi_format = format;
+            dxt10.dxgi_format = (uint32_t)format;
         break;
     }
 
@@ -146,7 +146,7 @@ bool DdsFile::Load(const uint8_t *buf, size_t size)
     {
         if (has_dxt10)
         {
-            format = dxt10.dxgi_format;
+            format = (int)dxt10.dxgi_format;
         }
         else
         {

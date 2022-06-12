@@ -12,9 +12,9 @@
 
 #ifdef _WIN32
 
-#include <windows.h>
+#include <Windows.h>
 #include <direct.h>
-#include <Shellapi.h>
+#include <shellapi.h>
 #define do_mkdir(a, b) _mkdir(a)
 
 #ifndef FOF_NO_UI
@@ -49,36 +49,81 @@
 
 bool Utils::FileExists(const std::string &path)
 {
+#ifdef UTILS_UTF8
+    return FileExists(Utf8ToUcs2(path));
+#else
     struct __stat64 info;
-
     return (_stat64(path.c_str(), &info) == 0 && S_ISREG(info.st_mode));
+#endif
+}
+
+bool Utils::FileExists(const std::u16string &path)
+{
+    struct __stat64 info;
+    return (_wstat64((const wchar_t *)path.c_str(), &info) == 0 && S_ISREG(info.st_mode));
 }
 
 bool Utils::DirExists(const std::string &path)
 {
+#ifdef UTILS_UTF8
+    return DirExists(Utf8ToUcs2(path));
+#else
     struct stat info;
-
     return (stat(path.c_str(), &info) == 0 && S_ISDIR(info.st_mode));
+#endif
+}
+
+bool Utils::DirExists(const std::u16string &path)
+{
+    struct _stat info;
+    return (_wstat((const wchar_t *)path.c_str(), &info) == 0 && S_ISDIR(info.st_mode));
 }
 
 bool Utils::AppDataFileExists(const std::string &rel_path)
 {
+#ifdef UTILS_UTF8
+    return AppDataFileExists(Utf8ToUcs2(rel_path));
+#else
     std::string full_path = Utils::WindowsPath(Utils::GetAppData() + "//" + rel_path);
+    return FileExists(full_path);
+#endif
+}
+
+bool Utils::AppDataFileExists(const std::u16string &rel_path)
+{
+    std::u16string full_path = Utils::WindowsPath(Utils::GetAppData16() + (const char16_t *)L"//" + rel_path);
     return FileExists(full_path);
 }
 
 size_t Utils::GetFileSize(const std::string &path)
 {
+#ifdef UTILS_UTF8
+    return GetFileSize(Utf8ToUcs2(path));
+#else
     struct stat info;
 
     if (stat(path.c_str(), &info) != 0)
         return (size_t)-1;
 
-    return info.st_size;
+    return (size_t)info.st_size;
+#endif
+}
+
+size_t Utils::GetFileSize(const std::u16string &path)
+{
+    struct _stat info;
+
+    if (_wstat((const wchar_t *)path.c_str(), &info) != 0)
+        return (size_t)-1;
+
+    return (size_t)info.st_size;
 }
 
 bool Utils::GetFileDate(const std::string &path, time_t *mtime, time_t *ctime, time_t *atime)
 {
+#ifdef UTILS_UTF8
+        return GetFileDate(Utf8ToUcs2(path), mtime, ctime, atime);
+#else
     struct stat info;
 
     if (stat(path.c_str(), &info) != 0)
@@ -94,8 +139,27 @@ bool Utils::GetFileDate(const std::string &path, time_t *mtime, time_t *ctime, t
         *atime = info.st_atime;
 
     return true;
+#endif
 }
 
+bool Utils::GetFileDate(const std::u16string &path, time_t *mtime, time_t *ctime, time_t *atime)
+{
+    struct _stat info;
+
+    if (_wstat((const wchar_t *)path.c_str(), &info) != 0)
+        return false;
+
+    if (mtime)
+        *mtime = info.st_mtime;
+
+    if (ctime)
+        *ctime = info.st_ctime;
+
+    if (atime)
+        *atime = info.st_atime;
+
+    return true;
+}
 
 uint8_t *Utils::ReadFile(const std::string &path, size_t *psize, bool show_error)
 {
@@ -207,6 +271,9 @@ bool Utils::ReadTextFile(const std::string &path, std::string &text, bool show_e
 
 size_t Utils::WriteFileST(const std::string &path, const uint8_t *buf, size_t size, bool show_error, bool write_path)
 {
+#ifdef UTILS_UTF8
+    return WriteFileST(Utf8ToUcs2(path), buf, size, show_error, write_path);
+#else
     FILE *f = (write_path) ? Utils::fopen_create_path(path, "wb") : fopen(path.c_str(), "wb");
 	
 	if (!f)
@@ -230,6 +297,7 @@ size_t Utils::WriteFileST(const std::string &path, const uint8_t *buf, size_t si
 	fclose(f);
 	
 	return wd;	
+#endif
 }
 
 size_t Utils::WriteFileST(const std::u16string &path, const uint8_t *buf, size_t size, bool show_error, bool write_path)
@@ -261,6 +329,9 @@ size_t Utils::WriteFileST(const std::u16string &path, const uint8_t *buf, size_t
 
 bool Utils::WriteFileBool(const std::string &path, const uint8_t *buf, size_t size, bool show_error, bool write_path)
 {
+#ifdef UTILS_UTF8
+    return WriteFileBool(Utf8ToUcs2(path), buf, size, show_error, write_path);
+#else
     size_t written = Utils::WriteFileST(path, buf, size, show_error, write_path);
 	
     if ((int)written < 0)
@@ -278,6 +349,7 @@ bool Utils::WriteFileBool(const std::string &path, const uint8_t *buf, size_t si
 	}
 	
 	return true;
+#endif
 }
 
 bool Utils::WriteFileBool(const std::u16string &path, const uint8_t *buf, size_t size, bool show_error, bool write_path)
@@ -369,6 +441,9 @@ bool Utils::RenameFile(const std::string &oldp, const std::string &newp)
 
 bool Utils::CreatePath(const std::string &path, bool last_is_directory)
 {
+#ifdef UTILS_UTF8
+    return CreatePath(Utf8ToUcs2(path), last_is_directory);
+#else
 	size_t pos = std::string::npos;
 	size_t prev_pos = std::string::npos;
 	
@@ -411,6 +486,7 @@ bool Utils::CreatePath(const std::string &path, bool last_is_directory)
 	}
 	
 	return true;
+#endif
 }
 
 bool Utils::CreatePath(const std::u16string &path, bool last_is_directory)
@@ -418,7 +494,7 @@ bool Utils::CreatePath(const std::u16string &path, bool last_is_directory)
     size_t pos = std::u16string::npos;
     size_t prev_pos = std::u16string::npos;
 
-    while ((pos = path.find_first_of((char16_t *)L"/\\", pos+1)) != std::u16string::npos)
+    while ((pos = path.find_first_of((const char16_t *)L"/\\", pos+1)) != std::u16string::npos)
     {
         std::u16string current_dir;
 
@@ -433,7 +509,7 @@ bool Utils::CreatePath(const std::u16string &path, bool last_is_directory)
             current_dir = dir;
         }
 
-        if (current_dir.find_first_of((char16_t *)L"%:") == std::u16string::npos)
+        if (current_dir.find_first_of((const char16_t *)L"%:") == std::u16string::npos)
         {
             if (_wmkdir((const wchar_t *)dir.c_str()) != 0)
             {
@@ -461,10 +537,14 @@ bool Utils::CreatePath(const std::u16string &path, bool last_is_directory)
 
 FILE *Utils::fopen_create_path(const std::string &filename, const char *mode)
 {
+#ifdef UTILS_UTF8
+    return fopen_create_path(Utf8ToUcs2(filename), mode);
+#else
 	if (!Utils::CreatePath(filename))
         return nullptr;
 	
     return fopen(filename.c_str(), mode);
+#endif
 }
 
 FILE *Utils::fopen_create_path(const std::u16string &filename, const char *mode)
@@ -2003,6 +2083,9 @@ bool Utils::BinaryStringToBuf(const std::string &str, uint8_t *buf, size_t size)
 
 std::string Utils::NormalizePath(const std::string &path)
 {
+#ifdef UTILS_UTF8
+    return Ucs2ToUtf8(NormalizePath(Utf8ToUcs2(path)));
+#else
 	std::string new_path = path;
 	
 	for (char &c : new_path)
@@ -2036,13 +2119,68 @@ std::string Utils::NormalizePath(const std::string &path)
     }
 	
 	return new_path;
+#endif
+}
+
+std::u16string Utils::NormalizePath(const std::u16string &path)
+{
+    std::u16string new_path = path;
+
+    for (char16_t &c : new_path)
+    {
+        if (c == '\\')
+            c = '/';
+    }
+
+    bool last_was_slash = false;
+
+    for (size_t i = 0; i < new_path.length()-1; i++)
+    {
+        char16_t ch = new_path[i];
+
+        if (ch == '/')
+        {
+            if (last_was_slash)
+            {
+                new_path.erase(i, 1);
+                i--;
+            }
+            else
+            {
+                last_was_slash = true;
+            }
+        }
+        else
+        {
+            last_was_slash = false;
+        }
+    }
+
+    return new_path;
 }
 
 std::string Utils::WindowsPath(const std::string &path)
 {
+#ifdef UTILS_UTF8
+    return Ucs2ToUtf8(WindowsPath(Utf8ToUcs2(path)));
+#else
     std::string new_path = path;
 
     for (char &c : new_path)
+    {
+        if (c == '/')
+            c = '\\';
+    }
+
+    return new_path;
+#endif
+}
+
+std::u16string Utils::WindowsPath(const std::u16string &path)
+{
+    std::u16string new_path = path;
+
+    for (char16_t &c : new_path)
     {
         if (c == '/')
             c = '\\';
@@ -2053,7 +2191,22 @@ std::string Utils::WindowsPath(const std::string &path)
 
 std::string Utils::SamePath(const std::string &file_path, const std::string &file_name)
 {
+#ifdef UTILS_UTF8
+    return Ucs2ToUtf8(SamePath(Utf8ToUcs2(file_path), Utf8ToUcs2(file_name)));
+#else
     std::string fp = NormalizePath(file_path);
+    size_t rs = fp.rfind('/');
+
+    if (rs == std::string::npos)
+        return file_name;
+
+    return fp.substr(0, rs+1) + file_name;
+#endif
+}
+
+std::u16string Utils::SamePath(const std::u16string &file_path, const std::u16string &file_name)
+{
+    std::u16string fp = NormalizePath(file_path);
     size_t rs = fp.rfind('/');
 
     if (rs == std::string::npos)
@@ -3515,7 +3668,7 @@ static int utf8_to_ucs2(const unsigned char * input, const unsigned char ** end_
     return -1;
 }
 
-std::u16string Utils::Utf8ToUcs2(const std::string & utf8)
+std::u16string Utils::Utf8ToUcs2(const std::string &utf8)
 {
 	if (utf8.length() == 0)
     {
@@ -3535,7 +3688,7 @@ std::u16string Utils::Utf8ToUcs2(const std::string & utf8)
 	return ucs2;
 }
 
-static int ucs2_to_utf8 (int ucs2, unsigned char * utf8)
+static int ucs2_to_utf8 (int ucs2, unsigned char *utf8)
 {
     if (ucs2 < 0x80) {
         utf8[0] = (unsigned char)ucs2;
@@ -3571,7 +3724,7 @@ static int ucs2_to_utf8 (int ucs2, unsigned char * utf8)
     return -1;;
 }
 
-std::string Utils::Ucs2ToUtf8(const std::u16string & ucs2)
+std::string Utils::Ucs2ToUtf8(const std::u16string &ucs2)
 {
 	if (ucs2.length() == 0)
 		return "";
@@ -4045,6 +4198,9 @@ void Utils::AesCbcEncrypt(void *buf, size_t size, const uint8_t *key, int key_si
 
 std::string Utils::GetAppData()
 {
+#ifdef UTILS_UTF8
+    return Ucs2ToUtf8(GetAppData16());
+#else
     char *appdata = getenv("APPDATA");
 
     if (!appdata)
@@ -4054,11 +4210,34 @@ std::string Utils::GetAppData()
     }
 
     return std::string(appdata);
+#endif
 }
 
-std::string Utils::GetAppDataPath(const std::string rel_path)
+std::u16string Utils::GetAppData16()
 {
+    wchar_t *appdata = _wgetenv(L"APPDATA");
+
+    if (!appdata)
+    {
+        DPRINTF("APPDATA doesn't exist in this system.\n");
+        throw std::runtime_error("APPDATA doesn't exist in this system.\n");
+    }
+
+    return std::u16string((char16_t *)appdata);
+}
+
+std::string Utils::GetAppDataPath(const std::string &rel_path)
+{
+#ifdef UTILS_UTF8
+    return Utils::Ucs2ToUtf8(GetAppDataPath(Utf8ToUcs2(rel_path)));
+#else
     return NormalizePath(GetAppData() + "/" + rel_path);
+#endif
+}
+
+std::u16string Utils::GetAppDataPath(const std::u16string &rel_path)
+{
+    return NormalizePath(GetAppData16() + (const char16_t *)(L"/") + rel_path);
 }
 
 #ifdef _WIN32
@@ -4389,6 +4568,17 @@ bool Utils::GetRegistryValueString(HKEY key, const std::string &value_path, std:
     data[255] = 0; // Just in case
     string = data;
     return true;
+}
+
+bool Utils::IsWine()
+{
+    // Static variables to avoid recomputing
+    static HMODULE mod = GetModuleHandleA("ntdll.dll");
+    if (!mod)
+        return false; // Not wine and not windows either :) Should not happen
+
+    static bool is_wine = (GetProcAddress(mod, "wine_get_version") != nullptr);
+    return is_wine;
 }
 
 #endif
