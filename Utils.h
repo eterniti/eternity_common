@@ -113,8 +113,6 @@ namespace Utils
         return ((uint64_t)ptr1 - (uint64_t)ptr2);
     }
 
-    inline bool CompareFloat(float f1, float f2, float epsilon=0.0001f) { return fabs(f1 - f2) < epsilon; }
-	
     // ////////////////// STRING SECTION // ///////////////////////
 
     void TrimString(std::string &str, bool trim_left=true, bool trim_right=true);
@@ -414,6 +412,8 @@ namespace Utils
 
     uint16_t FloatToHalf(float f);
     float HalfToFloat(uint16_t h);
+
+    inline bool CompareFloat(float f1, float f2, float epsilon=0.0001f) { return fabs(f1 - f2) < epsilon; }
 
 #ifdef QT_VERSION
 

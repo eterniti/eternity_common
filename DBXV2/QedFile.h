@@ -186,6 +186,7 @@ enum QedConditions
     QED_COND_REVIVE_CHECK = 49, // Param 1: qml_char
     QED_COND_DETECTED_WITH_SCOUTER = 50, // (vanilla only uses this in TMQ_1400) Param 1: qml_char
     QED_COND_COMBO_SUCCESS = 51, // Only used in quests with key combinations display (like CHQ, and the zamasu teacher) It may be related with action 90. Params: none
+    QED_COND_UNK_52 = 52, // It has existed for a while (always?) but it started being used in 1.18. Param 1: i1
     QED_COND_ACTION_DONE = 53, // (Only used in chq quests. Note: game acceses a XG::Timer::Timer object. May be related with combo/key combination executed) Param 1: i1, Param 2: i2, Param 3: i3, Param4: i4
     QED_COND_ITEM_USED = 54, // (Only found used in some chq quests) Param 1: i1 (unknown)
     QED_COND_UNK_55 = 55, // Param 1: qml_char, Param 2: i2 (range 0-12, looks like a type/sub-opcode in the exe), Param 3: b3

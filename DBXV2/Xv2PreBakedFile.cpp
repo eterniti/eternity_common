@@ -4,7 +4,7 @@
 
 #define CUS_DATA_ID_START   0x30
 
-#define BEHAVIOUR_MAX	0x1A
+#define BEHAVIOUR_MAX	0x1B
 
 TiXmlElement *BodyShape::Decompile(TiXmlNode *root) const
 {

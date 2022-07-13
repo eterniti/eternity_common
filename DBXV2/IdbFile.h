@@ -61,7 +61,6 @@ typedef struct
     float bla_damage; // 0xA8
     float unk_AC[13];
 } PACKED IDBEffect;
-
 STATIC_ASSERT_STRUCT(IDBEffect, 0xE0);
 
 typedef struct
@@ -82,8 +81,65 @@ typedef struct
     uint32_t unk_24[3]; //
     IDBEffect effects[3]; // 0x30
 } PACKED IDBEntry;
-
 STATIC_ASSERT_STRUCT(IDBEntry, 0x2D0);
+
+// New format (1.18)
+
+typedef struct
+{
+    uint32_t type; // 0
+    uint32_t activation_type; // 4
+    uint32_t num_act_times; // 8
+    float timer; // 0xC
+    float ability_values[6]; // 0x10
+    uint32_t unk_28; //
+    uint32_t activation_chance; // 0x2C
+    float multipliers[6]; // 0x30
+    uint32_t new_unk_48[2]; // 0x48
+    uint32_t old_unk_48[6]; // 0x50
+    float hea; // 0x68
+    float ki; // 0x6C
+    float ki_recovery; // 0x70
+    float stm; // 0x74
+    float stamina_recovery; // 0x78
+    float enemy_stamina_eraser; // 0x7C
+    float old_unk_78; // 0x80
+    float ground_speed; // 0x84
+    float air_speed; // 0x88
+    float boosting_speed; // 0x8C
+    float dash_speed; // 0x90
+    float atk; // 0x94
+    float basic_ki_attack; // 0x98
+    float str; // 0x9C
+    float bla; // 0xA0
+    float atk_damage; // 0xA4
+    float ki_damage; // 0xA8
+    float str_damage; // 0xAC
+    float bla_damage; // 0xB0
+    float old_unk_AC[13]; // 0xB4
+} PACKED IDBEffectNew;
+STATIC_ASSERT_STRUCT(IDBEffectNew, 0xE8);
+
+typedef struct
+{
+    uint16_t id; // 0
+    uint16_t stars; // 2
+    uint16_t name_id; // 4
+    uint16_t desc_id; // 6
+    uint16_t type; // 8
+    uint16_t unk_0A;
+    uint32_t new_unk_0C; //
+    uint16_t old_unk_0C; // 0x10
+    uint16_t old_unk_0E; // 0x12
+    uint32_t buy; // 0x14
+    uint32_t sell; // 0x18
+    uint32_t racelock; // 0x1C
+    uint32_t tp; // 0x20
+    uint32_t model; // 0x24
+    uint32_t old_unk_24[3]; // 0x28
+    IDBEffectNew effects[3]; // 0x34
+} PACKED IDBEntryNew;
+STATIC_ASSERT_STRUCT(IDBEntryNew, 0x2EC);
 
 #ifdef _MSC_VER
 #pragma pack(pop)
@@ -134,6 +190,9 @@ struct IdbEffect
     float bla_damage;
     float unk_AC[13];
 
+    // New fields (1.18)
+    uint32_t new_unk_48[2];
+
     IdbEffect()
     {
         type = activation_type = num_act_times = 0xFFFFFFFF;
@@ -150,6 +209,8 @@ struct IdbEffect
         atk_damage = ki_damage = str_damage = bla_damage = 0.0f;
 
         memset(unk_AC, 0, sizeof(unk_AC));
+        // New fields (1.18)
+        memset(new_unk_48, 0, sizeof(new_unk_48));
     }
 
     TiXmlElement *Decompile(TiXmlNode *root) const;
@@ -174,6 +235,9 @@ struct IdbEntry
     uint32_t unk_24[3];
     IdbEffect effects[3];
 
+    // New fields (1.18)
+    uint32_t new_unk_0C;
+
     IdbEntry()
     {
         id = 0xFFFF;
@@ -183,10 +247,13 @@ struct IdbEntry
         buy = sell = racelock = 0;
         tp = model = 0;
         unk_24[0] = unk_24[1] = unk_24[2] = 0;
+
+        // New fields (1.18)
+        new_unk_0C = 0xFFFFFFFF;
     }
 
     TiXmlElement *Decompile(TiXmlNode *root, IdbCommentType comm_type) const;
-    bool Compile(const TiXmlElement *root);
+    bool Compile(const TiXmlElement *root, bool *is_new_format=nullptr);
 };
 
 class IdbFile : public BaseFile
@@ -195,13 +262,14 @@ private:
 
     std::vector<IdbEntry> entries;
     IdbCommentType comm_type;
+    bool is_new_format;
 
     void Reset();
 
 public:
 
     IdbFile();
-    virtual ~IdbFile();
+    virtual ~IdbFile() override;
 
     virtual bool Load(const uint8_t *buf, size_t size) override;
     virtual uint8_t *Save(size_t *psize) override;

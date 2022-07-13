@@ -16,7 +16,7 @@ Xv2PatcherSlotsFile::~Xv2PatcherSlotsFile()
 
 }
 
-static std::string DlcToString(uint32_t dlc)
+static std::string DlcToString(uint64_t dlc)
 {
     std::string ret;
 
@@ -98,14 +98,18 @@ static std::string DlcToString(uint32_t dlc)
             ret = "Dlc_13";
         break;
 
+        case 0x100000000ULL:
+            ret = "Dlc_14";
+        break;
+
         default:
-            DPRINTF("%s: Unknown dlc 0x%08X.\n", FUNCNAME, dlc);
+            DPRINTF("%s: Unknown dlc 0x%16I64X.\n", FUNCNAME, dlc);
     }
 
     return ret;
 }
 
-static uint32_t StringToDlc(const std::string &dlc)
+static uint64_t StringToDlc(const std::string &dlc)
 {
     if (dlc == "Dlc_Def")
         return 1;
@@ -145,12 +149,14 @@ static uint32_t StringToDlc(const std::string &dlc)
         return 0x40000000;
     else if (dlc == "Dlc_13")
         return 0x80000000;
+    else if (dlc == "Dlc_14")
+        return 0x100000000ULL;
     else
     {
         DPRINTF("%s: Unknown DLC: %s\n", FUNCNAME, dlc.c_str());
     }
 
-    return 0xFFFFFFFF;
+    return 0xDEADBEEF;
 }
 
 bool Xv2PatcherSlotsFile::Load(const uint8_t *buf, size_t size)
@@ -196,7 +202,7 @@ bool Xv2PatcherSlotsFile::Load(const uint8_t *buf, size_t size)
             std::vector<std::string> fields;
 
             Utils::GetMultipleStrings(costume, fields);
-            if (fields.size() != 8)
+            if (fields.size() != 8 && fields.size() != 9)
             {
                 DPRINTF("Invalid number of elements: %Id\n", fields.size());
                 return false;
@@ -219,7 +225,15 @@ bool Xv2PatcherSlotsFile::Load(const uint8_t *buf, size_t size)
             entry.voices_id_list[0] = Utils::GetSigned(fields[5]);
             entry.voices_id_list[1] = Utils::GetSigned(fields[6]);
 
-            uint32_t dlc = Utils::GetSigned(fields[7]);
+            uint32_t dlc_low = Utils::GetSigned(fields[7]);
+            uint32_t dlc_high = 0;
+
+            if (fields.size() == 9)
+            {
+                dlc_high = Utils::GetSigned(fields[8]);
+            }
+
+            uint64_t dlc = dlc_low | ((uint64_t)dlc_high << 32);
             entry.dlc = DlcToString(dlc);
 
             if (entry.dlc.length() == 0)
@@ -285,11 +299,13 @@ uint8_t *Xv2PatcherSlotsFile::Save(size_t *psize)
             raw_string += Utils::ToString(entry.voices_id_list[1]);
             raw_string.push_back(',');
 
-            uint32_t dlc = StringToDlc(entry.dlc);
-            if (dlc == 0xFFFFFFFF)
+            uint64_t dlc = StringToDlc(entry.dlc);
+            if (dlc == 0xDEADBEEF)
                 return nullptr;
 
-            raw_string += Utils::ToString(dlc);
+            raw_string += Utils::ToString(dlc&0xFFFFFFFF);
+            raw_string.push_back(',');
+            raw_string += Utils::ToString(dlc >> 32);
             raw_string.push_back(']');
         }
 
@@ -321,11 +337,6 @@ bool Xv2PatcherSlotsFile::LoadFromCst(const uint8_t *buf, size_t size, const uin
 
     for (uint32_t i = 0; i < hdr->num_costumes; i++, entry++)
     {
-        if (entry->dlc_key2 != 0)
-        {
-            DPRINTF("Dlc key 2 not 0: %s %d\n", entry->code, entry->dlc_key2);
-        }
-
         if (entry->costume_id == 0)
             pos++;
 
@@ -362,7 +373,7 @@ bool Xv2PatcherSlotsFile::LoadFromCst(const uint8_t *buf, size_t size, const uin
         s_entry.voices_id_list[0] = entry->voices_id_list[0];
         s_entry.voices_id_list[1] = entry->voices_id_list[1];
 
-        s_entry.dlc = DlcToString(entry->dlc);
+        s_entry.dlc = DlcToString(entry->dlc_key);
         if (s_entry.dlc.length() == 0)
         {
             DPRINTF("Failed on char %s\n", s_entry.code.c_str());
@@ -387,7 +398,7 @@ bool Xv2PatcherSlotsFile::LoadFromCst(const uint8_t *buf, size_t size, const uin
 
     for (uint32_t i = 0; i < hdr->num_costumes; i++, entry++)
     {
-        if (entry->dlc != 0x10000000) // if not PRB flag, ignore
+        if (entry->dlc_key != 0x10000000) // if not PRB flag, ignore
             continue;
 
         if (entry->costume_id == 0)
@@ -412,7 +423,7 @@ bool Xv2PatcherSlotsFile::LoadFromCst(const uint8_t *buf, size_t size, const uin
         s_entry.unlock_index = entry->unlock_index;
         s_entry.voices_id_list[0] = entry->voices_id_list[0];
         s_entry.voices_id_list[1] = entry->voices_id_list[1];
-        s_entry.dlc = DlcToString(entry->dlc);
+        s_entry.dlc = DlcToString(entry->dlc_key);
         if (s_entry.dlc.length() == 0)
         {
             DPRINTF("Failed on char %s\n", s_entry.code.c_str());

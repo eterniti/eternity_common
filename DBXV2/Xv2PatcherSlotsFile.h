@@ -5,6 +5,12 @@
 
 #define CST_SIGNATURE   0x54534323
 
+;
+
+//#ifdef _MSC_VER
+#pragma pack(push,1)
+//#endif
+
 struct PACKED CSTHeader
 {
     uint32_t signature; // 0
@@ -23,13 +29,17 @@ struct PACKED CSTEntry
     uint16_t unlock_index; // C
     uint16_t flag_gk2; // E
     int16_t voices_id_list[2]; // 0x10
-    uint32_t dlc; // 0x14
-    uint32_t dlc_key2; // 0x18 - Added in game v 1.16. Theory: this will be used in DLC 14, after dlc cannot gold more bits.
+    uint64_t dlc_key; // 0x14  - In game ver 1.16, the field became 64 bits, in 1.18 the higher part started being used after the overflow.
     uint32_t is_custom_costume; // 0x1C
     uint32_t cac_index; // 0x20 - Added in game v 1.10
     uint32_t var_type_after_TU9_order; // 0x24 - Added in game 1.14. Whatever this shit is, is -1 in all chars, except TU0 ant TU1 where it is 0 and 1 respectively.
 };
 CHECK_STRUCT_SIZE(CSTEntry, 0x28);
+
+//#ifdef _MSC_VER
+#pragma pack(pop)
+//#endif
+
 
 class Xv2PatcherSlotsFile : public BaseFile
 {

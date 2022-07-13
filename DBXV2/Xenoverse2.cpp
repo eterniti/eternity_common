@@ -179,7 +179,9 @@ static const std::vector<std::string> original_chars =
 	"DMG",
     "DND",
     "El0",
+    "FOD",
     "FOF",
+    "FOV",
     "FR4",
     "FR5",
     "FRG",
@@ -4582,6 +4584,9 @@ uint32_t Xenoverse2::CusAuraToAurAura(uint32_t id)
 			
 		case 26:
 			return 48;
+			
+		case 27:
+			return 52;
     }
 
     return 0xFFFFFFFF;
