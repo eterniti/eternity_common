@@ -85,6 +85,8 @@ STATIC_ASSERT_STRUCT(IDBEntry, 0x2D0);
 
 // New format (1.18)
 
+// The messed one, saved for purpose of later applying a fix in the installer
+/*
 typedef struct
 {
     uint32_t type; // 0
@@ -96,6 +98,41 @@ typedef struct
     uint32_t activation_chance; // 0x2C
     float multipliers[6]; // 0x30
     uint32_t new_unk_48[2]; // 0x48
+    uint32_t old_unk_48[6]; // 0x50
+    float hea; // 0x68
+    float ki; // 0x6C
+    float ki_recovery; // 0x70
+    float stm; // 0x74
+    float stamina_recovery; // 0x78
+    float enemy_stamina_eraser; // 0x7C
+    float old_unk_78; // 0x80
+    float ground_speed; // 0x84
+    float air_speed; // 0x88
+    float boosting_speed; // 0x8C
+    float dash_speed; // 0x90
+    float atk; // 0x94
+    float basic_ki_attack; // 0x98
+    float str; // 0x9C
+    float bla; // 0xA0
+    float atk_damage; // 0xA4
+    float ki_damage; // 0xA8
+    float str_damage; // 0xAC
+    float bla_damage; // 0xB0
+    float old_unk_AC[13]; // 0xB4
+} PACKED IDBEffectNew;
+*/
+
+typedef struct
+{
+    uint32_t type; // 0
+    uint32_t activation_type; // 4
+    uint32_t num_act_times; // 8
+    float timer; // 0xC
+    float ability_values[6]; // 0x10
+    uint32_t unk_28; //
+    uint32_t new_unk_48[2]; // 0x2C
+    uint32_t activation_chance; // 0x34
+    float multipliers[6]; // 0x48
     uint32_t old_unk_48[6]; // 0x50
     float hea; // 0x68
     float ki; // 0x6C
