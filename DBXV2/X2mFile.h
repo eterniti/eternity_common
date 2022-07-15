@@ -580,7 +580,7 @@ protected:
 
 public:
 
-    const float X2M_CURRENT_VERSION = 17.0f;
+    const float X2M_CURRENT_VERSION = 17.1f;
 
     const float X2M_MIN_VERSION_CSO = 2.0f;
     const float X2M_MIN_VERSION_PSC = 3.0f;
