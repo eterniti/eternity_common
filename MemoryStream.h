@@ -3,6 +3,8 @@
 
 #include "Stream.h"
 
+#define MS_DEFAULT_GROW_SIZE	(4*1024*1024)
+
 class MemoryStream : public Stream
 {
 protected:
@@ -12,22 +14,47 @@ protected:
     uint64_t file_size;
     uint64_t file_pos;
     uint64_t capacity;
+
+    uint32_t grow_size;
 	
 public:
 
-	MemoryStream();
+    MemoryStream()
+    {
+        big_endian = false;
+        mem = nullptr;
+        file_size = file_pos = capacity = 0;
+        grow_size = MS_DEFAULT_GROW_SIZE;
+    }
+
     virtual ~MemoryStream() override;
 
     MemoryStream(const MemoryStream &other)
     {
+        mem = nullptr;
         Copy(other);
+    }
+
+    // Assumes buf is new[] allocated. This object will take ownership of it
+    MemoryStream(uint8_t *buf, size_t size, uint32_t grow_size=MS_DEFAULT_GROW_SIZE)
+    {
+        big_endian = false;
+        mem = buf;
+        file_pos = 0;
+        file_size = capacity = size;
+        this->grow_size = grow_size;
+    }
+
+    MemoryStream(uint32_t grow_size)
+    {
+        big_endian = false;
+        mem = nullptr;
+        file_size = file_pos = capacity = 0;
+        this->grow_size = grow_size;
     }
 
     inline MemoryStream &operator=(const MemoryStream &other)
     {
-        if (this == &other)
-            return *this;
-
         Copy(other);
         return *this;
     }

@@ -102,8 +102,12 @@ static std::string DlcToString(uint64_t dlc)
             ret = "Dlc_14";
         break;
 
+        case 0x1000000000ULL:
+            ret = "Dlc_15";
+        break;
+
         default:
-            DPRINTF("%s: Unknown dlc 0x%16I64X.\n", FUNCNAME, dlc);
+            DPRINTF("%s: Unknown dlc 0x%016I64X.\n", FUNCNAME, dlc);
     }
 
     return ret;
@@ -151,6 +155,8 @@ static uint64_t StringToDlc(const std::string &dlc)
         return 0x80000000;
     else if (dlc == "Dlc_14")
         return 0x100000000ULL;
+    else if (dlc == "Dlc_15")
+        return 0x1000000000ULL;
     else
     {
         DPRINTF("%s: Unknown DLC: %s\n", FUNCNAME, dlc.c_str());

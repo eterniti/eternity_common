@@ -60,6 +60,10 @@ namespace PatchUtils
     bool Unhook(const char *mod, const char *func);
 
     bool HookCall(void *call_addr, void **orig, void *new_addr);
+#if defined(CPU_X86_64)
+	bool HookCall(void *call_addr, void **orig, void *new_addr, const std::vector<uint8_t> &add_code);
+#endif
+
 	bool HookResolveTarget(void *call_addr, void **orig, void *new_addr, bool expect_call=true);
 
 #ifdef CPU_X86_64

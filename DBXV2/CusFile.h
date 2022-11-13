@@ -36,9 +36,7 @@ enum CusSkillType
     CUS_SKILL_TYPE_AWAKEN
 };
 
-#ifdef _MSC_VER
 #pragma pack(push,1)
-#endif
 
 typedef struct
 {
@@ -75,7 +73,7 @@ typedef struct
 
 STATIC_ASSERT_STRUCT(CUSSkillSet, 0x20);
 
-typedef struct
+struct CUSSkill
 {
     char name[4];
     uint32_t unk_04; // Check for 0
@@ -96,13 +94,16 @@ typedef struct
     uint16_t model; // 0x3C
     uint16_t change_skillset; // 0x3E
     uint32_t num_transforms; // 0x40
-} PACKED CUSSkill;
-
+};
 STATIC_ASSERT_STRUCT(CUSSkill, 0x44);
 
-#ifdef _MSC_VER
+struct CUSSkillNew : CUSSkill
+{
+    uint32_t unk_44; // New in 1.19
+};
+STATIC_ASSERT_STRUCT(CUSSkillNew, 0x48);
+
 #pragma pack(pop)
-#endif
 
 class CusFile;
 
@@ -150,9 +151,15 @@ struct CusSkill
     uint16_t model;
     uint16_t change_skillset;
     uint32_t num_transforms;
+    uint32_t unk_44; // New in 1.19
 
     TiXmlElement *Decompile(TiXmlNode *root) const;
-    bool Compile(const TiXmlElement *root);
+    bool Compile(const TiXmlElement *root, bool *new_format=nullptr);
+
+    CusSkill()
+    {
+        unk_44 = 0xFFFFFF00;
+    }
 };
 
 class CusFile : public BaseFile
@@ -167,8 +174,12 @@ private:
     std::vector<CusSkill> blast_skills;
     std::vector<CusSkill> awaken_skills;
 
+    bool new_format;
+
     bool LoadSkills(const uint8_t *top, const CUSSkill *sets_in, std::vector<CusSkill> &sets_out, uint32_t num);
+    bool LoadSkillsNew(const uint8_t *top, const CUSSkillNew *sets_in, std::vector<CusSkill> &sets_out, uint32_t num);
     void SaveSkills(uint8_t *top, char *str_top, char **str_current, const std::vector<CusSkill> &sets_in, CUSSkill *sets_out, std::unordered_set<std::string> &strings_list);
+    void SaveSkillsNew(uint8_t *top, char *str_top, char **str_current, const std::vector<CusSkill> &sets_in, CUSSkillNew *sets_out, std::unordered_set<std::string> &strings_list);
 
     TiXmlElement *DecompileSkills(const char *name, TiXmlNode *root, const std::vector<CusSkill> &skills, int type) const;
     bool CompileSkills(const TiXmlElement *root, std::vector<CusSkill> &skills);
@@ -262,6 +273,8 @@ public:
     size_t RemoveAllReferencesToSkill(uint16_t id);
 
     size_t FindReferencesToPupId(uint16_t pup_id, std::vector<CusSkill *>&skills);
+
+    inline bool IsNewFormat() const { return new_format; }
 };
 
 #endif // __CUSFILE_H__

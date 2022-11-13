@@ -780,6 +780,7 @@ static const std::unordered_map<int, std::string> update_to_constant =
     { QXD_UPDATE_DLC11_RAID, "DLC11_RAID" },
     { QXD_UPDATE_DLC13, "DLC13" },
     { QXD_UPDATE_DLC14, "DLC14" },
+    { QXD_UPDATE_DLC15, "DLC15" },
     { QXD_UPDATE_DEVELOPER, "DEVELOPER" }
 };
 
@@ -804,6 +805,7 @@ static const std::unordered_map<ci_string, int, CIStrHash> constant_to_update =
     { "DLC11_RAID", QXD_UPDATE_DLC11_RAID },
     { "DLC13", QXD_UPDATE_DLC13 },
     { "DLC14", QXD_UPDATE_DLC14 },
+    { "DLC15", QXD_UPDATE_DLC15 },
     { "DEVELOPER", QXD_UPDATE_DEVELOPER }
 };
 
@@ -824,6 +826,7 @@ static const std::unordered_map<int, std::string> dlc_to_constant =
     { QXD_DLC_DLC11, "DLC11" },
     { QXD_DLC_DLC13, "DLC13" },
     { QXD_DLC_DLC14, "DLC14" },
+    { QXD_DLC_DLC15, "DLC15" },
 };
 
 static const std::unordered_map<ci_string, int, CIStrHash> constant_to_dlc =
@@ -843,6 +846,7 @@ static const std::unordered_map<ci_string, int, CIStrHash> constant_to_dlc =
     { "DLC11", QXD_DLC_DLC11 },
     { "DLC13", QXD_DLC_DLC13 },
     { "DLC14", QXD_DLC_DLC14 },
+    { "DLC15", QXD_DLC_DLC15 },
 };
 
 static const std::unordered_map<int, std::string> ai_to_constant =
@@ -1232,6 +1236,7 @@ static const std::vector<InstructionDef> instructions_defs =
     { QED_COND_IS_ALIVE, "IsAlive", false, { PARAM_QCHAR } },
     { QED_COND_REMOVED, "Removed", false, { PARAM_QCHAR } },
     { QED_COND_FIGHT_STARTED_WITH_CHAR, "FightStartedWithChar", false, { PARAM_QCHAR } },
+    { QED_COND_UNK_41, "Unk41", false, { PARAM_INTEGER } },
     { QED_COND_UNK_43, "Unk43", false, { PARAM_INTEGER } },
     { QED_COND_IS_QUEST_FINISHED, "IsQuestFinished", false, { PARAM_QUEST_WITH_TYPE } },
     { QED_COND_IS_QUEST_UNFINISHED, "IsQuestUnfinished", false, { PARAM_QUEST_WITH_TYPE } },

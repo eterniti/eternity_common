@@ -176,6 +176,7 @@ enum QedConditions
     QED_COND_DRAGON_BALLS_SENT = 38, // Param 1: num_balls, Param 2: i2 (seem sunused by exe)
     QED_COND_ALWAYS___ = 39, // Alias for always
     QED_COND_IS_BEV_LOAD_COMPLETED = 40, // Params: none
+    QED_COND_UNK_41 = 41, // Param 1: unknown. This condition was used for first time in 1.19 by CTP_18_00, although it was always in the .exe.
     QED_COND_EVENT_DONE = 42, // Param 1: i1 (observed values of 0 and 1 only, could be script index, but it is not a boolean), Param 2: State index, Param 3: Event index
     QED_COND_UNK_43 = 43, // (Only used by TMQ_0506) Param 1: mob_index (range 0-13)
     QED_COND_IS_QUEST_FINISHED = 44, // It returns true if the quest has been finished (regardless of if it was ultimated or not) Param 1: quest_type, range 0-11, Param 2: quest_id (as integer, usually own code)

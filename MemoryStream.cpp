@@ -1,14 +1,6 @@
 #include "MemoryStream.h"
 #include "debug.h"
 
-#define GROW_SIZE	(4*1024*1024)
-
-MemoryStream::MemoryStream()
-{
-	big_endian = false;
-	mem = nullptr;	
-	file_size = file_pos = capacity = 0;
-}
 
 MemoryStream::~MemoryStream()
 {
@@ -18,12 +10,16 @@ MemoryStream::~MemoryStream()
 
 void MemoryStream::Copy(const MemoryStream &other)
 {
+    if (mem)
+        delete[] mem;
+
     mem = new uint8_t[other.capacity];
     memcpy(mem, other.mem, other.capacity);
 
     file_size = other.file_size;
     file_pos = other.file_pos;
     capacity = other.capacity;
+    grow_size = other.grow_size;
 }
 
 uint8_t *MemoryStream::GetMemory(bool unlink)
@@ -90,7 +86,7 @@ bool MemoryStream::Resize(uint64_t size)
 			assert(file_size == 0 && file_pos == 0 && capacity == 0);
 		}
 		
-		size_t alloc_size = (size >= (capacity+GROW_SIZE)) ? size : capacity+GROW_SIZE;
+        size_t alloc_size = (size >= (capacity+grow_size)) ? size : capacity+grow_size;
         uint8_t *new_mem;
 
         new_mem = new uint8_t[alloc_size];

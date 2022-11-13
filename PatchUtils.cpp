@@ -356,7 +356,7 @@ bool PatchUtils::HookCall(void *call_addr, void **orig, void *new_addr)
 
 #else
 
-bool PatchUtils::HookCall(void *call_addr, void **orig, void *new_addr)
+bool PatchUtils::HookCall(void *call_addr, void **orig, void *new_addr, const std::vector<uint8_t> &add_code)
 {
     uint8_t *ptr = (uint8_t *)call_addr;
 	
@@ -403,11 +403,16 @@ bool PatchUtils::HookCall(void *call_addr, void **orig, void *new_addr)
 
     if (!tramp)
         return false;
+	
+	if (add_code.size() > 0)
+		memcpy(tramp, add_code.data(), add_code.size());
 
-    tramp[0] = 0xFF;
-    tramp[1] = 0x25;
-    *(uint32_t *)&tramp[2] = 0;
-    *(uint64_t *)&tramp[6] = (uint64_t)new_addr;
+    size_t idx = add_code.size();
+	
+	tramp[idx] = 0xFF;
+    tramp[idx+1] = 0x25;
+    *(uint32_t *)&tramp[idx+2] = 0;
+    *(uint64_t *)&tramp[idx+6] = (uint64_t)new_addr;
 
     int32_t rel = *(int32_t *)(ptr+1);
     uint32_t target = (uint32_t) ((uint64_t)tramp - (uint64_t)call_addr - 5);
@@ -418,6 +423,11 @@ bool PatchUtils::HookCall(void *call_addr, void **orig, void *new_addr)
     Write32(ptr+1, target);
 
     return true;
+}
+
+bool PatchUtils::HookCall(void *call_addr, void **orig, void *new_addr)
+{
+	return HookCall(call_addr, orig, new_addr, { });
 }
 
 #endif
@@ -510,11 +520,11 @@ LONG CALLBACK mbp_handler(PEXCEPTION_POINTERS ExceptionInfo)
                {
                     for (size_t j = 0; j < mbps.size(); j++)
                     {
-                        const MemoryBreakpoint &mbp = mbps[j];
+                        const MemoryBreakpoint &mbp2 = mbps[j];
 
-                        if (addr >= mbp.address && addr < (mbp.address+mbp.size))
+                        if (addr >= mbp2.address && addr < (mbp2.address+mbp2.size))
                         {
-                            mbp.handler(pc, (void *)addr);
+                            mbp2.handler(pc, (void *)addr);
                             break;
                         }
                     }

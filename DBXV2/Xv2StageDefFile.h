@@ -8,7 +8,7 @@
 #include "BaseFile.h"
 #include "Utils.h"
 
-#define XV2_ORIGINAL_NUM_STAGES         0x43 /* updated in 1.17 */
+#define XV2_ORIGINAL_NUM_STAGES         0x44 /* updated in 1.19 */
 #define XV2_ORIGINAL_NUM_SS_STAGES      0x24 /* updated in 1.17 */
 #define XV2_MAX_STAGES                  0x7E
 

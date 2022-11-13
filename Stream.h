@@ -1,13 +1,14 @@
 #ifndef __STREAM_H__
 #define __STREAM_H__
 
+#include <stack>
 #include "BaseFile.h"
 #include "debug.h"
 
 class Stream : public BaseFile
 {
 protected:
-    uint64_t saved_stream_pos = 0;
+    std::stack<uint64_t> saved_pos_stack;
 
 public:
 
@@ -76,6 +77,12 @@ public:
 
     bool ReadCString(std::string &str);
 
+    template <typename T>
+    inline bool ReadData(T& data)
+    {
+        return Read((void *)&data, sizeof(T));
+    }
+
     inline bool Write8(uint8_t value)	{ return Write(&value, sizeof(uint8_t)); }
 
     inline bool Write16(uint16_t value)
@@ -109,6 +116,12 @@ public:
 
 	inline bool WriteGuid(const uint8_t *ptr)	{ return Write(ptr, 16); }
 
+    template <typename T>
+    inline bool WriteData(const T& data)
+    {
+        return Write((void *)&data, sizeof(T));
+    }
+
     bool FORMAT_PRINTF2 Printf(const char *fmt, ...);
 
 
@@ -121,8 +134,18 @@ public:
     virtual bool Align(unsigned int alignment);
     virtual bool SkipToAlignment(unsigned int alignment);
 
-    inline void SavePos() { saved_stream_pos = Tell(); }
-    inline void RestorePos() { Seek((off64_t)saved_stream_pos, SEEK_SET); }
+    inline void SavePos() { saved_pos_stack.push(Tell()); }
+    inline void RestorePos()
+    {
+        if (saved_pos_stack.size() == 0)
+            return;
+
+        uint64_t saved_stream_pos = saved_pos_stack.top();
+        saved_pos_stack.pop();
+        Seek((off64_t)saved_stream_pos, SEEK_SET);
+    }
+
+    inline bool EndOfStream() { return Tell() >= GetSize(); }
 };
 
 #endif /* __STREAM_H__ */

@@ -4412,17 +4412,17 @@ static void zfree(void *opaque, void *p)
     free(p);
 }
 
-bool Utils::CompressZlib(void *comp_buf, long unsigned int *comp_size, const void *uncomp_buf, size_t uncomp_size)
+bool Utils::CompressZlib(void *comp_buf, long unsigned int *comp_size, const void *uncomp_buf, size_t uncomp_size, int level)
 {
-    return (compress((Bytef *)comp_buf, comp_size, (const Bytef *)uncomp_buf, (uLong)uncomp_size) == Z_OK);
+    return (compress2((Bytef *)comp_buf, comp_size, (const Bytef *)uncomp_buf, (uLong)uncomp_size, level) == Z_OK);
 }
 
-uint8_t *Utils::CompressZlib(const void *uncomp_buf, size_t uncomp_size, size_t *ret_size)
+uint8_t *Utils::CompressZlib(const void *uncomp_buf, size_t uncomp_size, size_t *ret_size, int level)
 {
     long unsigned int comp_size = (long unsigned int)(uncomp_size + (uncomp_size / 10) + 12);
     uint8_t *buf = new uint8_t[comp_size];
 
-    if (!CompressZlib(buf, &comp_size, uncomp_buf, uncomp_size))
+    if (!CompressZlib(buf, &comp_size, uncomp_buf, uncomp_size, level))
     {
         delete[] buf;
         return nullptr;

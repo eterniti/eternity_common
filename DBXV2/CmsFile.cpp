@@ -429,7 +429,7 @@ bool CmsFile::Load(const uint8_t *buf, size_t size)
                 if (entries_xv[i].unk_08 != 0 || entries_xv[i].unk_1C != 0 || entries_xv[i].unk_28 != 0
                         || entries_xv[i].unk_34 != 0 || entries_xv[i].unk_48 != 0)
                 {
-                    DPRINTF("%s: A value that was supossed to always be zero isn't.\n", FUNCNAME);
+                    DPRINTF("%s: A value that was supossed to always be zero isn't.\n", FUNCNAME);                   
                     return false;
                 }
 
