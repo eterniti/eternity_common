@@ -165,6 +165,7 @@ static const std::vector<std::string> original_chars =
     "BUZ",
     "CAB",
     "CL1",
+    "CL2",
     "CL3",
     "CL4",
     "CLJ",
@@ -179,6 +180,9 @@ static const std::vector<std::string> original_chars =
 	"DMG",
     "DND",
     "El0",
+    "FIG",
+    "FIO",
+    "FIT",
     "FOD",
     "FOF",
     "FOV",
@@ -293,6 +297,7 @@ static const std::vector<std::string> original_chars =
     "TSH",
     "TWP",
     "TWT",
+    "URN",
     "VDL",
     "VDS",
     "VG4",
@@ -5562,4 +5567,9 @@ bool Xenoverse2::CommitVfx()
     }
 
     return true;
+}
+
+bool Xenoverse2::IsModCms(uint32_t cms_id)
+{
+    return (cms_id > XV2_LAST_KNOWN_CMS || (cms_id >= 0x9F && cms_id <= 0xC7));
 }

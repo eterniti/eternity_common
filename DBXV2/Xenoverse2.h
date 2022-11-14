@@ -384,6 +384,9 @@ namespace Xenoverse2
 
     std::vector<std::string> GetCostumeNamesForPartSet(uint32_t partset, uint8_t race_lock=0xFF);
     std::string GetCostumeNamesForPartSet2(uint32_t partset, uint8_t race_lock=0xFF);
+
+    // Misc
+    bool IsModCms(uint32_t cms_id);
 }
 
 extern Xv2Fs *xv2fs;
