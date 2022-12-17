@@ -1008,7 +1008,7 @@ bool ApkFile::DoReplaceFile(FileEntry &file, const uint8_t *buf, size_t size)
     {
         size_t csize;
 
-        file.buf = Utils::CompressZlib(buf, size, &csize);
+        file.buf = Utils::CompressZlib(buf, size, &csize, 9);
         if (!file.buf)
         {
             DPRINTF("%s: weird, zlib compress failed.\n", FUNCNAME);
