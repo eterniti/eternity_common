@@ -4592,6 +4592,12 @@ uint32_t Xenoverse2::CusAuraToAurAura(uint32_t id)
 			
 		case 27:
 			return 52;
+			
+		case 28:
+			return 53;
+			
+		case 29:
+			return 55;
     }
 
     return 0xFFFFFFFF;

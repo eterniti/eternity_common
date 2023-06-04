@@ -157,6 +157,9 @@ public:
     bool IsFieldEditor4() const;
     bool IsSystem() const;
     bool IsScreenLayout() const;
+    bool IsSequenceEditor() const;
+
+    inline std::unordered_map<uint32_t, std::string> &DebugGetNamesMap() { return names_map; }
 };
 
 #endif // RDBFILE_H

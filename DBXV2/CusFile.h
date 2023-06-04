@@ -88,7 +88,7 @@ struct CUSSkill
     uint16_t unk_30;
     uint16_t unk_32;
     uint16_t unk_34;
-    uint16_t unk_36;
+    uint16_t skill_type; // 0x36
     uint16_t pup_id; // 0x38
     uint16_t aura; // 0x3A
     uint16_t model; // 0x3C
@@ -145,7 +145,7 @@ struct CusSkill
     uint16_t unk_30;
     uint16_t unk_32;
     uint16_t unk_34;
-    uint16_t unk_36;
+    uint16_t skill_type;
     uint16_t pup_id;
     uint16_t aura;
     uint16_t model;

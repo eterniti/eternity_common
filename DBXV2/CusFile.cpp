@@ -143,7 +143,7 @@ TiXmlElement *CusSkill::Decompile(TiXmlNode *root) const
     Utils::WriteParamUnsigned(entry_root, "U_30", unk_30, true);
     Utils::WriteParamUnsigned(entry_root, "U_32", unk_32, true);
     Utils::WriteParamUnsigned(entry_root, "U_34", unk_34, true);
-    Utils::WriteParamUnsigned(entry_root, "U_36", unk_36, true);
+    Utils::WriteParamUnsigned(entry_root, "SKILL_TYPE", skill_type, true);
     Utils::WriteParamUnsigned(entry_root, "PUP_ID", pup_id, true);
     Utils::WriteParamUnsigned(entry_root, "AURA", aura, true);
     Utils::WriteParamUnsigned(entry_root, "MODEL", model, true);
@@ -213,7 +213,7 @@ bool CusSkill::Compile(const TiXmlElement *root, bool *new_format)
     if (!Utils::GetParamUnsigned(root, "U_34", &unk_34))
         return false;
 
-    if (!Utils::GetParamUnsigned(root, "U_36", &unk_36))
+    if (!Utils::GetParamUnsignedWithMultipleNames(root, &skill_type, "SKILL_TYPE", "U_36"))
         return false;
 
     if (!Utils::GetParamUnsignedWithMultipleNames(root, &pup_id, "PUP_ID", "U_38"))
@@ -298,7 +298,7 @@ bool CusFile::LoadSkills(const uint8_t *top, const CUSSkill *sets_in, std::vecto
         skill.unk_30 = sets_in[i].unk_30;
         skill.unk_32 = sets_in[i].unk_32;
         skill.unk_34 = sets_in[i].unk_34;
-        skill.unk_36 = sets_in[i].unk_36;
+        skill.skill_type = sets_in[i].skill_type;
         skill.pup_id = sets_in[i].pup_id;
         skill.aura = sets_in[i].aura;
         skill.model = sets_in[i].model;
@@ -340,7 +340,7 @@ bool CusFile::LoadSkillsNew(const uint8_t *top, const CUSSkillNew *sets_in, std:
         skill.unk_30 = sets_in[i].unk_30;
         skill.unk_32 = sets_in[i].unk_32;
         skill.unk_34 = sets_in[i].unk_34;
-        skill.unk_36 = sets_in[i].unk_36;
+        skill.skill_type = sets_in[i].skill_type;
         skill.pup_id = sets_in[i].pup_id;
         skill.aura = sets_in[i].aura;
         skill.model = sets_in[i].model;
@@ -531,7 +531,7 @@ void CusFile::SaveSkills(uint8_t *top, char *str_top, char **str_current, const 
         sets_out[i].unk_30 = skill.unk_30;
         sets_out[i].unk_32 = skill.unk_32;
         sets_out[i].unk_34 = skill.unk_34;
-        sets_out[i].unk_36 = skill.unk_36;
+        sets_out[i].skill_type = skill.skill_type;
         sets_out[i].pup_id = skill.pup_id;
         sets_out[i].aura = skill.aura;
         sets_out[i].model = skill.model;
@@ -587,7 +587,7 @@ void CusFile::SaveSkillsNew(uint8_t *top, char *str_top, char **str_current, con
         sets_out[i].unk_30 = skill.unk_30;
         sets_out[i].unk_32 = skill.unk_32;
         sets_out[i].unk_34 = skill.unk_34;
-        sets_out[i].unk_36 = skill.unk_36;
+        sets_out[i].skill_type = skill.skill_type;
         sets_out[i].pup_id = skill.pup_id;
         sets_out[i].aura = skill.aura;
         sets_out[i].model = skill.model;

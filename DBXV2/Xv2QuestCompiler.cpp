@@ -781,6 +781,8 @@ static const std::unordered_map<int, std::string> update_to_constant =
     { QXD_UPDATE_DLC13, "DLC13" },
     { QXD_UPDATE_DLC14, "DLC14" },
     { QXD_UPDATE_DLC15, "DLC15" },
+    { QXD_UPDATE_CELL_MAX, "CELL_MAX" },
+    { QXD_UPDATE_DLC16, "DLC16" },
     { QXD_UPDATE_DEVELOPER, "DEVELOPER" }
 };
 
@@ -806,6 +808,8 @@ static const std::unordered_map<ci_string, int, CIStrHash> constant_to_update =
     { "DLC13", QXD_UPDATE_DLC13 },
     { "DLC14", QXD_UPDATE_DLC14 },
     { "DLC15", QXD_UPDATE_DLC15 },
+    { "CELL_MAX", QXD_UPDATE_CELL_MAX },
+    { "DLC16", QXD_UPDATE_DLC16 },
     { "DEVELOPER", QXD_UPDATE_DEVELOPER }
 };
 
@@ -827,6 +831,7 @@ static const std::unordered_map<int, std::string> dlc_to_constant =
     { QXD_DLC_DLC13, "DLC13" },
     { QXD_DLC_DLC14, "DLC14" },
     { QXD_DLC_DLC15, "DLC15" },
+    { QXD_DLC_DLC16, "DLC16" },
 };
 
 static const std::unordered_map<ci_string, int, CIStrHash> constant_to_dlc =
@@ -847,6 +852,7 @@ static const std::unordered_map<ci_string, int, CIStrHash> constant_to_dlc =
     { "DLC13", QXD_DLC_DLC13 },
     { "DLC14", QXD_DLC_DLC14 },
     { "DLC15", QXD_DLC_DLC15 },
+    { "DLC16", QXD_DLC_DLC16 },
 };
 
 static const std::unordered_map<int, std::string> ai_to_constant =
@@ -2000,7 +2006,20 @@ bool Xv2QuestCompiler::LoadActiveQed(const std::string &quest_name, size_t index
     }
 
     path += ".qed";
-    return xv2fs->LoadFile(scripts[index], path);
+    if (!xv2fs->LoadFile(scripts[index], path))
+    {
+        // Fix for RBQ_2500 missing a script file
+        if (!xv2fs->FileExists(path))
+        {
+            scripts[index]->Load(nullptr, 0); // Force reset
+            return true;
+        }
+
+        DPRINTF("%s: Failed loading qed \"%s\"\n", FUNCNAME, path.c_str());
+        return false;
+    }
+
+    return true;
 }
 
 bool Xv2QuestCompiler::CommitCompiledQml()
@@ -6973,8 +6992,10 @@ bool Xv2QuestCompiler::DecompileDialoguePart(const QbtDialoguePart &part, uint16
             WriteBooleanParam(oss, "continue_next", true);
         }
 
-        write_debug_actor = false;
+        //write_debug_actor = false;
     }
+
+    //oss << "\t\t; " << Utils::UnsignedToHexString(part.cms_04, false) << "\n";
 
     if (part.cms_04 != 0 && write_debug_actor)
         WriteCharParam(oss, "debug_actor", part.cms_04);
@@ -9486,6 +9507,12 @@ bool Xv2QuestCompiler::CompileDialoguePart(QbtDialoguePart &part, bool *special_
     *out_of_order = -1;
     defined.resize(dialogue_part_params.size(), false);
 
+    if (dont_change)
+        *dont_change = false;
+
+    if (continue_next)
+        *continue_next = false;
+
     while (!tokens.empty())
     {
         X2QcToken token = tokens.front();
@@ -9545,7 +9572,7 @@ bool Xv2QuestCompiler::CompileDialoguePart(QbtDialoguePart &part, bool *special_
                 if (!GetChar(value, &cms_id))
                     return false;
 
-                part.cms_04 = (int32_t)cms_id;
+                part.cms_04 = (int32_t)cms_id;                
             }
             else if (token.str == "special_case_osq_0301")
             {
@@ -9817,7 +9844,7 @@ bool Xv2QuestCompiler::CompileInteractiveDialogue()
             if (token.str == "DialoguePart")
             {
                 QbtDialoguePart part;
-                bool special_case;
+                bool special_case = false;
                 int out_of_order;
                 bool dont_change;
                 bool continue_next;
@@ -9827,7 +9854,7 @@ bool Xv2QuestCompiler::CompileInteractiveDialogue()
 
                 if (dont_change)
                 {
-                    part.cms_04 = (uint32_t)active_qbt.GetInteractiveEntries().size();
+                    part.cms_04 = (uint32_t)active_qbt.GetInteractiveEntries().size();                   
                 }
                 else if (continue_next)
                 {
@@ -11376,7 +11403,7 @@ bool Xv2QuestCompiler::DecompileQuest(const std::string &quest_name, std::ostrin
 
         if (!LoadActiveQed(quest->name, i))
         {
-            DPRINTF("%s: Failed to load qed file, index %Id.\n", FUNCNAME, i);
+            DPRINTF("%s: Failed to load qed file, index %Id. Num scripts = %Id\n", FUNCNAME, i, quest->scripts.size());
             return false;
         }       
 

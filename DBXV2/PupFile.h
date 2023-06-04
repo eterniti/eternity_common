@@ -7,6 +7,7 @@
 
 #define PUP_CUSTOM_ID_START 0x80
 
+;
 #ifdef _MSC_VER
 #pragma pack(push,1)
 #endif
@@ -26,8 +27,8 @@ typedef struct
 {
     uint32_t id; // 0
     uint32_t unk_04;
-    uint32_t unk_08;
-    uint32_t unk_0C;
+    uint32_t super_soul1; // 8
+    uint32_t super_soul2; // 0xC
     float hea; // 0x10
     float unk_14;
     float ki; // 0x18
@@ -74,8 +75,8 @@ struct PupEntry
 {
     uint32_t id;
     uint32_t unk_04;
-    uint32_t unk_08;
-    uint32_t unk_0C;
+    uint32_t super_soul1;
+    uint32_t super_soul2;
     float hea;
     float unk_14;
     float ki;
@@ -113,7 +114,7 @@ struct PupEntry
 
     PupEntry()
     {
-        id = unk_04 = unk_08 = unk_0C = 0xFFFFFFFF;
+        id = unk_04 = super_soul1 = super_soul2 = 0xFFFFFFFF;
         hea = unk_14 = ki = ki_recovery = 0.0f;
         stm = stamina_recovery = enemy_stamina_eraser = stamina_eraser = 0.0f;
         unk_30 = atk = basic_ki_attack = str = 0.0f;

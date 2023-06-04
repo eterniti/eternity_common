@@ -18,6 +18,7 @@ TiXmlElement *PscSpecEntry::Decompile(TiXmlNode *root) const
     Utils::WriteParamUnsigned(entry_root, "CAMERA_POSITION", camera_position, true);
     Utils::WriteParamUnsigned(entry_root, "U_0C", unk_0C, true);
     Utils::WriteParamUnsigned(entry_root, "U_10", unk_10, true);
+    Utils::WriteParamUnsigned(entry_root, "U_14", unk_14, true);
 
     Utils::WriteParamFloat(entry_root, "HEALTH", health);
     Utils::WriteParamFloat(entry_root, "F_18", unk_18);
@@ -81,6 +82,13 @@ bool PscSpecEntry::Compile(const TiXmlElement *root)
 
     if (!Utils::GetParamUnsigned(root, "U_10", &unk_10))
         return false;
+
+    if (!Utils::ReadParamUnsigned(root, "U_14", &unk_14))
+    {
+        // This thing added in 1.20. Seems this is the typical value
+        // (This default value will be used when installing old x2m files)
+        unk_14 = 0x3D;
+    }
 
     if (!Utils::GetParamFloat(root, "HEALTH", &health))
         return false;
@@ -328,6 +336,7 @@ bool PscFile::Load(const uint8_t *buf, size_t size)
                 COPY_I(camera_position);
                 COPY_I(unk_0C);
                 COPY_I(unk_10);
+                COPY_I(unk_14);
                 COPY_I(health);
                 COPY_I(unk_18);
                 COPY_I(ki);
@@ -433,6 +442,7 @@ uint8_t *PscFile::Save(size_t *psize)
                 COPY_O(camera_position);
                 COPY_O(unk_0C);
                 COPY_O(unk_10);
+                COPY_O(unk_14);
                 COPY_O(health);
                 COPY_O(unk_18);
                 COPY_O(ki);

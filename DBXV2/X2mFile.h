@@ -580,7 +580,7 @@ protected:
 
 public:
 
-    const float X2M_CURRENT_VERSION = 18.0f;
+    const float X2M_CURRENT_VERSION = 20.0f;
 
     const float X2M_MIN_VERSION_CSO = 2.0f;
     const float X2M_MIN_VERSION_PSC = 3.0f;
@@ -610,6 +610,8 @@ public:
     const float X2M_MIN_VERSION_STAGE_BGM = 16.0f;
     const float X2M_MIN_VERSION_NEW_IDB_FORMAT = 17.0f;
     const float X2M_MIN_VERSION_NEW_CUS_FORMAT = 18.0f;
+    const float X2M_MIN_VERSION_NEW_PSCSPEC = 19.0f;
+    const float X2M_MIN_VERSION_BAC30 = 20.0f;
 
     X2mFile();
     virtual ~X2mFile() override;

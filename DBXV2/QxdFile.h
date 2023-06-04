@@ -68,6 +68,8 @@ enum QxdUpdate
     QXD_UPDATE_DLC13 = 0x8000,
     QXD_UPDATE_DLC14 = 0x10000,
     QXD_UPDATE_DLC15 = 0x20000,
+    QXD_UPDATE_CELL_MAX = 0x40000,
+    QXD_UPDATE_DLC16 = 0x80000,
     QXD_UPDATE_DEVELOPER = 0x10000000,
 };
 
@@ -89,6 +91,7 @@ enum QxdDlc
     QXD_DLC_DLC13 = 0x1000,
     QXD_DLC_DLC14 = 0x2000,
     QXD_DLC_DLC15 = 0x4000,
+    QXD_DLC_DLC16 = 0x8000,
 };
 
 // Matches order used by game exe

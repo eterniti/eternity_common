@@ -4,6 +4,9 @@
 #include "MemoryStream.h"
 #include "debug.h"
 
+#define OPPW4
+
+#ifndef OPPW4
 #include "hashes/additional_fn_ce.h"
 #include "hashes/additional_fn_me.h"
 #include "hashes/additional_fn_rp.h"
@@ -11,6 +14,16 @@
 #include "hashes/additional_fn_fe4.h"
 #include "hashes/additional_fn_sys.h"
 #include "hashes/additional_fn_screen.h"
+#else
+#include "../OPPW4/hashes/ce.h"
+#include "../OPPW4/hashes/me.h"
+#include "../OPPW4/hashes/fe4.h"
+#include "../OPPW4/hashes/rp.h"
+#include "../OPPW4/hashes/kids.h"
+#include "../OPPW4/hashes/sys.h"
+#include "../OPPW4/hashes/screen.h"
+#include "../OPPW4/hashes/seq.h"
+#endif
 
 #define RDB_COMP_CHUNK_SIZE 16384
 
@@ -62,6 +75,11 @@ static const std::unordered_map<int, std::string> files_extensions
     { 0xe6a3c3bb, ".oidex" },
     { 0x8e39aa37, ".ktid" },
     { 0xb340861a, ".mtl" },
+
+    // OPPW4
+    { 0xed410290, ".kts" },
+    { 0x82945a44, ".lsqtree" },
+    { 0xf13845ef, ".sclshape" },
 };
 
 RdbFile::RdbFile()
@@ -266,6 +284,13 @@ bool RdbFile::LoadAndBuildMap(const uint8_t *buf, size_t size, std::vector<RDBEn
         new_entry.type_id = entry->type_id;
         new_entry.flags = entry->flags;
 
+        /*auto test = files_extensions.find(new_entry.type_id);
+        if (test == files_extensions.end())
+        {
+            DPRINTF("Unrecognized type 0x%08x\n", new_entry.type_id);
+            exit(-1);
+        }*/
+
         /*if (entry->flags != 0x120000 && entry->flags != 0x110000 && entry->flags != 0x10000)
         {
             DPRINTF("Flags %08X at %Ix", entry->flags, (size_t)Utils::DifPointer64(entry, buf));
@@ -414,6 +439,12 @@ bool RdbFile::LoadAndBuildMap(const uint8_t *buf, size_t size, std::vector<RDBEn
     {
         LoadAdditionalNames((const char *)additional_fn_screen);
     }
+#ifdef OPPW4
+    else if (IsSequenceEditor())
+    {
+        LoadAdditionalNames((const char *)additional_fn_seq);
+    }
+#endif
 
     //DPRINTF("Num files = %Id\n", entries.size());
     return true;
@@ -1089,7 +1120,7 @@ size_t RdbFile::FindFileByName(const std::string &name) const
     }*/
     std::string lc_name = Utils::ToLowerCase(name);
 
-    for (auto it : names_map)
+    for (auto &it : names_map)
     {
         if (Utils::ToLowerCase(it.second) == lc_name)
         {
@@ -1112,7 +1143,7 @@ uint32_t RdbFile::GetTypeByExtension(const std::string &ext) const
     if (lc_ext == ".ktf2")
         return 0xd7f47fb1;
 
-    for (auto it: files_extensions)
+    for (auto &it: files_extensions)
     {
         if (it.second == lc_ext)
             return it.first;
@@ -1342,11 +1373,35 @@ bool RdbFile::SaveNamesToTxt(const std::string &path)
     for (auto &it : names_map)
     {
         bool has_dot = (it.second.rfind(".") != std::string::npos);
+        std::string name = it.second;
 
         if (!has_dot)
-            fprintf(f, "; Discarded file---");
+        {
+            //fprintf(f, "; Discarded file---");
+            size_t idx = FindFileByName(name);
+            if (idx ==  (size_t)-1)
+            {
+                //fprintf(f, "; Discarded file---");
+                continue;
+            }
+            else
+            {
+                auto it2 = files_extensions.find(entries[idx].type_id);
+                if (it2 != files_extensions.end())
+                {
+                    if (IsFieldEditor4() && it2->second == ".efpl")
+                    {
+                        name += ".ktf2";
+                    }
+                    else
+                    {
+                        name += it2->second;
+                    }
+                }
+            }
+        }
 
-        fprintf(f, "0x%08x,%s\n", it.first, it.second.c_str());
+        fprintf(f, "0x%08x,%s\n", it.first, name.c_str());
     }
 
     fclose(f);
@@ -1355,29 +1410,49 @@ bool RdbFile::SaveNamesToTxt(const std::string &path)
 
 bool RdbFile::IsCharacterEditor() const
 {
+#ifndef OPPW4
     return (FindFileByName("CharacterEditor.rdb.name") != (size_t)-1);
+#else
+    return (FindFileByID(0xde91b561) != (size_t)-1);
+#endif
 }
 
 bool RdbFile::IsMaterialEditor() const
 {
+#ifndef OPPW4
     return (FindFileByName("MaterialEditor.rdb.name") != (size_t)-1);
+#else
+    return (FindFileByID(0x906fb5bd) != (size_t)-1);
+#endif
 }
 
 bool RdbFile::IsRRPreview() const
 {
+#ifndef OPPW4
     return (FindFileByName("RRPreview.rdb.name") != (size_t)-1);
+#else
+    return (FindFileByID(0x067a824f) != (size_t)-1);
+#endif
 }
 
 bool RdbFile::IsKIDSSystemResource() const
 {
+#ifndef OPPW4
     return (FindFileByName("KIDSSystemResource.rdb.name") != (size_t)-1);
+#else
+    return (FindFileByID(0xbcc13c53) != (size_t)-1);
+#endif
 }
 
 bool RdbFile::IsFieldEditor4() const
 {
     if (!fe4_check)
     {
+#ifndef OPPW4
         fe4_ret = (FindFileByName("FieldEditor4.rdb.name") != (size_t)-1);
+#else
+        fe4_ret = (FindFileByID(0xf437fe16) != (size_t)-1);
+#endif
         fe4_check = true;
     }
 
@@ -1386,10 +1461,23 @@ bool RdbFile::IsFieldEditor4() const
 
 bool RdbFile::IsSystem() const
 {
+#ifndef OPPW4
     return (FindFileByName("system.rdb.name") != (size_t)-1);
+#else
+    return (FindFileByID(0x0a603d98) != (size_t)-1);
+#endif
 }
 
 bool RdbFile::IsScreenLayout() const
 {
+#ifndef OPPW4
     return (FindFileByName("ScreenLayout.rdb.name") != (size_t)-1);
+#else
+    return (FindFileByID(0x8c759c7f) != (size_t)-1);
+#endif
+}
+
+bool RdbFile::IsSequenceEditor() const
+{
+    return (FindFileByID(0x45835957) != (size_t)-1);
 }

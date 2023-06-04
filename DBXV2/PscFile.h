@@ -5,6 +5,7 @@
 
 #define PSC_SIGNATURE   0x43535023
 
+;
 #ifdef _MSC_VER
 #pragma pack(push,1)
 #endif
@@ -29,7 +30,8 @@ typedef struct
 
 STATIC_ASSERT_STRUCT(PSCEntry, 0xC);
 
-typedef struct
+// Backup pre-1.20
+/*typedef struct
 {
     uint32_t costume_id; // 0
     uint32_t costume_id2; // 4
@@ -81,8 +83,62 @@ typedef struct
     uint32_t unk_BC;
     float unk_C0;
 } PACKED PSCSpecEntry;
+STATIC_ASSERT_STRUCT(PSCSpecEntry, 0xC4);*/
 
-STATIC_ASSERT_STRUCT(PSCSpecEntry, 0xC4);
+struct PSCSpecEntry
+{
+    uint32_t costume_id; // 0
+    uint32_t costume_id2; // 4
+    uint32_t camera_position; // 8
+    uint32_t unk_0C;
+    uint32_t unk_10;
+    uint32_t unk_14; // Added in 1.20. For whatever reason, it's always 0x3D (61)
+    float health; // 0x18
+    float unk_18; // 0x1C
+    float ki; // 0x20
+    float ki_recharge; // 0x24
+    uint32_t unk_24; // 0x28
+    uint32_t unk_28; // 0x2C
+    uint32_t unk_2C; // 0x30
+    float stamina; // 0x34
+    float stamina_recharge_move; // 0x38
+    float stamina_recharge_air; // 0x3C
+    float stamina_recharge_ground; // 0x40
+    float stamina_drain_rate1; // 0x44 Found 0 in all entries
+    float stamina_drain_rate2; // 0x48 Found 0 in all entries
+    float unk_48; // 0x4C Found 0 in all entries
+    float basic_attack; // 0x50
+    float basic_ki_attack; // 0x54
+    float strike_attack; // 0x58
+    float ki_blast_super; // 0x5C
+    float basic_phys_defense; // 0x60
+    float basic_ki_defense; // 0x64
+    float strike_atk_defense; // 0x68
+    float super_ki_blast_defense; // 0x6C
+    float ground_speed; // 0x70
+    float air_speed; // 0x74
+    float boosting_speed; // 0x78
+    float dash_distance; // 0x7C
+    float unk_7C; // 0x80 Found 0 in all entries
+    float reinf_skill_duration; // 0x84 Found 0 in all entries
+    float unk_84; // 0x88 Found 0 in all entries
+    float revival_hp_amount; // 0x8C
+    float unk_8C; // 0x90
+    float reviving_speed; // 0x94 Found 0 in all entries
+    uint32_t unk_94; // Found 0 in all entries
+    uint32_t unk_98;
+    uint32_t unk_9C; // Found 0 in all entries
+    uint32_t unk_A0; // Found 0 in all entries
+    uint32_t unk_A4; // Found 0 in all entries
+    uint32_t unk_A8; // Found 0 in all entries
+    uint32_t unk_AC; // Found 0 in all entries
+    uint32_t unk_B0; // Found 0 in all entries
+    uint32_t talisman; // 0xB8
+    uint32_t unk_B8; // 0xBC
+    uint32_t unk_BC; // 0xC0
+    float unk_C0; // 0xC4
+};
+STATIC_ASSERT_STRUCT(PSCSpecEntry, 0xC8);
 
 #ifdef _MSC_VER
 #pragma pack(pop)
@@ -95,6 +151,7 @@ struct PscSpecEntry
     uint32_t camera_position;
     uint32_t unk_0C;
     uint32_t unk_10;
+    uint32_t unk_14; // 1.20
     float health;
     float unk_18;
     float ki;
@@ -146,6 +203,7 @@ struct PscSpecEntry
         unk_7C = reinf_skill_duration = unk_84 = revival_hp_amount = unk_8C = reviving_speed = unk_C0 = 0.0;
         unk_98 = unk_B8 = unk_BC = 0;
         talisman = 0xFFFFFFFF;
+        unk_14 = 0x3D;
     }
 
     TiXmlElement *Decompile(TiXmlNode *root) const;

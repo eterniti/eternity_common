@@ -11,8 +11,8 @@ TiXmlElement *PupEntry::Decompile(TiXmlNode *root) const
     entry_root->SetAttribute("id", Utils::UnsignedToString(id, true));
 
     Utils::WriteParamUnsigned(entry_root, "U_04", unk_04, true);
-    Utils::WriteParamUnsigned(entry_root, "U_08", unk_08, true);
-    Utils::WriteParamUnsigned(entry_root, "U_0C", unk_0C, true);
+    Utils::WriteParamUnsigned(entry_root, "SUPER_SOUL1", super_soul1);
+    Utils::WriteParamUnsigned(entry_root, "SUPER_SOUL2", super_soul2);
     Utils::WriteParamFloat(entry_root, "HEA", hea);
     Utils::WriteParamFloat(entry_root, "F_14", unk_14);
     Utils::WriteParamFloat(entry_root, "KI", ki);
@@ -61,8 +61,8 @@ bool PupEntry::Compile(const TiXmlElement *root)
     }
 
     if (!Utils::GetParamUnsigned(root, "U_04", &unk_04)) return false;
-    if (!Utils::GetParamUnsigned(root, "U_08", &unk_08)) return false;
-    if (!Utils::GetParamUnsigned(root, "U_0C", &unk_0C)) return false;
+    if (!Utils::GetParamUnsignedWithMultipleNames(root, &super_soul1, "SUPER_SOUL1", "U_08")) return false;
+    if (!Utils::GetParamUnsignedWithMultipleNames(root, &super_soul2, "SUPER_SOUL2", "U_0C")) return false;
     if (!Utils::GetParamFloat(root, "HEA", &hea)) return false;
     if (!Utils::GetParamFloat(root, "F_14", &unk_14)) return false;
     if (!Utils::GetParamFloat(root, "KI", &ki)) return false;
@@ -136,8 +136,8 @@ bool PupFile::Load(const uint8_t *buf, size_t size)
 
         COPY_IN(id);
         COPY_IN(unk_04);
-        COPY_IN(unk_08);
-        COPY_IN(unk_0C);
+        COPY_IN(super_soul1);
+        COPY_IN(super_soul2);
         COPY_IN(hea);
         COPY_IN(unk_14);
         COPY_IN(ki);
@@ -197,8 +197,8 @@ uint8_t *PupFile::Save(size_t *psize)
 
         COPY_OUT(id);
         COPY_OUT(unk_04);
-        COPY_OUT(unk_08);
-        COPY_OUT(unk_0C);
+        COPY_OUT(super_soul1);
+        COPY_OUT(super_soul2);
         COPY_OUT(hea);
         COPY_OUT(unk_14);
         COPY_OUT(ki);

@@ -5,9 +5,11 @@
 #define ENCRYPTED_SIZE  	0x7B440
 #define ENCRYPTED_SIZE_V8	0xB08C0
 #define ENCRYPTED_SIZE_V17  0xDF2A0
+#define ENCRYPTED_SIZE_V20	0x12A2A0
 #define DECRYPTED_SIZE  	0x7B390
 #define DECRYPTED_SIZE_V8	0xB0818
 #define DECRYPTED_SIZE_V17  0xDF1F8
+#define DECRYPTED_SIZE_V20	0x12A1F8
 #define STEAM_ID_KEY    	0x7468656265636F6E
 
 #define FIRST_CAC_OFFSET  	0x1E830
@@ -36,6 +38,9 @@ uint32_t Xv2SavFile::GetEncryptedSize() const
 
         case 17:
             return ENCRYPTED_SIZE_V17;
+			
+		case 20:
+			return ENCRYPTED_SIZE_V20;
     }
 
     return ENCRYPTED_SIZE;
@@ -50,6 +55,9 @@ uint32_t Xv2SavFile::GetDecryptedSize() const
 
         case 17:
             return DECRYPTED_SIZE_V17;
+			
+		case 20:
+			return DECRYPTED_SIZE_V20;
     }
 
     return DECRYPTED_SIZE;
@@ -65,6 +73,9 @@ int Xv2SavFile::EncryptedSizeToVersion(size_t size)
 
     if (size == ENCRYPTED_SIZE_V17)
         return 17;
+	
+	if (size == ENCRYPTED_SIZE_V20)
+		return 20;
 
     return -1;
 }
@@ -79,6 +90,9 @@ int Xv2SavFile::DecryptedSizeToVersion(size_t size)
 
     if (size == DECRYPTED_SIZE_V17)
         return 17;
+	
+	if (size == DECRYPTED_SIZE_V20)
+		return 20;
 
     return -1;
 }
@@ -282,7 +296,7 @@ bool Xv2SavFile::Load(const uint8_t *buf, size_t size)
         memcpy(data.data(), buf, size);
     }
 
-    if (data.size() != DECRYPTED_SIZE && data.size() != DECRYPTED_SIZE_V8 && data.size() != DECRYPTED_SIZE_V17)
+    if (data.size() != DECRYPTED_SIZE && data.size() != DECRYPTED_SIZE_V8 && data.size() != DECRYPTED_SIZE_V17 && data.size() != DECRYPTED_SIZE_V20)
     {
         DPRINTF("%s: Size of save is not expected one.\n", FUNCNAME);
         return false;

@@ -19,7 +19,7 @@ type 10 - camera
 
 // Xenoverse 2 bac files only.
 #define BAC_SIGNATURE   0x43414223
-#define MAX_BAC_TYPE    27
+#define MAX_BAC_TYPE    30
 
 #pragma pack(push,1)
 
@@ -572,7 +572,7 @@ struct BACType26
 CHECK_STRUCT_SIZE(BACType26, 0x50);
 
 // Type 27
-struct  BACType27
+struct BACType27
 {
     uint16_t start_time;
     uint16_t duration;
@@ -588,6 +588,56 @@ struct  BACType27
     bool Compile(const TiXmlElement *root);
 };
 CHECK_STRUCT_SIZE(BACType27, 0x18);
+
+// Type 28
+struct BACType28
+{
+    uint16_t start_time;
+    uint16_t duration;
+    uint32_t unk_04;
+    uint16_t unk_08;
+    uint16_t unk_0A;
+    uint32_t unk_0C;
+    float unk_10;
+    float unk_14;
+    uint32_t unk_18[3];
+
+    TiXmlElement *Decompile(TiXmlNode *root) const;
+    bool Compile(const TiXmlElement *root);
+};
+CHECK_STRUCT_SIZE(BACType28, 0x24);
+
+// Type 29
+struct BACType29
+{
+    uint16_t start_time;
+    uint16_t duration;
+    uint32_t unk_04;
+    uint16_t unk_08;
+    uint16_t unk_0A;
+    uint32_t unk_0C;
+    float unk_10[8];
+    uint32_t unk_30[3];
+
+    TiXmlElement *Decompile(TiXmlNode *root) const;
+    bool Compile(const TiXmlElement *root);
+};
+CHECK_STRUCT_SIZE(BACType29, 0x3C);
+
+
+// Type 30
+struct BACType30
+{
+    uint16_t start_time;
+    uint16_t duration;
+    uint32_t unk_04;
+    float unk_08;
+    uint32_t unk_0C[9];
+
+    TiXmlElement *Decompile(TiXmlNode *root) const;
+    bool Compile(const TiXmlElement *root);
+};
+CHECK_STRUCT_SIZE(BACType30, 0x30);
 
 #pragma pack(pop)
 
@@ -625,6 +675,9 @@ struct BacEntry
     std::vector<BACType25> type25;
     std::vector<BACType26> type26;
     std::vector<BACType27> type27;
+    std::vector<BACType28> type28;
+    std::vector<BACType29> type29;
+    std::vector<BACType30> type30;
 
     BacEntry() : valid(false) { memset(has_type, 0, sizeof(has_type)); }
 

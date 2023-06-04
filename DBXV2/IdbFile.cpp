@@ -222,8 +222,8 @@ TiXmlElement *IdbEntry::Decompile(TiXmlNode *root, IdbCommentType comm_type) con
     Utils::WriteParamUnsigned(entry_root, "STARS", stars);
     Utils::WriteParamUnsigned(entry_root, "NAME_ID", name_id, true);
     Utils::WriteParamUnsigned(entry_root, "DESC_ID", desc_id, true);
-    Utils::WriteParamUnsigned(entry_root, "U_0A", unk_0A, true);
-    Utils::WriteParamUnsigned(entry_root, "U_0C", unk_0C, true);
+    Utils::WriteParamUnsigned(entry_root, "DLC_FLAG", dlc_flag, true);
+    Utils::WriteParamUnsigned(entry_root, "AVAILABILITY", availability, true);
     Utils::WriteParamUnsigned(entry_root, "U_0E", unk_0E, true);
     Utils::WriteParamUnsigned(entry_root, "BUY", buy);
     Utils::WriteParamUnsigned(entry_root, "SELL", sell);
@@ -263,10 +263,10 @@ bool IdbEntry::Compile(const TiXmlElement *root, bool *is_new_format)
     if (!Utils::GetParamUnsigned(root, "DESC_ID", &desc_id))
         return false;
 
-    if (!Utils::GetParamUnsigned(root, "U_0A", &unk_0A))
+    if (!Utils::GetParamUnsignedWithMultipleNames(root, &dlc_flag, "DLC_FLAG", "U_0A"))
         return false;
 
-    if (!Utils::GetParamUnsigned(root, "U_0C", &unk_0C))
+    if (!Utils::GetParamUnsignedWithMultipleNames(root, &availability, "AVAILABILITY", "U_0C"))
         return false;
 
     if (!Utils::GetParamUnsigned(root, "U_0E", &unk_0E))
@@ -374,8 +374,8 @@ bool IdbFile::Load(const uint8_t *buf, size_t size)
             entry.name_id = file_entries_new[i].name_id;
             entry.desc_id = file_entries_new[i].desc_id;
             entry.type = file_entries_new[i].type;
-            entry.unk_0A = file_entries_new[i].unk_0A;
-            entry.unk_0C = file_entries_new[i].old_unk_0C;
+            entry.dlc_flag = file_entries_new[i].unk_0A;
+            entry.availability = file_entries_new[i].old_unk_0C;
             entry.unk_0E = file_entries_new[i].old_unk_0E;
             entry.buy = file_entries_new[i].buy;
             entry.sell = file_entries_new[i].sell;
@@ -392,8 +392,8 @@ bool IdbFile::Load(const uint8_t *buf, size_t size)
             entry.name_id = file_entries[i].name_id;
             entry.desc_id = file_entries[i].desc_id;
             entry.type = file_entries[i].type;
-            entry.unk_0A = file_entries[i].unk_0A;
-            entry.unk_0C = file_entries[i].unk_0C;
+            entry.dlc_flag = file_entries[i].unk_0A;
+            entry.availability = file_entries[i].unk_0C;
             entry.unk_0E = file_entries[i].unk_0E;
             entry.buy = file_entries[i].buy;
             entry.sell = file_entries[i].sell;
@@ -515,8 +515,8 @@ uint8_t *IdbFile::Save(size_t *psize)
             file_entries_new[i].name_id = entry.name_id;
             file_entries_new[i].desc_id = entry.desc_id;
             file_entries_new[i].type = entry.type;
-            file_entries_new[i].unk_0A = entry.unk_0A;
-            file_entries_new[i].old_unk_0C = entry.unk_0C;
+            file_entries_new[i].unk_0A = entry.dlc_flag;
+            file_entries_new[i].old_unk_0C = entry.availability;
             file_entries_new[i].old_unk_0E = entry.unk_0E;
             file_entries_new[i].buy = entry.buy;
             file_entries_new[i].sell = entry.sell;
@@ -533,8 +533,8 @@ uint8_t *IdbFile::Save(size_t *psize)
             file_entries[i].name_id = entry.name_id;
             file_entries[i].desc_id = entry.desc_id;
             file_entries[i].type = entry.type;
-            file_entries[i].unk_0A = entry.unk_0A;
-            file_entries[i].unk_0C = entry.unk_0C;
+            file_entries[i].unk_0A = entry.dlc_flag;
+            file_entries[i].unk_0C = entry.availability;
             file_entries[i].unk_0E = entry.unk_0E;
             file_entries[i].buy = entry.buy;
             file_entries[i].sell = entry.sell;

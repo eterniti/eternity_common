@@ -261,8 +261,8 @@ struct IdbEntry
     uint16_t name_id;
     uint16_t desc_id;
     uint16_t type;
-    uint16_t unk_0A;
-    uint16_t unk_0C;
+    uint16_t dlc_flag;
+    uint16_t availability;
     uint16_t unk_0E;
     uint32_t buy;
     uint32_t sell;
@@ -280,7 +280,7 @@ struct IdbEntry
         id = 0xFFFF;
         stars = 0;
         name_id = desc_id = 0xFFFF;
-        type = unk_0A = unk_0C = unk_0E = 0;
+        type = dlc_flag = availability = unk_0E = 0;
         buy = sell = racelock = 0;
         tp = model = 0;
         unk_24[0] = unk_24[1] = unk_24[2] = 0;
