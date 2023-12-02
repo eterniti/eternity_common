@@ -10,6 +10,8 @@ private:
 
     std::vector<CpkFile *> cpks;
     std::unordered_set<std::string> directories;
+    std::unordered_set<std::string> directories_cpk;
+    std::unordered_set<std::string> directories_loose;
 
     static bool BuildVisitor(const std::string &path, bool, void *param);
     static bool VisitVisitor(const std::string &path, bool, void *param);
@@ -51,8 +53,10 @@ public:
     bool DecompileFile(BaseFile *file, const std::string &path);
 
     bool FileExists(const std::string &file, bool check_cpk = true, bool check_loose = true);
+    bool DirExists(const std::string &dir, bool check_cpk = true, bool check_loose = true);
 
     bool VisitDirectory(const std::string &path, bool files, bool directories, bool recursive, bool (* visitor)(const std::string &path, bool is_directory, void *custom_param), void *custom_param=nullptr);
+    bool ListDirectory(const std::string &path, std::vector<std::string> &out_paths, bool files, bool directories, bool recursive);
 };
 
 #endif // __CRIFS_H__

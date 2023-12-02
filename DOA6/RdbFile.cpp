@@ -4,7 +4,7 @@
 #include "MemoryStream.h"
 #include "debug.h"
 
-#define OPPW4
+//#define OPPW4
 
 #ifndef OPPW4
 #include "hashes/additional_fn_ce.h"

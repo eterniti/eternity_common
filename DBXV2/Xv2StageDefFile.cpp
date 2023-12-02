@@ -22,14 +22,16 @@ const std::vector<std::string> xv2_native_lang_codes =
     "ru"
 };
 
-TiXmlElement *Xv2StageGate::Decompile(TiXmlNode *root) const
+TiXmlElement *Xv2StageGate::Decompile(TiXmlNode *root, bool gbb) const
 {
-    TiXmlElement *entry_root = new TiXmlElement("Gate");
+    TiXmlElement *entry_root = new TiXmlElement((gbb) ? "GateGBB" : "Gate");
 
     Utils::WriteParamString(entry_root, "NAME", name);
     Utils::WriteParamUnsigned(entry_root, "TARGET_STAGE_IDX", target_stage_idx, (target_stage_idx==0xFFFFFFFF));
     Utils::WriteParamUnsigned(entry_root, "U_0C", unk_0C, true);
     Utils::WriteParamUnsigned(entry_root, "U_10", unk_10, true);
+	Utils::WriteParamUnsigned(entry_root, "U_14", unk_14, true);
+	Utils::WriteParamUnsigned(entry_root, "U_18", unk_18, true);
 
     root->LinkEndChild(entry_root);
     return entry_root;
@@ -48,6 +50,13 @@ bool Xv2StageGate::Compile(const TiXmlElement *root)
 
     if (!Utils::GetParamUnsigned(root, "U_10", &unk_10))
         return false;
+	
+	// New in 1.21. If they don't exist, set to default values
+    if (!Utils::ReadParamUnsigned(root, "U_14", &unk_14))
+		unk_14 = 0xFFFFFFFF;
+	
+	if (!Utils::ReadParamUnsigned(root, "U_18", &unk_18))
+		unk_18 = 0;
 
     return true;
 }
@@ -173,7 +182,7 @@ TiXmlElement *Xv2Stage::Decompile(TiXmlNode *root, uint32_t idx) const
     TiXmlElement *entry_root = new TiXmlElement("Stage");
     entry_root->SetAttribute("idx", idx);
 
-    if (ssid != 0xFF)
+    if (ssid >= 0)
         entry_root->SetAttribute("ssid", ssid);
 
 #ifndef XV2_STAGEDEF_SIMPLE
@@ -199,7 +208,7 @@ TiXmlElement *Xv2Stage::Decompile(TiXmlNode *root, uint32_t idx) const
     Utils::WriteParamString(entry_root, "SE", se);
     Utils::WriteParamUnsigned(entry_root, "BGM_CUE_ID", bgm_cue_id);
 
-    if (idx >= XV2_ORIGINAL_NUM_STAGES && ssid != 0xFF && ssid >= XV2_ORIGINAL_NUM_SS_STAGES)
+    if (idx >= XV2_ORIGINAL_NUM_STAGES && ssid >= XV2_ORIGINAL_NUM_SS_STAGES)
     {
         for (int i = 0; i < XV2_NATIVE_LANG_NUM; i++)
         {
@@ -219,7 +228,10 @@ TiXmlElement *Xv2Stage::Decompile(TiXmlNode *root, uint32_t idx) const
     Utils::WriteParamFloat(entry_root, "LIMIT", limit);
 
     for (size_t i = 0; i < XV2_STA_NUM_GATES; i++)
-        gates[i].Decompile(entry_root);
+        gates[i].Decompile(entry_root, false);
+	
+    for (size_t i = 0; i < XV2_STA_NUM_GATES; i++)
+        gates_gbb[i].Decompile(entry_root, true);
 
     root->LinkEndChild(entry_root);
     return entry_root;
@@ -227,8 +239,8 @@ TiXmlElement *Xv2Stage::Decompile(TiXmlNode *root, uint32_t idx) const
 
 bool Xv2Stage::Compile(const TiXmlElement *root)
 {
-    if (!Utils::ReadAttrUnsigned(root, "ssid", &ssid))
-        ssid = 0xFF;
+    if (!Utils::ReadAttrSigned(root, "ssid", &ssid))
+        ssid = -1;
 
     if (!Utils::GetParamString(root, "BASE_DIR", base_dir))
         return false;
@@ -269,7 +281,7 @@ bool Xv2Stage::Compile(const TiXmlElement *root)
     if (!Utils::ReadParamFloat(root, "LIMIT", &limit))
         limit = 500.0f;
 
-    size_t idx = 0;
+    size_t idx = 0, idx_gbb = 0;
 
     for (const TiXmlElement *elem = root->FirstChildElement(); elem; elem = elem->NextSiblingElement())
     {
@@ -282,6 +294,17 @@ bool Xv2Stage::Compile(const TiXmlElement *root)
             }
 
             if (!gates[idx++].Compile(elem))
+                return false;
+        }
+		else if (elem->ValueStr() == "GateGBB")
+        {
+            if (idx_gbb >= XV2_STA_NUM_GATES)
+            {
+                DPRINTF("%s: Too many GBB gates in stage %s\n", FUNCNAME, code.c_str());
+                return false;
+            }
+
+            if (!gates_gbb[idx_gbb++].Compile(elem))
                 return false;
         }
     }
@@ -359,7 +382,7 @@ bool Xv2StageDefFile::Compile(TiXmlDocument *doc, bool)
     std::vector<bool> used;
     used.resize(n, false);
 
-    uint8_t max_ssid = 0;
+    int32_t max_ssid = 0;
 
     for (const TiXmlElement *elem = root->FirstChildElement(); elem; elem = elem->NextSiblingElement())
     {
@@ -389,7 +412,7 @@ bool Xv2StageDefFile::Compile(TiXmlDocument *doc, bool)
                 return false;
             }
 
-            if (stage.ssid != 0xFF)
+            if (stage.ssid >= 0)
             {
                 if (ssids_set.find(stage.ssid) != ssids_set.end())
                 {
@@ -403,7 +426,7 @@ bool Xv2StageDefFile::Compile(TiXmlDocument *doc, bool)
                     max_ssid = stage.ssid;
             }
 
-            if (stage.ssid == 0xFF || stage.ssid < XV2_ORIGINAL_NUM_SS_STAGES || idx < XV2_ORIGINAL_NUM_STAGES)
+            if (stage.ssid < 0 || stage.ssid < XV2_ORIGINAL_NUM_SS_STAGES || idx < XV2_ORIGINAL_NUM_STAGES)
             {
                 for (std::string &s : stage.name)
                     s.clear();
@@ -414,7 +437,7 @@ bool Xv2StageDefFile::Compile(TiXmlDocument *doc, bool)
         }
     }
 
-    if (max_ssid != (ssids_set.size()-1))
+    if (max_ssid != (int32_t)(ssids_set.size()-1))
     {
         DPRINTF("%s Ssids must use a consecutive range.\n", FUNCNAME);
         return false;
@@ -437,7 +460,7 @@ static void FixPointers(size_t base_addr, const void *base_ptr, void *pointers, 
     }
 }
 
-bool Xv2StageDefFile::LoadFromDump(size_t stage_num, size_t base_addr, const void *base_ptr, void *def1_buf, size_t playable_stage_num, const void *ssid_buf, const void *f6_buf, const void *def2_buf, const void *sounds_buf, const void *music_buf, const char **eve_dump)
+bool Xv2StageDefFile::LoadFromDump(size_t stage_num, size_t base_addr, const void *base_ptr, void *def1_buf, size_t playable_stage_num, const void *ssid_buf, const void *f6_buf, const void *def2_buf, const void *def2_buf_gbb, const void *sounds_buf, const void *music_buf, const char **eve_dump)
 {
     Reset();
     stages.resize(stage_num);
@@ -470,7 +493,7 @@ bool Xv2StageDefFile::LoadFromDump(size_t stage_num, size_t base_addr, const voi
             return false;
         }
 
-        stages[idx].ssid = (uint8_t)i;
+        stages[idx].ssid = (int32_t)i;
     }
 
     const float *f6s = (const float *)f6_buf;
@@ -494,6 +517,27 @@ bool Xv2StageDefFile::LoadFromDump(size_t stage_num, size_t base_addr, const voi
             stage.gates[j].target_stage_idx = gates[j].target_stage_idx;
             stage.gates[j].unk_0C = gates[j].unk_0C;
             stage.gates[j].unk_10 = gates[j].unk_10;
+			stage.gates[j].unk_14 = gates[j].unk_14;
+            stage.gates[j].unk_18 = (uint32_t)gates[j].unk_18;
+        }
+    }
+
+    const XV2StageDef2 *defs2_gbb = (const XV2StageDef2 *)def2_buf_gbb;
+
+    for (size_t i = 0; i < stage_num; i++)
+    {
+        const XV2StageGate *gates = defs2_gbb[i].gates;
+        Xv2Stage &stage = stages[i];
+
+        for (int j = 0; j < XV2_STA_NUM_GATES; j++)
+        {
+            FixPointers(base_addr, base_ptr, (void *)&gates[j].name, 1);
+            stage.gates_gbb[j].name = (gates[j].name) ? gates[j].name : "";
+            stage.gates_gbb[j].target_stage_idx = gates[j].target_stage_idx;
+            stage.gates_gbb[j].unk_0C = gates[j].unk_0C;
+            stage.gates_gbb[j].unk_10 = gates[j].unk_10;
+            stage.gates_gbb[j].unk_14 = gates[j].unk_14;
+            stage.gates_gbb[j].unk_18 = (uint32_t)gates[j].unk_18;
         }
     }
 
@@ -562,15 +606,18 @@ void Xv2StageDefFile::BuildSsidMap(void *addr) const
     {
         const Xv2Stage &stage = stages[i];
 
-        if (stage.ssid != 0xFF)
+        if (stage.ssid >= 0)
         {
             ssid_to_idx[stage.ssid] = (uint32_t)i;
         }
     }
 }
 
-Xv2Stage *Xv2StageDefFile::GetStageBySsid(uint8_t ssid)
+Xv2Stage *Xv2StageDefFile::GetStageBySsid(int32_t ssid)
 {
+    if (ssid < 0)
+        return nullptr;
+
     for (Xv2Stage &stage : stages)
     {
         if (stage.ssid == ssid)
@@ -608,9 +655,9 @@ size_t Xv2StageDefFile::AddStage(Xv2Stage &stage, bool add_ssid, bool overwrite)
         if (!overwrite)
             return (size_t)-1;
 
-        uint8_t ssid = existing_stage->ssid;
+        int32_t ssid = existing_stage->ssid;
 
-        if (ssid == 0xFF && add_ssid)
+        if (ssid < 0 && add_ssid)
         {
             if (GetNumSsStages() >= XV2_MAX_STAGES)
             {
@@ -618,7 +665,7 @@ size_t Xv2StageDefFile::AddStage(Xv2Stage &stage, bool add_ssid, bool overwrite)
                 return (size_t)-1;
             }
 
-            ssid = (uint8_t)GetNumSsStages();
+            ssid = (int32_t)GetNumSsStages();
             ssids_set.insert(ssid);
         }
 
@@ -633,9 +680,9 @@ size_t Xv2StageDefFile::AddStage(Xv2Stage &stage, bool add_ssid, bool overwrite)
 
         if (Utils::BeginsWith(this_stage.code, "X2M_FREE", false))
         {
-            uint8_t ssid = this_stage.ssid;
+            int32_t ssid = this_stage.ssid;
 
-            if (ssid == 0xFF && add_ssid)
+            if (ssid < 0 && add_ssid)
             {
                 if (GetNumSsStages() >= XV2_MAX_STAGES)
                 {
@@ -643,7 +690,7 @@ size_t Xv2StageDefFile::AddStage(Xv2Stage &stage, bool add_ssid, bool overwrite)
                     return (size_t)-1;
                 }
 
-                ssid = (uint8_t)GetNumSsStages();
+                ssid = (int32_t)GetNumSsStages();
                 ssids_set.insert(ssid);
             }
 
@@ -667,12 +714,12 @@ size_t Xv2StageDefFile::AddStage(Xv2Stage &stage, bool add_ssid, bool overwrite)
             return (size_t)-1;
         }
 
-        stage.ssid = (uint8_t)GetNumSsStages();
+        stage.ssid = (int32_t)GetNumSsStages();
         ssids_set.insert(stage.ssid);
     }
     else
     {
-        stage.ssid = 0xFF;
+        stage.ssid = -1;
     }
 
     stages.push_back(stage);
@@ -694,17 +741,17 @@ void Xv2StageDefFile::RemoveStage(Xv2Stage &stage)
 
     if (id == (size_t)-1)
     {
-        stage.ssid = 0xFF;
+        stage.ssid = -1;
         return;
     }
 
     stage.ssid = stages[id].ssid;
 
-    if (id == (stages.size()-1) && stage.ssid == (GetNumSsStages()-1))
+    if (id == (stages.size()-1) && stage.ssid == (int32_t)(GetNumSsStages()-1))
     {
         // Can fully remove it
 
-        if (stage.ssid != 0xFF)
+        if (stage.ssid >= 0)
         {
             ssids_set.erase(stage.ssid);
         }

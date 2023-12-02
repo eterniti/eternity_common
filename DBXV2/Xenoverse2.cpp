@@ -28,6 +28,11 @@
 #define GAME_EVASIVE_SKILLS_DESC_PATH   "data/msg/proper_noun_skill_esc_info_"
 #define GAME_AWAKEN_SKILLS_DESC_PATH    "data/msg/proper_noun_skill_met_info_"
 
+#define GAME_SUPER_SKILLS_HOW_PATH      "data/msg/proper_noun_skill_spa_how_"
+#define GAME_ULTIMATE_SKILLS_HOW_PATH   "data/msg/proper_noun_skill_ult_how_"
+#define GAME_EVASIVE_SKILLS_HOW_PATH   "data/msg/proper_noun_skill_esc_how_"
+#define GAME_AWAKEN_SKILLS_HOW_PATH    "data/msg/proper_noun_skill_met_how_"
+
 #define GAME_QUEST_BTLHUD_TEXT_PATH    "data/msg/quest_btlhud_"
 
 #define GAME_CMS_PATH   "data/system/char_model_spec.cms"
@@ -38,22 +43,6 @@
 #define GAME_SEV_PATH   "data/system/special_event_voice.sev"
 #define GAME_CML_PATH   "data/system/CameraLimitValue.cml"
 #define GAME_HCI_PATH   "data/ui/CharaImage/chara_image.hci"
-#define GAME_HCI2_PATH  "data/ui/CharaImage/chara_image_day1.hci"
-#define GAME_HCI3_PATH  "data/ui/CharaImage/chara_image_TU1.hci"
-#define GAME_HCI4_PATH  "data/ui/CharaImage/chara_image_TU2.hci"
-#define GAME_HCI5_PATH  "data/ui/CharaImage/chara_image_TU3.hci"
-#define GAME_HCI6_PATH  "data/ui/CharaImage/chara_image_TU4.hci"
-#define GAME_HCI7_PATH  "data/ui/CharaImage/chara_image_TU4_5.hci"
-#define GAME_HCI8_PATH  "data/ui/CharaImage/chara_image_TU5.hci"
-#define GAME_HCI9_PATH  "data/ui/CharaImage/chara_image_TU6.hci"
-#define GAME_HCI10_PATH  "data/ui/CharaImage/chara_image_TU7.hci"
-#define GAME_HCI11_PATH  "data/ui/CharaImage/chara_image_TU8.hci"
-#define GAME_HCI12_PATH  "data/ui/CharaImage/chara_image_TU9.hci"
-#define GAME_HCI13_PATH  "data/ui/CharaImage/chara_image_TU10.hci"
-#define GAME_HCI14_PATH  "data/ui/CharaImage/chara_image_TU11.hci"
-#define GAME_HCI15_PATH  "data/ui/CharaImage/chara_image_TU12.hci"
-#define GAME_HCI16_PATH  "data/ui/CharaImage/chara_image_TU13.hci"
-#define GAME_HCI17_PATH  "data/ui/CharaImage/chara_image_TU13_5.hci"
 #define GAME_PSA_PATH   "data/system/parameter_spec_avater.psa"
 #define GAME_PUP_PATH   "data/system/powerup_parameter.pup"
 
@@ -145,341 +134,6 @@ const std::vector<std::string> xv2_lang_codes =
     "kr"
 };
 
-static const std::vector<std::string> original_chars =
-{
-    "CMN", // Not a char, but we want it in this list. Keep it at index 0!
-	"APL",
-    "AVB",
-    "AVC",
-    "BAT",
-    "BDK",
-    "BJK",
-	"BLF",
-    "BLM",
-    "BLS",
-    "BRL",
-    "BUL",
-    "BUM",
-    "BUS",
-    "BUU",
-    "BUZ",
-    "CAB",
-    "CL1",
-    "CL2",
-    "CL3",
-    "CL4",
-    "CLJ",
-    "CMP",
-    "CO2",
-    "COL",
-    "CPY",
-    "CRC",
-    "DBR",
-    "DDR",
-	"DM2",
-	"DMG",
-    "DND",
-    "El0",
-    "FIG",
-    "FIO",
-    "FIT",
-    "FOD",
-    "FOF",
-    "FOV",
-    "FR4",
-    "FR5",
-    "FRG",
-    "FRI",
-    "FRS",
-    "FRZ",
-	"G13",
-    "G16",
-    "G17",
-    "G18",
-    "GBR",
-    "GFR",
-    "GG1",
-    "GGK",
-    "GGT",
-    "GHF",
-    "GHL",
-    "GHM",
-	"GHP",
-	"GIL", 
-    "GHS",
-    "GK4",
-    "GKB",
-    "GKG",
-    "GKS",
-    "GNY",
-    "GOD",
-    "GOK",
-    "GRD",
-    "GTG",
-    "GTX",
-    "GVG",
-    "HIK",
-    "HIT",
-    "HST",
-    "HUF",
-    "HUM",
-    "JCO",
-    "JES",
-    "JNB",
-    "JNG",
-    "KFL",
-    "KLL",
-    "LPA",
-    "MAF",
-    "MAM",
-    "MAP",
-    "MIR",
-    "MRN",
-    "MST",
-    "NAP",
-    "NI0",
-    "NI1",
-    "NI2",
-    "NIL",
-    "NMC",
-    "NP1",
-    "NP2",
-    "NP3",
-    "NP4",
-    "OBB",
-    "OSB",
-    "OSN",
-    "OSV",
-    "OWN",
-    "PAN",
-    "PIC",
-    "POD",
-    "PTN",
-	"R17",
-    "RAD",
-    "RCM",
-    "ROK",
-    "RSB",
-    "S17",
-    "SB2",
-    "SBM",
-    "SCR",
-    "SD1",
-    "SD3",
-    "SD4",
-    "SIN",
-    "SLG",
-    "STD",
-    "STN",
-    "SYF",
-    "SYM",
-    "TE0",
-    "TE1",
-    "TG1",
-    "TG2",
-    "TG3",
-    "TG4",
-    "TG5",
-    "THC",
-    "THG",
-    "THJ",
-    "THK",
-    "TKT",
-    "TLS",
-    "TM0",
-    "TM1",
-    "TOK",
-    "TOW",
-	"TPO",
-    "TRF",
-    "TRS",
-    "TRX",
-    "TSH",
-    "TWP",
-    "TWT",
-    "URN",
-    "VDL",
-    "VDS",
-    "VG4",
-    "VGT",
-    "VTB",
-    "VTO",
-    "WIS",
-    "XEG",
-    "XEN",
-    "YMC",
-    "ZBN",
-    "ZMD",
-    "ZMG",
-    "ZMS",    
-};
-
-static const std::vector<std::string> forbidden_names_new_stage =
-{
-    "LBY",
-    "BFLBB",
-    "BFLBY",
-    "BFPLN",
-    "BFRCK",
-    "BFRCN",
-    "BFNMC",
-    "BFNMS",
-    "BFNMB",
-    "BFTWC",
-    "BFTWN",
-    "BFTWH",
-    "BFCEL",
-    "BFCEB",
-    "BFKOH",
-    "BFSIN",
-    "BFSKY",
-    "BFSEI",
-    "BFKAI",
-    "BFSPE",
-    "BFSPV",
-    "BFICE",
-    "BFTFL",
-    "BFGEN",
-    "BFTEN",
-    "BFUND",
-    "BFTOK",
-    "BFNMT",
-    "DMKOK",
-    "DMNMC",
-    "DMNMS",
-    "DMTWH",
-    "DMDOM",
-    "LBY01",
-    "LBY02",
-    "LBY03",
-    "LBY04",
-    "DMTWH3",
-    "BFLND",
-    "BFLNC",
-    "BFHEL",
-    "LBY05",
-    "NLBY",
-    "NLBY02",
-    "NLBY03",
-    "FLBY01",
-    "FLBY02",
-    "FLBY03",
-    "FLBY04",
-    "FLBY05",
-    "DMTWH2",
-    "BFTRE",
-    "BFBRW",
-    "FLBY03IN",
-    "FLBY04IN",
-    "FLBY05IN",
-    "BFSMT",
-    "LBY06",
-    "BFTWF",
-    "ERR",
-    "TRN",
-    "CHR",
-    "SANDBOX",
-    "NMC",
-    "LBY01_EVE",
-    "BFUND_EVE",
-    "BFKOH_QST",
-    "BFHEL_QST",
-    "DMDOM_EVE",
-    "BFUND_QST",
-    "BFTWN_QST",
-    "BFICE_QST",
-    "BFLBB_EVE",
-    "BFLBB_QST",
-    "BFSPV_QST",
-    "BFSPE_QST",
-    "BFNMB_QST",
-    "BFTWC_EVE",
-    "BFLND_QST",
-    "TEMPLATE",
-    "BFPLN_QST",
-    "DMNMS_EVE",
-    "BFRCK_QST",
-    "BFRCN_QST",
-    "FLBY05IN_EVE",
-    "FLBY03IN_EVE",
-    "DMNMC_QST",
-    "BFSEI_EVE",
-    "NLBYSKY",
-    "BFSMT_EVE",
-    "BFSMT_QST",
-    "FLBY02_EVE",
-    "DMNMC_EVE",
-    "BFTFL_EVE",
-    "BFTWF_EVE",
-    "BFTWF_QST",
-    "FLBY01_EVE",
-    "BFTWH_QST",
-    "BFTWH_EVE",
-    "DMTWH_QST",
-    "FLBY03_EVE",
-    "BFNMC_QST",
-    "FLBY04IN_EVE",
-    "FLBY04_EVE",
-    "FLBY05_EVE",
-    "LBY03_EVE",
-    "LBY04_EVE",
-    "LBY05_EVE",
-    "LBY06_EVE",
-    "NLBY_EVE",
-    "BFBRW_EVE",
-    "BFBRW_QST",
-    "BFCEB_EVE",
-    "BFCEB_QST",
-    "BFCEL_EVE",
-    "BFCEL_QST",
-    "BFGEN_EVE",
-    "BFGEN_QST",
-    "BFHEL_EVE",
-    "BFICE_EVE",
-    "BFKAI_EVE",
-    "BFKAI_QST",
-    "BFKOH_EVE",
-    "BFLBY_QST",
-    "BFLBY_EVE",
-    "BFLNC_EVE",
-    "BFLNC_QST",
-    "BFLND_EVE",
-    "BFNMB_EVE",
-    "LBY_EVE",
-    "BFNMC_EVE",
-    "BFNMS_EVE",
-    "BFNMS_QST",
-    "BFPLN_",
-    "BFPLN_EVE",
-    "BFRCK_EVE",
-    "BFRCN_EVE",
-    "BFSEI_QST",
-    "BFSIN_EVE",
-    "BFSIN_QST",
-    "BFSKY_EVE",
-    "BFTWN_EVE",
-    "BFSKY_QST",
-    "BFSPE_EVE",
-    "BFSPV_EVE",
-    "DMTWH3_QST",
-    "BFTEN_EVE",
-    "BFTEN_QST",
-    "BFTFL_QST",
-    "BFTOK_EVE",
-    "BFTOK_QST",
-    "BFTRE_EVE",
-    "BFTRE_QST",
-    "BFTWC_QST",
-    "CHR_EVE",
-    "DBL",
-    "DMKOK_EVE",
-    "DMTWH03",
-    "DMTWH2_EVE",
-    "DMTWH3_EVE",
-    "DMTWH_EVE",
-    "BFvol",
-};
-
 Xv2Fs *xv2fs;
 Xv2PatcherSlotsFile *chara_list;
 IggyFile *charasele;
@@ -507,6 +161,11 @@ std::vector<MsgFile *> sup_sk_descs;
 std::vector<MsgFile *> ult_sk_descs;
 std::vector<MsgFile *> eva_sk_descs;
 std::vector<MsgFile *> awa_sk_descs;
+
+std::vector<MsgFile *> sup_sk_hows;
+std::vector<MsgFile *> ult_sk_hows;
+std::vector<MsgFile *> eva_sk_hows;
+std::vector<MsgFile *> awa_sk_hows;
 
 std::vector<MsgFile *> quest_btlhud_texts;
 
@@ -892,11 +551,15 @@ bool Xenoverse2::InitSystemFiles(bool only_cms, bool multiple_hci)
     }
     else
     {
+        std::vector<std::string> files;
         std::vector<const uint8_t *> bufs;
         std::vector<size_t> sizes;
 
         size_t size1;
         uint8_t *buf1 = xv2fs->ReadFile(GAME_HCI_PATH, &size1);
+
+        sizes.push_back(size1);
+        bufs.push_back(buf1);
 
         if (!buf1)
         {
@@ -905,211 +568,47 @@ bool Xenoverse2::InitSystemFiles(bool only_cms, bool multiple_hci)
             return false;
         }
 
-        size_t size2;
-        uint8_t *buf2 = xv2fs->ReadFile(GAME_HCI2_PATH, &size2);
-
-        if (!buf2)
+        if (!xv2fs->ListDirectory(Utils::GetDirNameString(GAME_HCI_PATH), files, true, false, false))
         {
-            DPRINTF("%s: failed to read 2nd hci.\n", FUNCNAME);
+            DPRINTF("%s: Failed to list hci directory.\n", FUNCNAME);
             delete[] buf1;
             delete game_hci; game_hci = nullptr;
             return false;
         }
 
-        size_t size3;
-        uint8_t *buf3 = xv2fs->ReadFile(GAME_HCI3_PATH, &size3);
-
-        if (!buf3)
+        for (const std::string &file : files)
         {
-            DPRINTF("%s: failed to read 3rd hci.\n", FUNCNAME);
-            delete[] buf1; delete[] buf2;
-            delete game_hci; game_hci = nullptr;
-            return false;
+            std::string lfile = Utils::ToLowerCase(file);
+            if (Utils::EndsWith(lfile, ".hci") && lfile != Utils::ToLowerCase(GAME_HCI_PATH))
+            {
+                //DPRINTF("Loading hci %s\n", lfile.c_str());
+                size_t size;
+                uint8_t *buf = xv2fs->ReadFile(file, &size);
+                if (buf)
+                {
+                    sizes.push_back(size);
+                    bufs.push_back(buf);
+                }
+                else
+                {
+                    DPRINTF("%s: failed to read hci \"%s\"\n", FUNCNAME, file.c_str());
+
+                    for (size_t i = 0; i < bufs.size(); i++)
+                    {
+                        delete[] bufs[i];
+                    }
+
+                    delete game_hci; game_hci = nullptr;
+                    return false;
+                }
+            }
         }
-
-        size_t size4;
-        uint8_t *buf4 = xv2fs->ReadFile(GAME_HCI4_PATH, &size4);
-
-        if (!buf4)
-        {
-            DPRINTF("%s: failed to read 4th hci.\n", FUNCNAME);
-            delete[] buf1; delete[] buf2; delete[] buf3;
-            delete game_hci; game_hci = nullptr;
-            return false;
-        }
-
-        size_t size5;
-        uint8_t *buf5 = xv2fs->ReadFile(GAME_HCI5_PATH, &size5);
-
-        if (!buf5)
-        {
-            DPRINTF("%s: failed to read 5th hci.\n", FUNCNAME);
-            delete[] buf1; delete[] buf2; delete[] buf3; delete[] buf4;
-            delete game_hci; game_hci = nullptr;
-            return false;
-        }
-
-        size_t size6;
-        uint8_t *buf6 = xv2fs->ReadFile(GAME_HCI6_PATH, &size6);
-
-        if (!buf6)
-        {
-            DPRINTF("%s: failed to read 6th hci.\n", FUNCNAME);
-            delete[] buf1; delete[] buf2; delete[] buf3; delete[] buf4; delete[] buf5;
-            delete game_hci; game_hci = nullptr;
-            return false;
-        }
-
-        size_t size7;
-        uint8_t *buf7 = xv2fs->ReadFile(GAME_HCI7_PATH, &size7);
-
-        if (!buf7)
-        {
-            DPRINTF("%s: failed to read 7th hci.\n", FUNCNAME);
-            delete[] buf1; delete[] buf2; delete[] buf3; delete[] buf4; delete[] buf5; delete[] buf6;
-            delete game_hci; game_hci = nullptr;
-            return false;
-        }
-
-        size_t size8;
-        uint8_t *buf8 = xv2fs->ReadFile(GAME_HCI8_PATH, &size8);
-
-        if (!buf8)
-        {
-            DPRINTF("%s: failed to read 8th hci.\n", FUNCNAME);
-            delete[] buf1; delete[] buf2; delete[] buf3; delete[] buf4; delete[] buf5; delete[] buf6; delete[] buf7;
-            delete game_hci; game_hci = nullptr;
-            return false;
-        }
-
-        size_t size9;
-        uint8_t *buf9 = xv2fs->ReadFile(GAME_HCI9_PATH, &size9);
-
-        if (!buf9)
-        {
-            DPRINTF("%s: failed to read 9th hci.\n", FUNCNAME);
-            delete[] buf1; delete[] buf2; delete[] buf3; delete[] buf4; delete[] buf5;
-            delete[] buf6; delete[] buf7; delete[] buf8;
-            delete game_hci; game_hci = nullptr;
-            return false;
-        }
-
-        size_t size10;
-        uint8_t *buf10 = xv2fs->ReadFile(GAME_HCI10_PATH, &size10);
-
-        if (!buf10)
-        {
-            DPRINTF("%s: failed to read 10th hci.\n", FUNCNAME);
-            delete[] buf1; delete[] buf2; delete[] buf3; delete[] buf4; delete[] buf5;
-            delete[] buf6; delete[] buf7; delete[] buf8; delete[] buf9;
-            delete game_hci; game_hci = nullptr;
-            return false;
-        }
-
-        size_t size11;
-        uint8_t *buf11 = xv2fs->ReadFile(GAME_HCI11_PATH, &size11);
-
-        if (!buf11)
-        {
-            DPRINTF("%s: failed to read 11th hci.\n", FUNCNAME);
-            delete[] buf1; delete[] buf2; delete[] buf3; delete[] buf4; delete[] buf5;
-            delete[] buf6; delete[] buf7; delete[] buf8; delete[] buf9; delete[] buf10;
-            delete game_hci; game_hci = nullptr;
-            return false;
-        }
-
-        size_t size12;
-        uint8_t *buf12 = xv2fs->ReadFile(GAME_HCI12_PATH, &size12);
-
-        if (!buf12)
-        {
-            DPRINTF("%s: failed to read 12th hci.\n", FUNCNAME);
-            delete[] buf1; delete[] buf2; delete[] buf3; delete[] buf4; delete[] buf5;
-            delete[] buf6; delete[] buf7; delete[] buf8; delete[] buf9; delete[] buf10;
-            delete[] buf11;
-            delete game_hci; game_hci = nullptr;
-            return false;
-        }
-
-        size_t size13;
-        uint8_t *buf13 = xv2fs->ReadFile(GAME_HCI13_PATH, &size13);
-
-        if (!buf13)
-        {
-            DPRINTF("%s: failed to read 13th hci.\n", FUNCNAME);
-            delete[] buf1; delete[] buf2; delete[] buf3; delete[] buf4; delete[] buf5;
-            delete[] buf6; delete[] buf7; delete[] buf8; delete[] buf9; delete[] buf10;
-            delete[] buf11; delete[] buf12;
-            delete game_hci; game_hci = nullptr;
-            return false;
-        }
-
-        size_t size14;
-        uint8_t *buf14 = xv2fs->ReadFile(GAME_HCI14_PATH, &size14);
-
-        if (!buf14)
-        {
-            DPRINTF("%s: failed to read 14th hci.\n", FUNCNAME);
-            delete[] buf1; delete[] buf2; delete[] buf3; delete[] buf4; delete[] buf5;
-            delete[] buf6; delete[] buf7; delete[] buf8; delete[] buf9; delete[] buf10;
-            delete[] buf11; delete[] buf12; delete[] buf13;
-            delete game_hci; game_hci = nullptr;
-            return false;
-        }
-
-        size_t size15;
-        uint8_t *buf15 = xv2fs->ReadFile(GAME_HCI15_PATH, &size15);
-
-        if (!buf15)
-        {
-            DPRINTF("%s: failed to read 15th hci.\n", FUNCNAME);
-            delete[] buf1; delete[] buf2; delete[] buf3; delete[] buf4; delete[] buf5;
-            delete[] buf6; delete[] buf7; delete[] buf8; delete[] buf9; delete[] buf10;
-            delete[] buf11; delete[] buf12; delete[] buf13; delete[] buf14;
-            delete game_hci; game_hci = nullptr;
-            return false;
-        }
-
-        size_t size16;
-        uint8_t *buf16 = xv2fs->ReadFile(GAME_HCI16_PATH, &size16);
-
-        if (!buf16)
-        {
-            DPRINTF("%s: failed to read 16th hci.\n", FUNCNAME);
-            delete[] buf1; delete[] buf2; delete[] buf3; delete[] buf4; delete[] buf5;
-            delete[] buf6; delete[] buf7; delete[] buf8; delete[] buf9; delete[] buf10;
-            delete[] buf11; delete[] buf12; delete[] buf13; delete[] buf14; delete[] buf15;
-            delete game_hci; game_hci = nullptr;
-            return false;
-        }
-
-        size_t size17;
-        uint8_t *buf17 = xv2fs->ReadFile(GAME_HCI17_PATH, &size17);
-
-        if (!buf17)
-        {
-            DPRINTF("%s: failed to read 16th hci.\n", FUNCNAME);
-            delete[] buf1; delete[] buf2; delete[] buf3; delete[] buf4; delete[] buf5;
-            delete[] buf6; delete[] buf7; delete[] buf8; delete[] buf9; delete[] buf10;
-            delete[] buf11; delete[] buf12; delete[] buf13; delete[] buf14; delete[] buf15;
-            delete[] buf16;
-            delete game_hci; game_hci = nullptr;
-            return false;
-        }
-
-        bufs.push_back(buf1); bufs.push_back(buf2); bufs.push_back(buf3); bufs.push_back(buf4); bufs.push_back(buf5);
-        bufs.push_back(buf6); bufs.push_back(buf7); bufs.push_back(buf8); bufs.push_back(buf9); bufs.push_back(buf10);
-        bufs.push_back(buf11); bufs.push_back(buf12); bufs.push_back(buf13); bufs.push_back(buf14); bufs.push_back(buf15);
-        bufs.push_back(buf16); bufs.push_back(buf17);
-        sizes.push_back(size1); sizes.push_back(size2); sizes.push_back(size3); sizes.push_back(size4); sizes.push_back(size5);
-        sizes.push_back(size6); sizes.push_back(size7); sizes.push_back(size8); sizes.push_back(size9); sizes.push_back(size10);
-        sizes.push_back(size11); sizes.push_back(size12); sizes.push_back(size13); sizes.push_back(size14); sizes.push_back(size15);
-        sizes.push_back(size16); sizes.push_back(size17);
 
         bool ret = game_hci->LoadMultiple(bufs, sizes);
-        delete[] buf1; delete[] buf2; delete[] buf3; delete[] buf4; delete[] buf5;
-        delete[] buf6; delete[] buf7; delete[] buf8; delete[] buf9; delete[] buf10;
-        delete[] buf11; delete[] buf12; delete[] buf13; delete[] buf14;
+        for (size_t i = 0; i < bufs.size(); i++)
+        {
+            delete[] bufs[i];
+        }
 
         if (!ret)
         {
@@ -1283,13 +782,6 @@ bool Xenoverse2::InitCharaNames(int only_this_lang)
         if (!xv2fs->LoadFile(game_chara_names[i], path))
         {
             DPRINTF("Failed loading file \"%s\"\n", path.c_str());
-
-            if (i >= XV2_LANG_CHINESE1)
-            {
-                DPRINTF("The file that failed loading is one from the new languages added to 1.04.1 -->v2<--.\n\n"
-                        "UPDATE YOUR GAME, AND IF YOU ARE PIRATING IT, YOU ARE ON YOUR OWN, DON'T COME TO THE FORUMS ASKING FOR HELP.\n");
-            }
-
             return false;
         }
     }
@@ -1373,44 +865,44 @@ bool Xenoverse2::CommitCharaCostumeNames()
     return true;
 }
 
-bool Xenoverse2::InitSkillNames(int only_this_lang)
+static bool InitSkillMsgCommon(int only_this_lang, std::vector<MsgFile *> &sup_msgs, std::vector<MsgFile *> &ult_msgs, std::vector<MsgFile *> &eva_msgs, std::vector<MsgFile *> &awa_msgs, const std::string &sup_path, const std::string &ult_path, const std::string &eva_path, const std::string &awa_path)
 {
     if (!xv2fs)
         return false;
 
-    for (MsgFile *msg : sup_sk_names)
+    for (MsgFile *msg : sup_msgs)
     {
         if (msg)
             delete msg;
     }
 
-    for (MsgFile *msg : ult_sk_names)
+    for (MsgFile *msg : ult_msgs)
     {
         if (msg)
             delete msg;
     }
 
-    for (MsgFile *msg : eva_sk_names)
+    for (MsgFile *msg : eva_msgs)
     {
         if (msg)
             delete msg;
     }
 
-    for (MsgFile *msg : awa_sk_names)
+    for (MsgFile *msg : awa_msgs)
     {
         if (msg)
             delete msg;
     }
 
-    sup_sk_names.clear();
-    ult_sk_names.clear();
-    eva_sk_names.clear();
-    awa_sk_names.clear();
+    sup_msgs.clear();
+    ult_msgs.clear();
+    eva_msgs.clear();
+    awa_msgs.clear();
 
-    sup_sk_names.resize(XV2_LANG_NUM);
-    ult_sk_names.resize(XV2_LANG_NUM);
-    eva_sk_names.resize(XV2_LANG_NUM);
-    awa_sk_names.resize(XV2_LANG_NUM);
+    sup_msgs.resize(XV2_LANG_NUM);
+    ult_msgs.resize(XV2_LANG_NUM);
+    eva_msgs.resize(XV2_LANG_NUM);
+    awa_msgs.resize(XV2_LANG_NUM);
 
     for (int i = 0; i < XV2_LANG_NUM; i++)
     {
@@ -1418,42 +910,94 @@ bool Xenoverse2::InitSkillNames(int only_this_lang)
             continue;
 
         {
-            std::string path = GAME_SUPER_SKILLS_NAME_PATH + xv2_lang_codes[i] + ".msg";
-            sup_sk_names[i] = new MsgFile();
+            std::string path = sup_path + xv2_lang_codes[i] + ".msg";
+            sup_msgs[i] = new MsgFile();
 
-            if (!xv2fs->LoadFile(sup_sk_names[i], path))
-            {
-                if (i >= XV2_LANG_CHINESE1)
-                {
-                    DPRINTF("The file that failed loading is one from the new languages added to 1.04.1 -->v2<--.\n\n"
-                            "UPDATE YOUR GAME, AND IF YOU ARE PIRATING IT, YOU ARE ON YOUR OWN, DON'T COME TO THE FORUMS ASKING FOR HELP.\n");
-                }
-
-                return false;
-            }
-        }
-
-        {
-            std::string path = GAME_ULTIMATE_SKILLS_NAME_PATH + xv2_lang_codes[i] + ".msg";
-            ult_sk_names[i] = new MsgFile();
-
-            if (!xv2fs->LoadFile(ult_sk_names[i], path))
+            if (!xv2fs->LoadFile(sup_msgs[i], path))
                 return false;
         }
 
         {
-            std::string path = GAME_EVASIVE_SKILLS_NAME_PATH + xv2_lang_codes[i] + ".msg";
-            eva_sk_names[i] = new MsgFile();
+            std::string path = ult_path + xv2_lang_codes[i] + ".msg";
+            ult_msgs[i] = new MsgFile();
 
-            if (!xv2fs->LoadFile(eva_sk_names[i], path))
+            if (!xv2fs->LoadFile(ult_msgs[i], path))
                 return false;
         }
 
         {
-            std::string path = GAME_AWAKEN_SKILLS_NAME_PATH + xv2_lang_codes[i] + ".msg";
-            awa_sk_names[i] = new MsgFile();
+            std::string path = eva_path + xv2_lang_codes[i] + ".msg";
+            eva_msgs[i] = new MsgFile();
 
-            if (!xv2fs->LoadFile(awa_sk_names[i], path))
+            if (!xv2fs->LoadFile(eva_msgs[i], path))
+                return false;
+        }
+
+        {
+            std::string path = awa_path + xv2_lang_codes[i] + ".msg";
+            awa_msgs[i] = new MsgFile();
+
+            if (!xv2fs->LoadFile(awa_msgs[i], path))
+                return false;
+        }
+    }
+
+    return true;
+}
+
+bool Xenoverse2::InitSkillNames(int only_this_lang)
+{
+    return InitSkillMsgCommon(only_this_lang, sup_sk_names, ult_sk_names, eva_sk_names, awa_sk_names, GAME_SUPER_SKILLS_NAME_PATH, GAME_ULTIMATE_SKILLS_NAME_PATH, GAME_EVASIVE_SKILLS_NAME_PATH, GAME_AWAKEN_SKILLS_NAME_PATH);
+}
+
+bool Xenoverse2::InitSkillDescs(int only_this_lang)
+{
+    return InitSkillMsgCommon(only_this_lang, sup_sk_descs, ult_sk_descs, eva_sk_descs, awa_sk_descs, GAME_SUPER_SKILLS_DESC_PATH, GAME_ULTIMATE_SKILLS_DESC_PATH, GAME_EVASIVE_SKILLS_DESC_PATH, GAME_AWAKEN_SKILLS_DESC_PATH);
+}
+
+bool Xenoverse2::InitSkillHows(int only_this_lang)
+{
+    return InitSkillMsgCommon(only_this_lang, sup_sk_hows, ult_sk_hows, eva_sk_hows, awa_sk_hows, GAME_SUPER_SKILLS_HOW_PATH, GAME_ULTIMATE_SKILLS_HOW_PATH, GAME_EVASIVE_SKILLS_HOW_PATH, GAME_AWAKEN_SKILLS_HOW_PATH);
+}
+
+static bool CommitSkillMsgCommon(bool dynamic_load, std::vector<MsgFile *> &sup_msgs, std::vector<MsgFile *> &ult_msgs, std::vector<MsgFile *> &eva_msgs, std::vector<MsgFile *> &awa_msgs, const std::string &sup_path, const std::string &ult_path, const std::string &eva_path, const std::string &awa_path)
+{
+    if (!xv2fs)
+        return false;
+
+    if (sup_msgs.size() != XV2_LANG_NUM || ult_msgs.size() != XV2_LANG_NUM ||
+        eva_msgs.size() != XV2_LANG_NUM || awa_msgs.size() != XV2_LANG_NUM)
+    {
+        return dynamic_load; // On dynamic load, if initialization hasn't happened, commit must return true
+    }
+
+    for (int i = 0; i < XV2_LANG_NUM; i++)
+    {
+        {
+            std::string path = sup_path + xv2_lang_codes[i] + ".msg";
+
+            if (!xv2fs->SaveFile(sup_msgs[i], path))
+                return false;
+        }
+
+        {
+            std::string path = ult_path + xv2_lang_codes[i] + ".msg";
+
+            if (!xv2fs->SaveFile(ult_msgs[i], path))
+                return false;
+        }
+
+        {
+            std::string path = eva_path + xv2_lang_codes[i] + ".msg";
+
+            if (!xv2fs->SaveFile(eva_msgs[i], path))
+                return false;
+        }
+
+        {
+            std::string path = awa_path + xv2_lang_codes[i] + ".msg";
+
+            if (!xv2fs->SaveFile(awa_msgs[i], path))
                 return false;
         }
     }
@@ -1463,174 +1007,17 @@ bool Xenoverse2::InitSkillNames(int only_this_lang)
 
 bool Xenoverse2::CommitSkillNames()
 {
-    if (!xv2fs || sup_sk_names.size() != XV2_LANG_NUM || ult_sk_names.size() != XV2_LANG_NUM ||
-        eva_sk_names.size() != XV2_LANG_NUM || awa_sk_names.size() != XV2_LANG_NUM)
-    {
-        return false;
-    }
-
-    for (int i = 0; i < XV2_LANG_NUM; i++)
-    {
-        {
-            std::string path = GAME_SUPER_SKILLS_NAME_PATH + xv2_lang_codes[i] + ".msg";
-
-            if (!xv2fs->SaveFile(sup_sk_names[i], path))
-                return false;
-        }
-
-        {
-            std::string path = GAME_ULTIMATE_SKILLS_NAME_PATH + xv2_lang_codes[i] + ".msg";
-
-            if (!xv2fs->SaveFile(ult_sk_names[i], path))
-                return false;
-        }
-
-        {
-            std::string path = GAME_EVASIVE_SKILLS_NAME_PATH + xv2_lang_codes[i] + ".msg";
-
-            if (!xv2fs->SaveFile(eva_sk_names[i], path))
-                return false;
-        }
-
-        {
-            std::string path = GAME_AWAKEN_SKILLS_NAME_PATH + xv2_lang_codes[i] + ".msg";
-
-            if (!xv2fs->SaveFile(awa_sk_names[i], path))
-                return false;
-        }
-    }
-
-    return true;
-}
-
-bool Xenoverse2::InitSkillDescs(int only_this_lang)
-{
-    if (!xv2fs)
-        return false;
-
-    for (MsgFile *msg : sup_sk_descs)
-    {
-        if (msg)
-            delete msg;
-    }
-
-    for (MsgFile *msg : ult_sk_descs)
-    {
-        if (msg)
-            delete msg;
-    }
-
-    for (MsgFile *msg : eva_sk_descs)
-    {
-        if (msg)
-            delete msg;
-    }
-
-    for (MsgFile *msg : awa_sk_descs)
-    {
-        if (msg)
-            delete msg;
-    }
-
-    sup_sk_descs.clear();
-    ult_sk_descs.clear();
-    eva_sk_descs.clear();
-    awa_sk_descs.clear();
-
-    sup_sk_descs.resize(XV2_LANG_NUM);
-    ult_sk_descs.resize(XV2_LANG_NUM);
-    eva_sk_descs.resize(XV2_LANG_NUM);
-    awa_sk_descs.resize(XV2_LANG_NUM);
-
-    for (int i = 0; i < XV2_LANG_NUM; i++)
-    {
-        if (only_this_lang >= 0 && i != only_this_lang)
-            continue;
-
-        {
-            std::string path = GAME_SUPER_SKILLS_DESC_PATH + xv2_lang_codes[i] + ".msg";
-            sup_sk_descs[i] = new MsgFile();
-
-            if (!xv2fs->LoadFile(sup_sk_descs[i], path))
-            {
-                if (i >= XV2_LANG_CHINESE1)
-                {
-                    DPRINTF("The file that failed loading is one from the new languages added to 1.04.1 -->v2<--.\n\n"
-                            "UPDATE YOUR GAME, AND IF YOU ARE PIRATING IT, YOU ARE ON YOUR OWN, DON'T COME TO THE FORUMS ASKING FOR HELP.\n");
-                }
-
-                return false;
-            }
-        }
-
-        {
-            std::string path = GAME_ULTIMATE_SKILLS_DESC_PATH + xv2_lang_codes[i] + ".msg";
-            ult_sk_descs[i] = new MsgFile();
-
-            if (!xv2fs->LoadFile(ult_sk_descs[i], path))
-                return false;
-        }
-
-        {
-            std::string path = GAME_EVASIVE_SKILLS_DESC_PATH + xv2_lang_codes[i] + ".msg";
-            eva_sk_descs[i] = new MsgFile();
-
-            if (!xv2fs->LoadFile(eva_sk_descs[i], path))
-                return false;
-        }
-
-        {
-            std::string path = GAME_AWAKEN_SKILLS_DESC_PATH + xv2_lang_codes[i] + ".msg";
-            awa_sk_descs[i] = new MsgFile();
-
-            if (!xv2fs->LoadFile(awa_sk_descs[i], path))
-                return false;
-        }
-    }
-
-    return true;
+    return CommitSkillMsgCommon(false, sup_sk_names, ult_sk_names, eva_sk_names, awa_sk_names, GAME_SUPER_SKILLS_NAME_PATH, GAME_ULTIMATE_SKILLS_NAME_PATH, GAME_EVASIVE_SKILLS_NAME_PATH, GAME_AWAKEN_SKILLS_NAME_PATH);
 }
 
 bool Xenoverse2::CommitSkillDescs()
 {
-    if (!xv2fs || sup_sk_descs.size() != XV2_LANG_NUM || ult_sk_descs.size() != XV2_LANG_NUM ||
-        eva_sk_descs.size() != XV2_LANG_NUM || awa_sk_descs.size() != XV2_LANG_NUM)
-    {
-        return false;
-    }
+    return CommitSkillMsgCommon(false, sup_sk_descs, ult_sk_descs, eva_sk_descs, awa_sk_descs, GAME_SUPER_SKILLS_DESC_PATH, GAME_ULTIMATE_SKILLS_DESC_PATH, GAME_EVASIVE_SKILLS_DESC_PATH, GAME_AWAKEN_SKILLS_DESC_PATH);
+}
 
-    for (int i = 0; i < XV2_LANG_NUM; i++)
-    {
-        {
-            std::string path = GAME_SUPER_SKILLS_DESC_PATH + xv2_lang_codes[i] + ".msg";
-
-            if (!xv2fs->SaveFile(sup_sk_descs[i], path))
-                return false;
-        }
-
-        {
-            std::string path = GAME_ULTIMATE_SKILLS_DESC_PATH + xv2_lang_codes[i] + ".msg";
-
-            if (!xv2fs->SaveFile(ult_sk_descs[i], path))
-                return false;
-        }
-
-        {
-            std::string path = GAME_EVASIVE_SKILLS_DESC_PATH + xv2_lang_codes[i] + ".msg";
-
-            if (!xv2fs->SaveFile(eva_sk_descs[i], path))
-                return false;
-        }
-
-        {
-            std::string path = GAME_AWAKEN_SKILLS_DESC_PATH + xv2_lang_codes[i] + ".msg";
-
-            if (!xv2fs->SaveFile(awa_sk_descs[i], path))
-                return false;
-        }
-    }
-
-    return true;
+bool Xenoverse2::CommitSkillHows()
+{
+    return CommitSkillMsgCommon(true, sup_sk_hows, ult_sk_hows, eva_sk_hows, awa_sk_hows, GAME_SUPER_SKILLS_HOW_PATH, GAME_ULTIMATE_SKILLS_HOW_PATH, GAME_EVASIVE_SKILLS_HOW_PATH, GAME_AWAKEN_SKILLS_HOW_PATH);
 }
 
 bool Xenoverse2::InitBtlHudText(int only_this_lang)
@@ -1676,7 +1063,6 @@ bool Xenoverse2::CommitBtlHudText()
 
         if (!xv2fs->SaveFile(quest_btlhud_texts[i], path))
             return false;
-
     }
 
     return true;
@@ -2602,7 +1988,6 @@ bool Xenoverse2::InitBgm()
     return true;
 }
 
-
 bool Xenoverse2::SetAcbAwbData(AcbFile *acb, AwbFile *awb)
 {
     if (acb->HasAwbHeader())
@@ -2864,17 +2249,26 @@ bool Xenoverse2::GetCharaCodeFromId(uint32_t id, std::string &code)
 
 bool Xenoverse2::IsOriginalChara(const std::string &short_name)
 {
-    //if (original_chars.size() != 154)
-    //    DPRINTF("Correct the list %Id!", original_chars.size());
+    if (!xv2fs)
+    {
+        DPRINTF("%s: xv2fs must be loaded for this function to work.\n", FUNCNAME);
+        return false;
+    }
 
     std::string upper_name = Utils::ToUpperCase(short_name);
-    return (std::find(original_chars.begin(), original_chars.end(), upper_name) != original_chars.end());
+    return xv2fs->DirExists("/data/chara/" + upper_name, true, false);
 }
 
 bool Xenoverse2::IsForbiddenNewStageName(const std::string &name)
 {
+    if (!xv2fs)
+    {
+        DPRINTF("%s: xv2fs must be loaded for this function to work.\n", FUNCNAME);
+        return false;
+    }
+
     std::string upper_name = Utils::ToUpperCase(name);
-    return (std::find(forbidden_names_new_stage.begin(),forbidden_names_new_stage.end(), upper_name) != forbidden_names_new_stage.end());
+    return xv2fs->DirExists("/data/stage/" + upper_name, true, false);
 }
 
 static bool InjectSwfAndDelete(const std::string &path)
@@ -3088,412 +2482,262 @@ bool Xenoverse2::RemoveCharaCostumeName(const std::string &code, int var, int mo
     return game_chara_costume_names[lang]->RemoveEntry(entry_name);
 }
 
-bool Xenoverse2::GetSuperSkillName(uint16_t name_id, std::string &name, int lang)
+static bool GetSkillMsgCommon(std::vector<MsgFile *> &msgs, uint16_t name_id, std::string &out, const std::string &prefix, int lang)
 {
-    if (!xv2fs || sup_sk_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
+    if (!xv2fs || msgs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
         return false;
 
-    std::string entry_name = "spe_skill_" + Utils::ToStringAndPad(name_id, 4);
-    MsgEntry *entry = sup_sk_names[lang]->FindEntryByName(entry_name);
+    std::string entry_name = prefix + Utils::ToStringAndPad(name_id, 4);
+    MsgEntry *entry = msgs[lang]->FindEntryByName(entry_name);
 
     if (!entry)
         return false;
 
-    name = UnescapeHtml(entry->lines[0]);
+    out = Xenoverse2::UnescapeHtml(entry->lines[0]);
     return true;
+}
+
+static bool SetSkillMsgCommon(std::vector<MsgFile *> &msgs, uint16_t name_id, const std::string &in, const std::string &prefix, int lang)
+{
+    if (!xv2fs || msgs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
+        return false;
+
+    std::string entry_name = prefix + Utils::ToStringAndPad(name_id, 4);
+    MsgEntry *entry = msgs[lang]->FindEntryByName(entry_name);
+
+    if (entry)
+    {
+        entry->lines.resize(1);
+        entry->lines[0] = Xenoverse2::EscapeHtml(in);
+    }
+    else
+    {
+        MsgEntry entry;
+
+        entry.name = entry_name;
+        entry.lines.push_back(Xenoverse2::EscapeHtml(in));
+
+        if (!msgs[lang]->AddEntry(entry, true))
+            return false;
+    }
+
+    return true;
+}
+
+static bool RemoveSkillMsgCommon(std::vector<MsgFile *> &msgs, uint16_t name_id, const std::string &prefix, int lang)
+{
+    if (!xv2fs || msgs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
+        return false;
+
+    std::string entry_name = prefix + Utils::ToStringAndPad(name_id, 4);
+    return msgs[lang]->RemoveEntry(entry_name);
+}
+
+bool Xenoverse2::GetSuperSkillName(uint16_t name_id, std::string &name, int lang)
+{
+    return GetSkillMsgCommon(sup_sk_names, name_id, name, "spe_skill_", lang);
 }
 
 bool Xenoverse2::GetUltimateSkillName(uint16_t name_id, std::string &name, int lang)
 {
-    if (!xv2fs || ult_sk_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    std::string entry_name = "ult_" + Utils::ToStringAndPad(name_id, 4);
-    MsgEntry *entry = ult_sk_names[lang]->FindEntryByName(entry_name);
-
-    if (!entry)
-        return false;
-
-    name = UnescapeHtml(entry->lines[0]);
-    return true;
+    return GetSkillMsgCommon(ult_sk_names, name_id, name, "ult_", lang);
 }
 
 bool Xenoverse2::GetEvasiveSkillName(uint16_t name_id, std::string &name, int lang)
 {
-    if (!xv2fs || eva_sk_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    std::string entry_name = "avoid_skill_" + Utils::ToStringAndPad(name_id, 4);
-    MsgEntry *entry = eva_sk_names[lang]->FindEntryByName(entry_name);
-
-    if (!entry)
-        return false;
-
-    name = UnescapeHtml(entry->lines[0]);
-    return true;
+    return GetSkillMsgCommon(eva_sk_names, name_id, name, "avoid_skill_", lang);
 }
 
 bool Xenoverse2::GetAwakenSkillName(uint16_t name_id, std::string &name, int lang)
 {
-    if (!xv2fs || awa_sk_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    std::string entry_name = "met_skill_" + Utils::ToStringAndPad(name_id, 4);
-    MsgEntry *entry = awa_sk_names[lang]->FindEntryByName(entry_name);
-
-    if (!entry)
-        return false;
-
-    name = UnescapeHtml(entry->lines[0]);
-    return true;
+    return GetSkillMsgCommon(awa_sk_names, name_id, name, "met_skill_", lang);
 }
 
 bool Xenoverse2::SetSuperSkillName(uint16_t name_id, const std::string &name, int lang)
 {
-    if (!xv2fs || sup_sk_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    std::string entry_name = "spe_skill_" + Utils::ToStringAndPad(name_id, 4);
-    MsgEntry *entry = sup_sk_names[lang]->FindEntryByName(entry_name);
-
-    if (entry)
-    {
-        entry->lines.resize(1);
-        entry->lines[0] = EscapeHtml(name);
-    }
-    else
-    {
-        MsgEntry entry;
-
-        entry.name = entry_name;
-        entry.lines.push_back(EscapeHtml(name));
-
-        if (!sup_sk_names[lang]->AddEntry(entry, true))
-            return false;
-    }
-
-    return true;
+    return SetSkillMsgCommon(sup_sk_names, name_id, name, "spe_skill_", lang);
 }
 
 bool Xenoverse2::SetUltimateSkillName(uint16_t name_id, const std::string &name, int lang)
 {
-    if (!xv2fs || ult_sk_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    std::string entry_name = "ult_" + Utils::ToStringAndPad(name_id, 4);
-    MsgEntry *entry = ult_sk_names[lang]->FindEntryByName(entry_name);
-
-    if (entry)
-    {
-        entry->lines.resize(1);
-        entry->lines[0] = EscapeHtml(name);
-    }
-    else
-    {
-        MsgEntry entry;
-
-        entry.name = entry_name;
-        entry.lines.push_back(EscapeHtml(name));
-
-        if (!ult_sk_names[lang]->AddEntry(entry, true))
-            return false;
-    }
-
-    return true;
+    return SetSkillMsgCommon(ult_sk_names, name_id, name, "ult_", lang);
 }
 
 bool Xenoverse2::SetEvasiveSkillName(uint16_t name_id, const std::string &name, int lang)
 {
-    if (!xv2fs || eva_sk_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    std::string entry_name = "avoid_skill_" + Utils::ToStringAndPad(name_id, 4);
-    MsgEntry *entry = eva_sk_names[lang]->FindEntryByName(entry_name);
-
-    if (entry)
-    {
-        entry->lines.resize(1);
-        entry->lines[0] = EscapeHtml(name);
-    }
-    else
-    {
-        MsgEntry entry;
-
-        entry.name = entry_name;
-        entry.lines.push_back(EscapeHtml(name));
-
-        if (!eva_sk_names[lang]->AddEntry(entry, true))
-            return false;
-    }
-
-    return true;
+    return SetSkillMsgCommon(eva_sk_names, name_id, name, "avoid_skill_", lang);
 }
 
 bool Xenoverse2::SetAwakenSkillName(uint16_t name_id, const std::string &name, int lang)
 {
-    if (!xv2fs || awa_sk_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    std::string entry_name = "met_skill_" + Utils::ToStringAndPad(name_id, 4);
-    MsgEntry *entry = awa_sk_names[lang]->FindEntryByName(entry_name);
-
-    if (entry)
-    {
-        entry->lines.resize(1);
-        entry->lines[0] = EscapeHtml(name);
-    }
-    else
-    {
-        MsgEntry entry;
-
-        entry.name = entry_name;
-        entry.lines.push_back(EscapeHtml(name));
-
-        if (!awa_sk_names[lang]->AddEntry(entry, true))
-            return false;
-    }
-
-    return true;
+    return SetSkillMsgCommon(awa_sk_names, name_id, name, "met_skill_", lang);
 }
 
 bool Xenoverse2::RemoveSuperSkillName(uint16_t name_id, int lang)
 {
-    if (!xv2fs || sup_sk_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    std::string entry_name = "spe_skill_" + Utils::ToStringAndPad(name_id, 4);
-    return sup_sk_names[lang]->RemoveEntry(entry_name);
+    return RemoveSkillMsgCommon(sup_sk_names, name_id, "spe_skill_", lang);
 }
 
 bool Xenoverse2::RemoveUltimateSkillName(uint16_t name_id, int lang)
 {
-    if (!xv2fs || ult_sk_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    std::string entry_name = "ult_" + Utils::ToStringAndPad(name_id, 4);
-    return ult_sk_names[lang]->RemoveEntry(entry_name);
+    return RemoveSkillMsgCommon(ult_sk_names, name_id, "ult_", lang);
 }
 
 bool Xenoverse2::RemoveEvasiveSkillName(uint16_t name_id, int lang)
 {
-    if (!xv2fs || eva_sk_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    std::string entry_name = "avoid_skill_" + Utils::ToStringAndPad(name_id, 4);
-    return eva_sk_names[lang]->RemoveEntry(entry_name);
+    return RemoveSkillMsgCommon(eva_sk_names, name_id, "avoid_skill_", lang);
 }
 
 bool Xenoverse2::RemoveAwakenSkillName(uint16_t name_id, int lang)
 {
-    if (!xv2fs || awa_sk_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    std::string entry_name = "met_skill_" + Utils::ToStringAndPad(name_id, 4);
-    return awa_sk_names[lang]->RemoveEntry(entry_name);
+    return RemoveSkillMsgCommon(awa_sk_names, name_id, "met_skill_", lang);
 }
 
 bool Xenoverse2::GetSuperSkillDesc(uint16_t name_id, std::string &desc, int lang)
 {
-    if (!xv2fs || sup_sk_descs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    std::string entry_name = "spe_skill_eff_" + Utils::ToStringAndPad(name_id, 4);
-    MsgEntry *entry = sup_sk_descs[lang]->FindEntryByName(entry_name);
-
-    if (!entry)
-        return false;
-
-    desc = UnescapeHtml(entry->lines[0]);
-    return true;
+    return GetSkillMsgCommon(sup_sk_descs, name_id, desc, "spe_skill_eff_", lang);
 }
 
 bool Xenoverse2::GetUltimateSkillDesc(uint16_t name_id, std::string &desc, int lang)
 {
-    if (!xv2fs || ult_sk_descs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    std::string entry_name = "ult_eff_" + Utils::ToStringAndPad(name_id, 4);
-    MsgEntry *entry = ult_sk_descs[lang]->FindEntryByName(entry_name);
-
-    if (!entry)
-        return false;
-
-    desc = UnescapeHtml(entry->lines[0]);
-    return true;
+    return GetSkillMsgCommon(ult_sk_descs, name_id, desc, "ult_eff_", lang);
 }
 
 bool Xenoverse2::GetEvasiveSkillDesc(uint16_t name_id, std::string &desc, int lang)
 {
-    if (!xv2fs || eva_sk_descs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    std::string entry_name = "avoid_skill_eff_" + Utils::ToStringAndPad(name_id, 4);
-    MsgEntry *entry = eva_sk_descs[lang]->FindEntryByName(entry_name);
-
-    if (!entry)
-        return false;
-
-    desc = UnescapeHtml(entry->lines[0]);
-    return true;
+    return GetSkillMsgCommon(eva_sk_descs, name_id, desc, "avoid_skill_eff_", lang);
 }
 
 bool Xenoverse2::GetAwakenSkillDesc(uint16_t name_id, std::string &desc, int lang)
 {
-    if (!xv2fs || awa_sk_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    std::string entry_name = "met_skill_eff_" + Utils::ToStringAndPad(name_id, 4);
-    MsgEntry *entry = awa_sk_descs[lang]->FindEntryByName(entry_name);
-
-    if (!entry)
-        return false;
-
-    desc = UnescapeHtml(entry->lines[0]);
-    return true;
+    return GetSkillMsgCommon(awa_sk_descs, name_id, desc, "met_skill_eff_", lang);
 }
 
 bool Xenoverse2::SetSuperSkillDesc(uint16_t name_id, const std::string &desc, int lang)
 {
-    if (!xv2fs || sup_sk_descs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    std::string entry_name = "spe_skill_eff_" + Utils::ToStringAndPad(name_id, 4);
-    MsgEntry *entry = sup_sk_descs[lang]->FindEntryByName(entry_name);
-
-    if (entry)
-    {
-        entry->lines.resize(1);
-        entry->lines[0] = EscapeHtml(desc);
-    }
-    else
-    {
-        MsgEntry entry;
-
-        entry.name = entry_name;
-        entry.lines.push_back(EscapeHtml(desc));
-
-        if (!sup_sk_descs[lang]->AddEntry(entry, true))
-            return false;
-    }
-
-    return true;
+    return SetSkillMsgCommon(sup_sk_descs, name_id, desc, "spe_skill_eff_", lang);
 }
 
 bool Xenoverse2::SetUltimateSkillDesc(uint16_t name_id, const std::string &desc, int lang)
 {
-    if (!xv2fs || ult_sk_descs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    std::string entry_name = "ult_eff_" + Utils::ToStringAndPad(name_id, 4);
-    MsgEntry *entry = ult_sk_descs[lang]->FindEntryByName(entry_name);
-
-    if (entry)
-    {
-        entry->lines.resize(1);
-        entry->lines[0] = EscapeHtml(desc);
-    }
-    else
-    {
-        MsgEntry entry;
-
-        entry.name = entry_name;
-        entry.lines.push_back(EscapeHtml(desc));
-
-        if (!ult_sk_descs[lang]->AddEntry(entry, true))
-            return false;
-    }
-
-    return true;
+    return SetSkillMsgCommon(ult_sk_descs, name_id, desc, "ult_eff_", lang);
 }
 
 bool Xenoverse2::SetEvasiveSkillDesc(uint16_t name_id, const std::string &desc, int lang)
 {
-    if (!xv2fs || eva_sk_descs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    std::string entry_name = "avoid_skill_eff_" + Utils::ToStringAndPad(name_id, 4);
-    MsgEntry *entry = eva_sk_descs[lang]->FindEntryByName(entry_name);
-
-    if (entry)
-    {
-        entry->lines.resize(1);
-        entry->lines[0] = EscapeHtml(desc);
-    }
-    else
-    {
-        MsgEntry entry;
-
-        entry.name = entry_name;
-        entry.lines.push_back(EscapeHtml(desc));
-
-        if (!eva_sk_descs[lang]->AddEntry(entry, true))
-            return false;
-    }
-
-    return true;
+    return SetSkillMsgCommon(eva_sk_descs, name_id, desc, "avoid_skill_eff_", lang);
 }
 
 bool Xenoverse2::SetAwakenSkillDesc(uint16_t name_id, const std::string &desc, int lang)
 {
-    if (!xv2fs || awa_sk_descs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    std::string entry_name = "met_skill_eff_" + Utils::ToStringAndPad(name_id, 4);
-    MsgEntry *entry = awa_sk_descs[lang]->FindEntryByName(entry_name);
-
-    if (entry)
-    {
-        entry->lines.resize(1);
-        entry->lines[0] = EscapeHtml(desc);
-    }
-    else
-    {
-        MsgEntry entry;
-
-        entry.name = entry_name;
-        entry.lines.push_back(EscapeHtml(desc));
-
-        if (!awa_sk_descs[lang]->AddEntry(entry, true))
-            return false;
-    }
-
-    return true;
+    return SetSkillMsgCommon(awa_sk_descs, name_id, desc, "met_skill_eff_", lang);
 }
 
 bool Xenoverse2::RemoveSuperSkillDesc(uint16_t name_id, int lang)
 {
-    if (!xv2fs || sup_sk_descs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    std::string entry_name = "spe_skill_eff_" + Utils::ToStringAndPad(name_id, 4);
-    return sup_sk_descs[lang]->RemoveEntry(entry_name);
+    return RemoveSkillMsgCommon(sup_sk_descs, name_id, "spe_skill_eff_", lang);
 }
 
 bool Xenoverse2::RemoveUltimateSkillDesc(uint16_t name_id, int lang)
 {
-    if (!xv2fs || ult_sk_descs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    std::string entry_name = "ult_eff_" + Utils::ToStringAndPad(name_id, 4);
-    return ult_sk_descs[lang]->RemoveEntry(entry_name);
+    return RemoveSkillMsgCommon(ult_sk_descs, name_id, "ult_eff_", lang);
 }
 
 bool Xenoverse2::RemoveEvasiveSkillDesc(uint16_t name_id, int lang)
 {
-    if (!xv2fs || eva_sk_descs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    std::string entry_name = "avoid_skill_eff_" + Utils::ToStringAndPad(name_id, 4);
-    return eva_sk_descs[lang]->RemoveEntry(entry_name);
+    return RemoveSkillMsgCommon(eva_sk_descs, name_id, "avoid_skill_eff_", lang);
 }
 
 bool Xenoverse2::RemoveAwakenSkillDesc(uint16_t name_id, int lang)
 {
-    if (!xv2fs || awa_sk_descs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
+    return RemoveSkillMsgCommon(awa_sk_descs, name_id, "met_skill_eff_", lang);
+}
 
-    std::string entry_name = "met_skill_eff_" + Utils::ToStringAndPad(name_id, 4);
-    return awa_sk_descs[lang]->RemoveEntry(entry_name);
+static bool GetSkillHowMsgCommon(std::vector<MsgFile *> &msgs, uint16_t name_id, std::string &out, const std::string &prefix, int lang)
+{
+    if (msgs.size() != XV2_LANG_NUM)
+        if (!Xenoverse2::InitSkillHows())
+            return false;
+
+    return GetSkillMsgCommon(msgs, name_id, out, prefix, lang);
+}
+
+static bool SetSkillHowMsgCommon(std::vector<MsgFile *> &msgs, uint16_t name_id, const std::string &in, const std::string &prefix, int lang)
+{
+    if (msgs.size() != XV2_LANG_NUM)
+        if (!Xenoverse2::InitSkillHows())
+            return false;
+
+    return SetSkillMsgCommon(msgs, name_id, in, prefix, lang);
+}
+
+static bool RemoveSkillHowMsgCommon(std::vector<MsgFile *> &msgs, uint16_t name_id, const std::string &prefix, int lang)
+{
+    if (msgs.size() != XV2_LANG_NUM)
+        if (!Xenoverse2::InitSkillHows())
+            return false;
+
+    return RemoveSkillMsgCommon(msgs, name_id, prefix, lang);
+}
+
+bool Xenoverse2::GetSuperSkillHow(uint16_t name_id, std::string &how, int lang)
+{
+    return GetSkillHowMsgCommon(sup_sk_hows, name_id, how, "spe_skill_how_", lang);
+}
+
+bool Xenoverse2::GetUltimateSkillHow(uint16_t name_id, std::string &how, int lang)
+{
+    return GetSkillHowMsgCommon(ult_sk_hows, name_id, how, "ult_how_", lang);
+}
+
+bool Xenoverse2::GetEvasiveSkillHow(uint16_t name_id, std::string &how, int lang)
+{
+    return GetSkillHowMsgCommon(eva_sk_hows, name_id, how, "avoid_skill_how_", lang);
+}
+
+bool Xenoverse2::GetAwakenSkillHow(uint16_t name_id, std::string &how, int lang)
+{
+    return GetSkillHowMsgCommon(awa_sk_hows, name_id, how, "met_skill_how_", lang);
+}
+
+bool Xenoverse2::SetSuperSkillHow(uint16_t name_id, const std::string &how, int lang)
+{
+    return SetSkillHowMsgCommon(sup_sk_hows, name_id, how, "spe_skill_how_", lang);
+}
+
+bool Xenoverse2::SetUltimateSkillHow(uint16_t name_id, const std::string &how, int lang)
+{
+    return SetSkillHowMsgCommon(ult_sk_hows, name_id, how, "ult_how_", lang);
+}
+
+bool Xenoverse2::SetEvasiveSkillHow(uint16_t name_id, const std::string &how, int lang)
+{
+    return SetSkillHowMsgCommon(eva_sk_hows, name_id, how, "avoid_skill_how_", lang);
+}
+
+bool Xenoverse2::SetAwakenSkillHow(uint16_t name_id, const std::string &how, int lang)
+{
+    return SetSkillHowMsgCommon(awa_sk_hows, name_id, how, "met_skill_how_", lang);
+}
+
+bool Xenoverse2::RemoveSuperSkillHow(uint16_t name_id, int lang)
+{
+    return RemoveSkillHowMsgCommon(sup_sk_hows, name_id, "spe_skill_how_", lang);
+}
+
+bool Xenoverse2::RemoveUltimateSkillHow(uint16_t name_id, int lang)
+{
+    return RemoveSkillHowMsgCommon(ult_sk_hows, name_id, "ult_how_", lang);
+}
+
+bool Xenoverse2::RemoveEvasiveSkillHow(uint16_t name_id, int lang)
+{
+    return RemoveSkillHowMsgCommon(eva_sk_hows, name_id, "avoid_skill_how_", lang);
+}
+
+bool Xenoverse2::RemoveAwakenSkillHow(uint16_t name_id, int lang)
+{
+    return RemoveSkillHowMsgCommon(awa_sk_hows, name_id, "met_skill_how_", lang);
 }
 
 bool Xenoverse2::GetBtlHudAwakenName(uint16_t name_id, uint16_t trans_stage, std::string &name, int lang)
@@ -4598,9 +3842,63 @@ uint32_t Xenoverse2::CusAuraToAurAura(uint32_t id)
 			
 		case 29:
 			return 55;
+			
+		case 30:
+			return 36;
     }
 
     return 0xFFFFFFFF;
+}
+
+void Xenoverse2::GetAuraExtra(int32_t id, AuraExtraData &extra)
+{
+    if (game_prebaked && game_prebaked->GetAuraExtra(id, extra))
+        return;
+
+    extra.bpe_id = -1;
+    extra.flag1 = false;
+    extra.flag2 = false;
+
+    switch (id)
+    {
+        case 26: case 27: case 29: case 31: case 50:
+            extra.bpe_id = 83;
+        break;
+
+        case 36:
+            extra.bpe_id = 257;
+        break;
+
+        case 39:
+            extra.bpe_id = 260;
+        break;
+
+        case 45:
+            extra.bpe_id = 265;
+        break;
+
+        case 46:
+            extra.bpe_id = 273;
+        break;
+
+        case 51:
+            extra.bpe_id = 280;
+        break;
+
+        case 52:
+            extra.bpe_id = 281;
+        break;
+
+        case 53:
+            extra.bpe_id = 302;
+        break;
+    }
+
+    if (id == 36 || id == 39 || id == 52 || id == 53)
+    {
+        extra.flag1 = (id != 36);
+        extra.flag2 = true;
+    }
 }
 
 std::string Xenoverse2::GetCharaAndCostumeName(const std::string &code, uint32_t costume_id, uint32_t model_preset, int lang)

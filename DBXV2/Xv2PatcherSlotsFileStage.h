@@ -31,6 +31,8 @@ public:
     size_t FindSlots(uint32_t stage_id, std::vector<Xv2StageSlot *> &entries);
     size_t RemoveSlots(uint32_t stage_id);
 
+    bool PlaceAtPos(size_t idx, const Xv2StageSlot &slot);
+
     inline const Xv2StageSlot &operator[](size_t n) const { return stage_slots[n]; }
     inline Xv2StageSlot &operator[](size_t n) { return stage_slots[n]; }
 

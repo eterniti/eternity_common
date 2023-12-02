@@ -32,9 +32,11 @@ struct PACKED CSTEntry
     uint64_t dlc_key; // 0x14  - In game ver 1.16, the field became 64 bits, in 1.18 the higher part started being used after the overflow.
     uint32_t is_custom_costume; // 0x1C
     uint32_t cac_index; // 0x20 - Added in game v 1.10
-    uint32_t var_type_after_TU9_order; // 0x24 - Added in game 1.14. Whatever this shit is, is -1 in all chars, except TU0 ant TU1 where it is 0 and 1 respectively.
+    uint32_t var_type_after_TU9_order; // 0x24 - Added in game 1.14. It is -1 until character TE0. Then, beginning from TE0, it's an index that increases in one? (but there is jump from 3->5...)
+    uint32_t unk_28; // Added in 1.21. Doesnt't seem it is used by charasele.iggy
+    uint32_t unk_2C; // Added in 1.21. Only 0 & 1 values found, probably boolean. Doesnt't seem it is used by charasele.iggy
 };
-CHECK_STRUCT_SIZE(CSTEntry, 0x28);
+CHECK_STRUCT_SIZE(CSTEntry, 0x30);
 
 //#ifdef _MSC_VER
 #pragma pack(pop)
@@ -66,6 +68,13 @@ public:
 
     size_t FindSlotsByCode(const std::string &code, std::vector<CharaListSlotEntry *> &entries);
     size_t RemoveSlots(const std::string &code);
+
+    bool FindFirstMatch(const std::string &code, size_t *pentry_idx) const;
+    bool FindFirstMatch(const std::string &code, int costume_index, int model_preset, size_t *pentry_idx, size_t *subentry_idx) const;
+
+    bool PlaceAtPos(size_t idx, const CharaListSlot &slot);
+
+    size_t ChangeVoiceIds(const std::string &code, int costume_index, int model_preset, int voice1, int voice2);
 
     inline const CharaListSlot &operator[](size_t n) const { return chara_slots[n]; }
     inline CharaListSlot &operator[](size_t n) { return chara_slots[n]; }

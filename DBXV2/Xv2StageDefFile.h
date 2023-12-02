@@ -10,7 +10,7 @@
 
 #define XV2_ORIGINAL_NUM_STAGES         0x49 /* updated in 1.20 (0x44->0x49) */
 #define XV2_ORIGINAL_NUM_SS_STAGES      0x25 /* updated in 1.20.1 (0x24->0x25) */
-#define XV2_MAX_STAGES                  0x7E
+#define XV2_MAX_STAGES                  0x7FFFFFFF
 
 #define XV2_STA_NUM_GATES   9	/* Updated in 1.11 */
 
@@ -61,18 +61,20 @@ struct XV2StageGate
     char *name;
     uint32_t target_stage_idx;
     uint32_t unk_0C;
-    uint64_t unk_10; // This is really a 32 bits, the other 4 bytes are unused padding
+    uint32_t unk_10; 
+	uint32_t unk_14; // New in 1.21
+	uint64_t unk_18; // New in 1.21. It's actually 32 bits, the upper part (1C-1F) is unused
 #ifdef CPU_X86
     uint32_t dummy; // Just to make CHECK_STRUCT_SIZE not complain when being compiled in 32 bits version of genser.
 #endif
 } PACKED;
-CHECK_STRUCT_SIZE(XV2StageGate, 0x18);
+CHECK_STRUCT_SIZE(XV2StageGate, 0x20);
 
 struct XV2StageDef2
 {
     XV2StageGate gates[XV2_STA_NUM_GATES];
 } PACKED;
-CHECK_STRUCT_SIZE(XV2StageDef2, 0xD8);
+CHECK_STRUCT_SIZE(XV2StageDef2, 0x120);
 
 #ifdef _MSC_VER
 #pragma pack(pop)
@@ -84,15 +86,18 @@ struct Xv2StageGate
     uint32_t target_stage_idx;
     uint32_t unk_0C;
     uint64_t unk_10;
+	uint32_t unk_14;
+	uint32_t unk_18;
 
     Xv2StageGate()
     {
-        target_stage_idx = 0xFFFFFFFF;
+        target_stage_idx = unk_14 = 0xFFFFFFFF;
         unk_0C = 0;
         unk_10 = 1;
+		unk_18 = 0;
     }
 
-    TiXmlElement *Decompile(TiXmlNode *root) const;
+    TiXmlElement *Decompile(TiXmlNode *root, bool gbb) const;
     bool Compile(const TiXmlElement *root);
 };
 
@@ -105,11 +110,12 @@ struct Xv2Stage
     std::string eve;
     uint64_t unk5; // New in 1.11
     // /////////////////
-    uint8_t ssid;
+    int32_t ssid;
     // /////////////////
     float ki_blast_size_limit;
     // /////////////////
-    Xv2StageGate gates[XV2_STA_NUM_GATES];    
+    Xv2StageGate gates[XV2_STA_NUM_GATES];
+	Xv2StageGate gates_gbb[XV2_STA_NUM_GATES]; // 1.21
     // /////////////////
     std::string se;
     // /////////////////
@@ -124,7 +130,7 @@ struct Xv2Stage
     {
         base_dir = "data/stage/";
         unk5 = 0;
-        ssid = 0xFF;
+        ssid = -1;
         ki_blast_size_limit = 200.0f;
         bgm_cue_id = 0;        
         name.resize(XV2_NATIVE_LANG_NUM);
@@ -149,7 +155,7 @@ class Xv2StageDefFile : public BaseFile
 private:
 
     std::vector<Xv2Stage> stages;
-    std::unordered_set<uint8_t> ssids_set;
+    std::unordered_set<int32_t> ssids_set;
 
 protected:
 
@@ -164,8 +170,8 @@ public:
     virtual bool Compile(TiXmlDocument *doc, bool big_endian=false) override;
 
     bool LoadFromDump(size_t stage_num, size_t base_addr, const void *base_ptr, void *def1_buf,
-                      size_t playable_stage_num, const void *ssid_buf,
-                      const void *f6_buf, const void *def2_buf, const void *sounds_buf, const void *music_buf,
+                      size_t playable_stage_num, const void *ssid_buf, const void *f6_buf,
+                      const void *def2_buf, const void *def2_buf_gbb, const void *sounds_buf, const void *music_buf,
                       const char **eve_dump);
     size_t BuildStrings(std::map<std::string, size_t> &map) const;
     void BuildSsidMap(void *addr) const;
@@ -173,7 +179,7 @@ public:
     inline size_t GetNumStages() const { return stages.size(); }    
     inline size_t GetNumSsStages() const { return ssids_set.size(); }
 
-    Xv2Stage *GetStageBySsid(uint8_t ssid);
+    Xv2Stage *GetStageBySsid(int32_t ssid);
     Xv2Stage *GetStageByCode(const std::string &code, size_t *idx=nullptr);
 
     size_t AddStage(Xv2Stage &stage, bool add_ssid, bool overwrite=true);

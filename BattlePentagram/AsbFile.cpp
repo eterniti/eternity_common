@@ -1207,7 +1207,7 @@ bool AsbFile::AssembleStrings(std::queue<AsbLine> &lines)
             position += (uint32_t)right.length() + 1;
 
             /* ***** For testing */
-            std::vector<std::string> llines;
+            /*std::vector<std::string> llines;
             Utils::GetMultipleStrings(right, llines, '\n', false);
             if (llines.size() > 3)
             {
@@ -1219,7 +1219,7 @@ bool AsbFile::AssembleStrings(std::queue<AsbLine> &lines)
                 {
                     DPRINTF("Warning, string with a line bigger than 48. At line %d.\n", line.number);
                 }
-            }
+            }*/
             /* *********/
 
             lines.pop();

@@ -4,8 +4,6 @@
 
 #define CUS_DATA_ID_START   0x30
 
-#define BEHAVIOUR_MAX	0x1D
-
 TiXmlElement *BodyShape::Decompile(TiXmlNode *root) const
 {
     TiXmlElement *entry_root = new TiXmlElement("BodyShape");
@@ -55,6 +53,11 @@ TiXmlElement *CusAuraData::Decompile(TiXmlNode *root) const
     Utils::WriteParamUnsigned(entry_root, "BCS_HAIR_COLOR", bcs_hair_color, bcs_hair_color==0xFFFFFFFF);
     Utils::WriteParamUnsigned(entry_root, "BCS_EYES_COLOR", bcs_eyes_color, bcs_eyes_color==0xFFFFFFFF);
 
+    if (bcs_additional_colors.length() > 0)
+        Utils::WriteParamString(entry_root, "BCS_ADDITIONAL_COLORS", bcs_additional_colors);
+
+    Utils::WriteParamUnsigned(entry_root, "BEHAVIOUR_64", behaviour_64, true);
+
     root->LinkEndChild(entry_root);
     return entry_root;
 }
@@ -76,7 +79,7 @@ bool CusAuraData::Compile(const TiXmlElement *root)
     if (!Utils::GetParamUnsigned(root, "BEHAVIOUR_11", &behaviour_11))
         return false;
 
-    if (behaviour_11 > BEHAVIOUR_MAX)
+    if (behaviour_11 > BEHAVIOUR_MAX && behaviour_11 != 0xFF)
     {
         DPRINTF("%s: BEHAVIOUR_11 cannot be greater than 0x%x.\n", FUNCNAME, BEHAVIOUR_MAX);
         return false;
@@ -87,7 +90,7 @@ bool CusAuraData::Compile(const TiXmlElement *root)
 
     if (Utils::ReadParamUnsigned(root, "BEHAVIOUR_10", &behaviour_10))
     {
-        if (behaviour_10 > BEHAVIOUR_MAX)
+        if (behaviour_10 > BEHAVIOUR_MAX && behaviour_10 != 0xFF)
         {
             DPRINTF("%s: BEHAVIOUR_10 cannot be greater than 0x%x.\n", FUNCNAME, BEHAVIOUR_MAX);
             return false;
@@ -110,7 +113,7 @@ bool CusAuraData::Compile(const TiXmlElement *root)
 
     if (Utils::ReadParamUnsigned(root, "BEHAVIOUR_13", &behaviour_13))
     {
-        if (behaviour_13 > BEHAVIOUR_MAX)
+        if (behaviour_13 > BEHAVIOUR_MAX && behaviour_13 != 0xFF)
         {
             DPRINTF("%s: BEHAVIOUR_13 cannot be greater than %x.\n", FUNCNAME, BEHAVIOUR_MAX);
             return false;
@@ -129,10 +132,23 @@ bool CusAuraData::Compile(const TiXmlElement *root)
         {
             if (behaviour_66 > BEHAVIOUR_MAX && behaviour_66 != 0xFF)
             {
-                DPRINTF("%s: TELEPORT_BEHAVIOUR cannot be greater than %x.\n", FUNCNAME, BEHAVIOUR_MAX);
+                DPRINTF("%s: BEHAVIOUR_66 cannot be greater than %x.\n", FUNCNAME, BEHAVIOUR_MAX);
                 return false;
             }
         }
+    }
+
+    if (Utils::ReadParamUnsigned(root, "BEHAVIOUR_64", &behaviour_64))
+    {
+        if (behaviour_64 > BEHAVIOUR_MAX && behaviour_64 != 0xFF)
+        {
+            DPRINTF("%s: BEHAVIOUR_64 cannot be greater than %x.\n", FUNCNAME, BEHAVIOUR_MAX);
+            return false;
+        }
+    }
+    else
+    {
+        behaviour_64 = 0xFF;
     }
 
     if (!Utils::ReadParamUnsigned(root, "REMOVE_HAIR_ACCESSORIES", &remove_hair_accessories))
@@ -145,7 +161,10 @@ bool CusAuraData::Compile(const TiXmlElement *root)
         bcs_hair_color = 0xFFFFFFFF;
 
     if (!Utils::ReadParamUnsigned(root, "BCS_EYES_COLOR", &bcs_eyes_color))
-        bcs_eyes_color = 0xFFFFFFFF;
+        bcs_eyes_color = 0xFFFFFFFF;    
+
+    if (!Utils::ReadParamString(root, "BCS_ADDITIONAL_COLORS", bcs_additional_colors))
+        bcs_additional_colors = "";
 
     return true;
 }
@@ -214,6 +233,35 @@ bool BcsColorsMap::Compile(const TiXmlElement *root, uint32_t *cms_id, uint32_t 
     return true;
 }
 
+TiXmlElement *AuraExtraData::Decompile(TiXmlNode *root) const
+{
+    TiXmlElement *entry_root = new TiXmlElement("AuraExtraData");
+    entry_root->SetAttribute("aur_id", aur_id);
+    entry_root->SetAttribute("bpe_id", bpe_id);
+    entry_root->SetAttribute("flag1", (flag1) ? "true" : "false");
+    entry_root->SetAttribute("flag2", (flag2) ? "true" : "false");
+
+    root->LinkEndChild(entry_root);
+    return entry_root;
+}
+
+bool AuraExtraData::Compile(const TiXmlElement *root)
+{
+    if (!Utils::ReadAttrSigned(root, "aur_id", &aur_id))
+        return false;
+
+    if (!Utils::ReadAttrSigned(root, "bpe_id", &bpe_id))
+        return false;
+
+    if (!Utils::ReadAttrBoolean(root, "flag1", &flag1))
+        return false;
+
+    if (!Utils::ReadAttrBoolean(root, "flag2", &flag2))
+        return false;
+
+    return true;
+}
+
 Xv2PreBakedFile::Xv2PreBakedFile()
 {
     this->big_endian = false;
@@ -227,11 +275,14 @@ Xv2PreBakedFile::~Xv2PreBakedFile()
 void Xv2PreBakedFile::Reset()
 {
     ozarus.clear();
+    cell_maxes.clear();
     auto_btl_portrait_list.clear();
     body_shapes.clear();
     cus_aura_datas.clear();
     aliases.clear();
     any_dual_skill_list.clear();
+    colors_map.clear();
+    aura_extra_map.clear();
 }
 
 TiXmlDocument *Xv2PreBakedFile::Decompile() const
@@ -247,6 +298,9 @@ TiXmlDocument *Xv2PreBakedFile::Decompile() const
 
     Utils::WriteComment(root, "This is the list of additional ozarus to add to the game.");
     Utils::WriteParamMultipleStrings(root, "OZARUS", ozarus);
+
+    Utils::WriteComment(root, "This is the list of additional cell max to add to the game.");
+    Utils::WriteParamMultipleStrings(root, "CELL_MAXES", cell_maxes);
 
     Utils::WriteComment(root, "This is the list of characters that will have an auto battle portrait.");
     Utils::WriteParamMultipleUnsigned(root, "AUTO_BTL_PORT", auto_btl_portrait_list, true);
@@ -286,6 +340,14 @@ TiXmlDocument *Xv2PreBakedFile::Decompile() const
         it.second.Decompile(root, it.first >> 16, it.first&0xFFFF);
     }
 
+    for (auto &it : aura_extra_map)
+    {
+        if (it.first >= 0)
+        {
+            it.second.Decompile(root);
+        }
+    }
+
     doc->LinkEndChild(root);
     return doc;
 }
@@ -304,6 +366,7 @@ bool Xv2PreBakedFile::Compile(TiXmlDocument *doc, bool)
     }
 
     Utils::ReadParamMultipleStrings(root, "OZARUS", ozarus);
+    Utils::ReadParamMultipleStrings(root, "CELL_MAXES", cell_maxes);
     Utils::ReadParamMultipleUnsigned(root, "AUTO_BTL_PORT", auto_btl_portrait_list);
     Utils::ReadParamMultipleUnsigned(root, "ANY_DUAL_SKILL", any_dual_skill_list);
 
@@ -374,6 +437,16 @@ bool Xv2PreBakedFile::Compile(TiXmlDocument *doc, bool)
             if (map.map.size() > 0)
                 colors_map[(cms_id << 16) | (costume&0xFFFF)] = map;
         }
+        else if (name == "AuraExtraData")
+        {
+            AuraExtraData extra;
+
+            if (!extra.Compile(elem))
+                return false;
+
+            if (extra.aur_id >= 0)
+                aura_extra_map[extra.aur_id] = extra;
+        }
     }
 
     return true;
@@ -394,6 +467,26 @@ void Xv2PreBakedFile::RemoveOzaru(const std::string &ozaru)
         if (ozarus[i] == ozaru)
         {
             ozarus.erase(ozarus.begin()+i);
+            i--;
+        }
+    }
+}
+
+void Xv2PreBakedFile::AddCellMax(const std::string &cm)
+{
+    if (std::find(cell_maxes.begin(), cell_maxes.end(), cm) != cell_maxes.end())
+        return;
+
+    cell_maxes.push_back(cm);
+}
+
+void Xv2PreBakedFile::RemoveCellMax(const std::string &cm)
+{
+    for (size_t i = 0; i < cell_maxes.size(); i++)
+    {
+        if (cell_maxes[i] == cm)
+        {
+            cell_maxes.erase(cell_maxes.begin()+i);
             i--;
         }
     }
@@ -599,5 +692,3 @@ size_t Xv2PreBakedFile::RemoveAlias(const std::string &cms_name)
 
     return count;
 }
-
-

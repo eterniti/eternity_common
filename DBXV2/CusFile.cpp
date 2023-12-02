@@ -150,13 +150,17 @@ TiXmlElement *CusSkill::Decompile(TiXmlNode *root) const
     Utils::WriteParamUnsigned(entry_root, "CHANGE_SKILLSET", change_skillset, true);
     Utils::WriteParamUnsigned(entry_root, "NUM_TRANSFORMS", num_transforms, true);
     Utils::WriteParamUnsigned(entry_root, "U_44", unk_44, true);
+    Utils::WriteParamUnsigned(entry_root, "U_48", unk_48, true);
 
     root->LinkEndChild(entry_root);
     return entry_root;
 }
 
-bool CusSkill::Compile(const TiXmlElement *root, bool *new_format)
+bool CusSkill::Compile(const TiXmlElement *root, int *version)
 {
+    if (version)
+        *version = 0;
+
     if (!Utils::ReadAttrString(root, "name", name))
         return false;
 
@@ -233,13 +237,24 @@ bool CusSkill::Compile(const TiXmlElement *root, bool *new_format)
 
     if (Utils::ReadParamUnsigned(root, "U_44", &unk_44))
     {
-        if (new_format)
-            *new_format = true;
+        if (version)
+            *version = 119;
     }
     else
     {
         // For old mods, init to default value
         unk_44 = 0xFFFFFF00;
+    }
+
+    if (Utils::ReadParamUnsigned(root, "U_48", &unk_48))
+    {
+        if (version)
+            *version = 121;
+    }
+    else
+    {
+        // For old mods, init to default value
+        unk_48 = 0;
     }
 
     return true;
@@ -248,7 +263,7 @@ bool CusSkill::Compile(const TiXmlElement *root, bool *new_format)
 CusFile::CusFile()
 {
     this->big_endian = false;
-    this->new_format = false;
+    this->version = 0;
 }
 
 CusFile::~CusFile()
@@ -257,7 +272,7 @@ CusFile::~CusFile()
 
 void CusFile::Reset()
 {
-    new_format = false;
+    version = 0;
     skill_sets.clear();
     super_skills.clear();
     ultimate_skills.clear();
@@ -309,7 +324,7 @@ bool CusFile::LoadSkills(const uint8_t *top, const CUSSkill *sets_in, std::vecto
     return true;
 }
 
-bool CusFile::LoadSkillsNew(const uint8_t *top, const CUSSkillNew *sets_in, std::vector<CusSkill> &sets_out, uint32_t num)
+bool CusFile::LoadSkills119(const uint8_t *top, const CUSSkill119 *sets_in, std::vector<CusSkill> &sets_out, uint32_t num)
 {
     sets_out.resize(num);
 
@@ -352,6 +367,50 @@ bool CusFile::LoadSkillsNew(const uint8_t *top, const CUSSkillNew *sets_in, std:
     return true;
 }
 
+bool CusFile::LoadSkills121(const uint8_t *top, const CUSSkill121 *sets_in, std::vector<CusSkill> &sets_out, uint32_t num)
+{
+    sets_out.resize(num);
+
+    for (size_t i = 0; i < sets_out.size(); i++)
+    {
+        CusSkill &skill = sets_out[i];
+
+        if (sets_in[i].unk_04 != 0)
+        {
+            DPRINTF("%s: a value is not zero as expected (entry 0x%Ix): 0x%x\n", FUNCNAME, i, sets_in[i].unk_04);
+            return false;
+        }
+
+        skill.name = sets_in[i].name;
+        skill.id = sets_in[i].id;
+        skill.id2 = sets_in[i].id2;
+        skill.race_lock = sets_in[i].race_lock;
+        skill.type = sets_in[i].type;
+        skill.unk_0E = sets_in[i].unk_0E;
+        skill.partset = sets_in[i].partset;
+        skill.unk_12 = sets_in[i].unk_12;
+
+        for (int j = 0; j < 7; j++)
+        {
+            skill.paths[j] = GetString(top, sets_in[i].paths_offsets[j]);
+        }
+
+        skill.unk_30 = sets_in[i].unk_30;
+        skill.unk_32 = sets_in[i].unk_32;
+        skill.unk_34 = sets_in[i].unk_34;
+        skill.skill_type = sets_in[i].skill_type;
+        skill.pup_id = sets_in[i].pup_id;
+        skill.aura = sets_in[i].aura;
+        skill.model = sets_in[i].model;
+        skill.change_skillset = sets_in[i].change_skillset;
+        skill.num_transforms = sets_in[i].num_transforms;
+        skill.unk_44 = sets_in[i].unk_44;
+        skill.unk_48 = sets_in[i].unk_48;
+    }
+
+    return true;
+}
+
 bool CusFile::Load(const uint8_t *buf, size_t size)
 {
     Reset();
@@ -386,30 +445,62 @@ bool CusFile::Load(const uint8_t *buf, size_t size)
         skill_set.model_preset = skill_sets_f[i].model_preset;
     }
 
-    if (((hdr->ultimate_offset - hdr->super_offset) % sizeof(CUSSkillNew)) == 0)
+
+    if (((hdr->ultimate_offset - hdr->super_offset) % sizeof(CUSSkill121)) == 0)
     {
-        //DPRINTF("New format.\n");
-        new_format = true;
+        version = 121;
     }
 
-    if (new_format)
+    else if (((hdr->ultimate_offset - hdr->super_offset) % sizeof(CUSSkill119)) == 0)
     {
-        if (!LoadSkillsNew(buf, (const CUSSkillNew *)GetOffsetPtr(buf, hdr->super_offset), super_skills, hdr->num_super))
+        version = 119;
+    }
+    else
+    {
+        version = 0;
+    }
+
+    //DPRINTF("Version = %d\n", version);
+
+    if (version == 121)
+    {
+        if (!LoadSkills121(buf, (const CUSSkill121 *)GetOffsetPtr(buf, hdr->super_offset), super_skills, hdr->num_super))
             return false;
 
-        if (!LoadSkillsNew(buf, (const CUSSkillNew *)GetOffsetPtr(buf, hdr->ultimate_offset), ultimate_skills, hdr->num_ultimate))
+        if (!LoadSkills121(buf, (const CUSSkill121 *)GetOffsetPtr(buf, hdr->ultimate_offset), ultimate_skills, hdr->num_ultimate))
             return false;
 
-        if (!LoadSkillsNew(buf, (const CUSSkillNew *)GetOffsetPtr(buf, hdr->evasive_offset), evasive_skills, hdr->num_evasive))
+        if (!LoadSkills121(buf, (const CUSSkill121 *)GetOffsetPtr(buf, hdr->evasive_offset), evasive_skills, hdr->num_evasive))
             return false;
 
-        if (!LoadSkillsNew(buf, (const CUSSkillNew *)GetOffsetPtr(buf, hdr->unk_offset), unk_skills, hdr->num_unk))
+        if (!LoadSkills121(buf, (const CUSSkill121 *)GetOffsetPtr(buf, hdr->unk_offset), unk_skills, hdr->num_unk))
             return false;
 
-        if (!LoadSkillsNew(buf, (const CUSSkillNew *)GetOffsetPtr(buf, hdr->blast_offset), blast_skills, hdr->num_blast))
+        if (!LoadSkills121(buf, (const CUSSkill121 *)GetOffsetPtr(buf, hdr->blast_offset), blast_skills, hdr->num_blast))
             return false;
 
-        if (!LoadSkillsNew(buf, (const CUSSkillNew *)GetOffsetPtr(buf, hdr->awaken_offset), awaken_skills, hdr->num_awaken))
+        if (!LoadSkills121(buf, (const CUSSkill121 *)GetOffsetPtr(buf, hdr->awaken_offset), awaken_skills, hdr->num_awaken))
+            return false;
+    }
+
+    else if (version == 119)
+    {
+        if (!LoadSkills119(buf, (const CUSSkill119 *)GetOffsetPtr(buf, hdr->super_offset), super_skills, hdr->num_super))
+            return false;
+
+        if (!LoadSkills119(buf, (const CUSSkill119 *)GetOffsetPtr(buf, hdr->ultimate_offset), ultimate_skills, hdr->num_ultimate))
+            return false;
+
+        if (!LoadSkills119(buf, (const CUSSkill119 *)GetOffsetPtr(buf, hdr->evasive_offset), evasive_skills, hdr->num_evasive))
+            return false;
+
+        if (!LoadSkills119(buf, (const CUSSkill119 *)GetOffsetPtr(buf, hdr->unk_offset), unk_skills, hdr->num_unk))
+            return false;
+
+        if (!LoadSkills119(buf, (const CUSSkill119 *)GetOffsetPtr(buf, hdr->blast_offset), blast_skills, hdr->num_blast))
+            return false;
+
+        if (!LoadSkills119(buf, (const CUSSkill119 *)GetOffsetPtr(buf, hdr->awaken_offset), awaken_skills, hdr->num_awaken))
             return false;
     }
     else
@@ -467,8 +558,10 @@ size_t CusFile::CalculateFileSize() const
     size_t size = sizeof(CUSHeader);
     size += skill_sets.size()*sizeof(CUSSkillSet);
 
-    if (new_format)
-        size += (super_skills.size()+ultimate_skills.size()+evasive_skills.size()+unk_skills.size()+blast_skills.size()+awaken_skills.size()) *sizeof(CUSSkillNew);
+    if (version == 121)
+        size += (super_skills.size()+ultimate_skills.size()+evasive_skills.size()+unk_skills.size()+blast_skills.size()+awaken_skills.size()) *sizeof(CUSSkill121);
+    else if (version == 119)
+        size += (super_skills.size()+ultimate_skills.size()+evasive_skills.size()+unk_skills.size()+blast_skills.size()+awaken_skills.size()) *sizeof(CUSSkill119);
     else
         size += (super_skills.size()+ultimate_skills.size()+evasive_skills.size()+unk_skills.size()+blast_skills.size()+awaken_skills.size()) *sizeof(CUSSkill);
 
@@ -540,7 +633,7 @@ void CusFile::SaveSkills(uint8_t *top, char *str_top, char **str_current, const 
     }
 }
 
-void CusFile::SaveSkillsNew(uint8_t *top, char *str_top, char **str_current, const std::vector<CusSkill> &sets_in, CUSSkillNew *sets_out, std::unordered_set<std::string> &strings_list)
+void CusFile::SaveSkills119(uint8_t *top, char *str_top, char **str_current, const std::vector<CusSkill> &sets_in, CUSSkill119 *sets_out, std::unordered_set<std::string> &strings_list)
 {
     for (size_t i = 0; i < sets_in.size(); i++)
     {
@@ -597,6 +690,64 @@ void CusFile::SaveSkillsNew(uint8_t *top, char *str_top, char **str_current, con
     }
 }
 
+void CusFile::SaveSkills121(uint8_t *top, char *str_top, char **str_current, const std::vector<CusSkill> &sets_in, CUSSkill121 *sets_out, std::unordered_set<std::string> &strings_list)
+{
+    for (size_t i = 0; i < sets_in.size(); i++)
+    {
+        const CusSkill &skill = sets_in[i];
+
+        strcpy(sets_out[i].name, skill.name.c_str());
+        sets_out[i].id = skill.id;
+        sets_out[i].id2 = skill.id2;
+        sets_out[i].race_lock = skill.race_lock;
+        sets_out[i].type = skill.type;
+        sets_out[i].unk_0E = skill.unk_0E;
+        sets_out[i].partset = skill.partset;
+        sets_out[i].unk_12 = skill.unk_12;
+
+        for (size_t j = 0; j < 7; j++)
+        {
+            if (skill.paths[j].length() == 0)
+            {
+                sets_out[i].paths_offsets[j] = 0;
+                continue;
+            }
+
+            if (strings_list.find(skill.paths[j]) == strings_list.end())
+            {
+                sets_out[i].paths_offsets[j] = Utils::DifPointer(*str_current, top);
+
+                strings_list.insert(skill.paths[j]);
+                strcpy(*str_current, skill.paths[j].c_str());
+                *str_current += skill.paths[j].length() + 1;
+            }
+            else
+            {
+                const char *str = FindString(str_top, skill.paths[j].c_str(), strings_list.size());
+                if (!str)
+                {
+                    DPRINTF("%s: Internal coding error.\n", FUNCNAME);
+                    exit(-1);
+                }
+
+                sets_out[i].paths_offsets[j] = Utils::DifPointer(str, top);
+            }
+        }
+
+        sets_out[i].unk_30 = skill.unk_30;
+        sets_out[i].unk_32 = skill.unk_32;
+        sets_out[i].unk_34 = skill.unk_34;
+        sets_out[i].skill_type = skill.skill_type;
+        sets_out[i].pup_id = skill.pup_id;
+        sets_out[i].aura = skill.aura;
+        sets_out[i].model = skill.model;
+        sets_out[i].change_skillset = skill.change_skillset;
+        sets_out[i].num_transforms = skill.num_transforms;
+        sets_out[i].unk_44 = skill.unk_44;
+        sets_out[i].unk_48 = skill.unk_48;
+    }
+}
+
 static bool skills_sorter(const CusSkill &a, const CusSkill &b)
 {
     return (a.id < b.id);
@@ -630,23 +781,61 @@ uint8_t *CusFile::Save(size_t *psize)
         skill_set_f[i].model_preset = skill_set.model_preset;
     }
 
-    if (new_format)
+    if (version == 121)
     {
-        CUSSkillNew *super_skills_f = (CUSSkillNew *)(skill_set_f+skill_sets.size());
-        CUSSkillNew *ultimate_skills_f = (CUSSkillNew *)(super_skills_f+super_skills.size());
-        CUSSkillNew *evasive_skills_f = (CUSSkillNew *)(ultimate_skills_f+ultimate_skills.size());
-        CUSSkillNew *unk_skills_f = (CUSSkillNew *)(evasive_skills_f+evasive_skills.size());
-        CUSSkillNew *blast_skills_f = (CUSSkillNew *)(unk_skills_f+unk_skills.size());
-        CUSSkillNew *awaken_skills_f = (CUSSkillNew *)(blast_skills_f+blast_skills.size());
+        CUSSkill121 *super_skills_f = (CUSSkill121 *)(skill_set_f+skill_sets.size());
+        CUSSkill121 *ultimate_skills_f = (CUSSkill121 *)(super_skills_f+super_skills.size());
+        CUSSkill121 *evasive_skills_f = (CUSSkill121 *)(ultimate_skills_f+ultimate_skills.size());
+        CUSSkill121 *unk_skills_f = (CUSSkill121 *)(evasive_skills_f+evasive_skills.size());
+        CUSSkill121 *blast_skills_f = (CUSSkill121 *)(unk_skills_f+unk_skills.size());
+        CUSSkill121 *awaken_skills_f = (CUSSkill121 *)(blast_skills_f+blast_skills.size());
         char *strings = (char *)(awaken_skills_f+awaken_skills.size());
         char *current_str = strings;
 
-        SaveSkillsNew(buf, strings, &current_str, super_skills, super_skills_f, strings_list);
-        SaveSkillsNew(buf, strings, &current_str, ultimate_skills, ultimate_skills_f, strings_list);
-        SaveSkillsNew(buf, strings, &current_str, evasive_skills, evasive_skills_f, strings_list);
-        SaveSkillsNew(buf, strings, &current_str, unk_skills, unk_skills_f, strings_list);
-        SaveSkillsNew(buf, strings, &current_str, blast_skills, blast_skills_f, strings_list);
-        SaveSkillsNew(buf, strings, &current_str, awaken_skills, awaken_skills_f, strings_list);
+        SaveSkills121(buf, strings, &current_str, super_skills, super_skills_f, strings_list);
+        SaveSkills121(buf, strings, &current_str, ultimate_skills, ultimate_skills_f, strings_list);
+        SaveSkills121(buf, strings, &current_str, evasive_skills, evasive_skills_f, strings_list);
+        SaveSkills121(buf, strings, &current_str, unk_skills, unk_skills_f, strings_list);
+        SaveSkills121(buf, strings, &current_str, blast_skills, blast_skills_f, strings_list);
+        SaveSkills121(buf, strings, &current_str, awaken_skills, awaken_skills_f, strings_list);
+
+        hdr->signature = CUS_SIGNATURE;
+        hdr->endianess_check = 0xFFFE;
+        hdr->num_skillsets = (uint32_t)skill_sets.size();
+        hdr->skillset_offset = Utils::DifPointer(skill_set_f, buf);
+
+        hdr->num_super = (uint32_t)super_skills.size();
+        hdr->num_ultimate = (uint32_t)ultimate_skills.size();
+        hdr->num_evasive = (uint32_t)evasive_skills.size();
+        hdr->num_unk = (uint32_t)unk_skills.size();
+        hdr->num_blast = (uint32_t)blast_skills.size();
+        hdr->num_awaken = (uint32_t)awaken_skills.size();
+
+        hdr->super_offset = Utils::DifPointer(super_skills_f, buf);
+        hdr->ultimate_offset = Utils::DifPointer(ultimate_skills_f, buf);
+        hdr->evasive_offset = Utils::DifPointer(evasive_skills_f, buf);
+        hdr->unk_offset = Utils::DifPointer(unk_skills_f, buf);
+        hdr->blast_offset = Utils::DifPointer(blast_skills_f, buf);
+        hdr->awaken_offset = Utils::DifPointer(awaken_skills_f, buf);
+    }
+
+    else if (version == 119)
+    {
+        CUSSkill119 *super_skills_f = (CUSSkill119 *)(skill_set_f+skill_sets.size());
+        CUSSkill119 *ultimate_skills_f = (CUSSkill119 *)(super_skills_f+super_skills.size());
+        CUSSkill119 *evasive_skills_f = (CUSSkill119 *)(ultimate_skills_f+ultimate_skills.size());
+        CUSSkill119 *unk_skills_f = (CUSSkill119 *)(evasive_skills_f+evasive_skills.size());
+        CUSSkill119 *blast_skills_f = (CUSSkill119 *)(unk_skills_f+unk_skills.size());
+        CUSSkill119 *awaken_skills_f = (CUSSkill119 *)(blast_skills_f+blast_skills.size());
+        char *strings = (char *)(awaken_skills_f+awaken_skills.size());
+        char *current_str = strings;
+
+        SaveSkills119(buf, strings, &current_str, super_skills, super_skills_f, strings_list);
+        SaveSkills119(buf, strings, &current_str, ultimate_skills, ultimate_skills_f, strings_list);
+        SaveSkills119(buf, strings, &current_str, evasive_skills, evasive_skills_f, strings_list);
+        SaveSkills119(buf, strings, &current_str, unk_skills, unk_skills_f, strings_list);
+        SaveSkills119(buf, strings, &current_str, blast_skills, blast_skills_f, strings_list);
+        SaveSkills119(buf, strings, &current_str, awaken_skills, awaken_skills_f, strings_list);
 
         hdr->signature = CUS_SIGNATURE;
         hdr->endianess_check = 0xFFFE;
@@ -753,7 +942,7 @@ bool CusFile::CompileSkills(const TiXmlElement *root, std::vector<CusSkill> &ski
         {
            CusSkill skill;
 
-           if (!skill.Compile(elem, &new_format))
+           if (!skill.Compile(elem, &version))
                return false;
 
            skills.push_back(skill);

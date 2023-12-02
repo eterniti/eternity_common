@@ -198,13 +198,16 @@ enum QedConditions
     QED_COND_UNK_60 = 60, // Added in version 1.11. Param 1: boolean. Param 2: integer. Param 3: integer.
     QED_COND_UNK_61 = 61, // Added in ? Only used in tournaments? Param 1: integer.
     QED_COND_UNK_62 = 62, // Added in ? Only used in tournaments? Param 1: qml_char Param 2: integer. Param 3: integer. Param 4: integer.
+    QED_COND_UNK_63 = 63, // Added in 1.21. Param 1: integer Param 2: boolean Param 3: float
+    QED_COND_UNK_64 = 64, // Added in 1.21 Param 1: qml_char Param 2: boolean
+    QED_COND_UNK_65 = 65, // Added in 1.21 Param 1: integer Param 2: integer
 };
 
 // There are 120 actions according to the exe (function 0x6AC380 in 1.09.01)
 // We shall put here those that are used in at least one qed, and the alias opcodes
 
 // Actions currently unused by vanilla:
-// 24 (unlisted, which makes it act like a nop, it may have been a debug action)
+// 24,123 (unlisted, which makes it act like a nop, it may have been a debug action)
 // 53 (qml_char, b2)
 // 69 (alias of QED_ACT_GOTO_STATE)
 // 72 (qml_char, i2) May be related with dragon balls
@@ -334,6 +337,10 @@ enum QedActions
     QED_ACT_UNK_120 = 120, // (Added in 1.10) Param 1: integer (range 0-127), Param 2: integer (some kind of subopcode, range of 0-5) Param 3: integer  Param 4: integer
     QED_ACT_UNK_121 = 121, // (Added in 1.10) Param 1: qml char Param 2: integer (range 0-18) Param 3: integer (range 0-127)
     QED_ACT_UNK_122 = 122, // (Added in 1.10) Param 1: qml char Param 2: integer (range 0-127)
+    QED_ACT_UNK_124 = 124, // (Added in ???) Param 1: qml char Param 2: qml char Param 3: float
+    QED_ACT_UNK_125 = 125, // (Added in 1.21) Param 1: integer (may be related with character) Param 2: boolean Param 3: float
+    QED_ACT_UNK_126 = 126, // (Added in 1.21) Param 1: integer
+    QED_ACT_UNK_127 = 127, // (Added in 1.21) Param 1: integer Param 2: boolean Param 3: string (12 chars), Param 4: string (12 chars)
 };
 
 // Condition extensions of xv2 patcher

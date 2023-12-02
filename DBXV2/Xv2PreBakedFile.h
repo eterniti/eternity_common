@@ -2,7 +2,10 @@
 #define XV2PREBAKEDFILE_H
 
 #include <unordered_map>
+#include <map>
 #include "BaseFile.h"
+
+#define BEHAVIOUR_MAX	0x1E
 
 struct BodyShape
 {
@@ -31,6 +34,9 @@ struct CusAuraData
 
     uint32_t bcs_hair_color;
     uint32_t bcs_eyes_color;
+    std::string bcs_additional_colors;
+
+    uint8_t behaviour_64 = 0xFF;
 
     CusAuraData()
     {
@@ -45,6 +51,7 @@ struct CusAuraData
         behaviour_66 = 0xFF;        
         remove_hair_accessories = 0xFF;
         bcs_hair_color = bcs_eyes_color = 0xFFFFFFFF;
+        behaviour_64 = 0xFF;
     }
 
     TiXmlElement *Decompile(TiXmlNode *root) const;
@@ -77,18 +84,38 @@ struct BcsColorsMap
     bool Compile(const TiXmlElement *root, uint32_t *cms_id, uint32_t *costume);
 };
 
+struct AuraExtraData
+{
+    int32_t aur_id;
+    int32_t bpe_id;
+    bool flag1;
+    bool flag2;
+
+    AuraExtraData()
+    {
+        aur_id = -1;
+        bpe_id = -1;
+        flag1 = false;
+        flag2 = false;
+    }
+
+    TiXmlElement *Decompile(TiXmlNode *root) const;
+    bool Compile(const TiXmlElement *root);
+};
 
 class Xv2PreBakedFile : public BaseFile
 {
 private:
 
     std::vector<std::string> ozarus;
+    std::vector<std::string> cell_maxes;
     std::vector<uint32_t> auto_btl_portrait_list;
     std::vector<BodyShape> body_shapes;
     std::vector<CusAuraData> cus_aura_datas;
     std::vector<PreBakedAlias> aliases;
     std::vector<uint32_t> any_dual_skill_list;
     std::unordered_map<uint32_t, BcsColorsMap> colors_map;
+    std::map<int32_t, AuraExtraData> aura_extra_map;
 
 protected:
 
@@ -104,6 +131,9 @@ public:
 
     inline const std::vector<std::string> &GetOzarus() const { return ozarus; }
     inline std::vector<std::string> &GetOzarus() { return ozarus; }
+
+    inline const std::vector<std::string> &GetCellMaxes() const { return cell_maxes; }
+    inline std::vector<std::string> &GetCellMaxes() { return cell_maxes; }
 
     inline const std::vector<uint32_t> &GetAutoBtlPortraitList() const { return auto_btl_portrait_list; }
     inline std::vector<uint32_t> &GetAutoBtlPortraitList() { return auto_btl_portrait_list; }
@@ -123,8 +153,14 @@ public:
     inline const std::unordered_map<uint32_t, BcsColorsMap> &GetColorsMap() const { return colors_map; }
     inline std::unordered_map<uint32_t, BcsColorsMap> &GetColorsMap() { return colors_map; }
 
+    inline const std::map<int32_t, AuraExtraData> &GetAuraExtraMap() const { return aura_extra_map; }
+    inline std::map<int32_t, AuraExtraData> &GetAuraExtraMap() { return aura_extra_map; }
+
     void AddOzaru(const std::string &ozaru);
     void RemoveOzaru(const std::string &ozaru);
+
+    void AddCellMax(const std::string &cm);
+    void RemoveCellMax(const std::string &cm);
 
     void AddAutoBtlPortrait(uint32_t cms_entry);
     void RemoveAutoBtlPortrait(uint32_t cms_entry);
@@ -154,6 +190,31 @@ public:
         for (uint16_t costume = 0; costume < 100; costume++)
         {
             colors_map.erase((cms_id << 16) | costume);
+        }
+    }
+
+    inline bool GetAuraExtra(int32_t aur_id, AuraExtraData &extra)
+    {
+        auto it = aura_extra_map.find(aur_id);
+        if (it == aura_extra_map.end())
+            return false;
+
+        extra = it->second;
+        return true;
+    }
+
+    inline void SetAuraExtra(const AuraExtraData &extra)
+    {
+        if (extra.aur_id >= 0 && extra.bpe_id >= 0)
+            aura_extra_map[extra.aur_id] = extra;
+    }
+
+    inline void RemoveAuraExtra(int32_t aur_id)
+    {
+        auto it = aura_extra_map.find(aur_id);
+        if (it != aura_extra_map.end())
+        {
+            aura_extra_map.erase(it);
         }
     }
 };

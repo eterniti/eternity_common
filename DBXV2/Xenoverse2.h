@@ -189,6 +189,7 @@ namespace Xenoverse2
     bool InitCharaCostumeNames(int only_this_lang=-1);
     bool InitSkillNames(int only_this_lang=-1);
     bool InitSkillDescs(int only_this_lang=-1);
+    bool InitSkillHows(int only_this_lang=-1);
     bool InitBtlHudText(int only_this_lang=-1);
     bool InitSelPort();
     bool InitPreBaked();
@@ -220,6 +221,7 @@ namespace Xenoverse2
     bool CommitCharaCostumeNames();
     bool CommitSkillNames();
     bool CommitSkillDescs();
+    bool CommitSkillHows();
     bool CommitBtlHudText();
     bool CommitPreBaked();
     bool CommitLobbyText();
@@ -283,6 +285,21 @@ namespace Xenoverse2
     bool RemoveUltimateSkillDesc(uint16_t name_id, int lang);
     bool RemoveEvasiveSkillDesc(uint16_t name_id, int lang);
     bool RemoveAwakenSkillDesc(uint16_t name_id, int lang);
+
+    bool GetSuperSkillHow(uint16_t name_id, std::string &how, int lang=XV2_LANG_ENGLISH);
+    bool GetUltimateSkillHow(uint16_t name_id, std::string &how, int lang=XV2_LANG_ENGLISH);
+    bool GetEvasiveSkillHow(uint16_t name_id, std::string &how, int lang=XV2_LANG_ENGLISH);
+    bool GetAwakenSkillHow(uint16_t name_id, std::string &how, int lang=XV2_LANG_ENGLISH);
+
+    bool SetSuperSkillHow(uint16_t name_id, const std::string &how, int lang);
+    bool SetUltimateSkillHow(uint16_t name_id, const std::string &how, int lang);
+    bool SetEvasiveSkillHow(uint16_t name_id, const std::string &how, int lang);
+    bool SetAwakenSkillHow(uint16_t name_id, const std::string &how, int lang);
+
+    bool RemoveSuperSkillHow(uint16_t name_id, int lang);
+    bool RemoveUltimateSkillHow(uint16_t name_id, int lang);
+    bool RemoveEvasiveSkillHow(uint16_t name_id, int lang);
+    bool RemoveAwakenSkillHow(uint16_t name_id, int lang);
 
     bool GetBtlHudAwakenName(uint16_t name_id, uint16_t trans_stage, std::string &name, int lang=XV2_LANG_ENGLISH);
     bool SetBtlHudAwakenName(uint16_t name_id, uint16_t trans_stage, const std::string &name, int lang);
@@ -348,6 +365,7 @@ namespace Xenoverse2
     bool FreeBgmSound(const std::string &name);
 
     uint32_t CusAuraToAurAura(uint32_t id);
+    void GetAuraExtra(int32_t id, AuraExtraData &extra);
 
     bool GetStageName(const std::string &id, std::string &name, int lang=XV2_LANG_ENGLISH);
     bool SetStageName(const std::string &id, const std::string &name, int lang);

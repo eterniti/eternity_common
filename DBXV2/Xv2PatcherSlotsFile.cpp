@@ -519,3 +519,82 @@ size_t Xv2PatcherSlotsFile::RemoveSlots(const std::string &code)
 
     return removed;
 }
+
+bool Xv2PatcherSlotsFile::FindFirstMatch(const std::string &code, size_t *pentry_idx) const
+{
+    for (size_t i = 0; i < chara_slots.size(); i++)
+    {
+        const CharaListSlot &slot = chara_slots[i];
+        if (slot.entries.size() == 0)
+            continue;
+
+        const CharaListSlotEntry &entry = slot.entries[0];
+        if (entry.code == code)
+        {
+            *pentry_idx = i;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool Xv2PatcherSlotsFile::FindFirstMatch(const std::string &code, int costume_index, int model_preset, size_t *pentry_idx, size_t *subentry_idx) const
+{
+    for (size_t i = 0; i < chara_slots.size(); i++)
+    {
+        const CharaListSlot &slot = chara_slots[i];
+        if (slot.entries.size() == 0)
+            continue;
+
+        for (size_t j = 0; j < slot.entries.size(); j++)
+        {
+            const CharaListSlotEntry &entry = slot.entries[j];
+            if (entry.code == code && entry.costume_index == costume_index && entry.model_preset == model_preset)
+            {
+                *pentry_idx = i;
+                *subentry_idx = j;
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+bool Xv2PatcherSlotsFile::PlaceAtPos(size_t idx, const CharaListSlot &slot)
+{
+    if (idx > chara_slots.size())
+        return false;
+
+    if (idx == chara_slots.size())
+    {
+        chara_slots.push_back(slot);
+    }
+    else
+    {
+        chara_slots.insert(chara_slots.begin()+idx, slot);
+    }
+
+    return true;
+}
+
+size_t Xv2PatcherSlotsFile::ChangeVoiceIds(const std::string &code, int costume_index, int model_preset, int voice1, int voice2)
+{
+    size_t count = 0;
+
+    for (CharaListSlot &slot : chara_slots)
+    {
+        for (CharaListSlotEntry &entry : slot.entries)
+        {
+            if (entry.code == code && entry.costume_index == costume_index && entry.model_preset == model_preset)
+            {
+                entry.voices_id_list[0] = voice1;
+                entry.voices_id_list[1] = voice2;
+                count++;
+            }
+        }
+    }
+
+    return count;
+}

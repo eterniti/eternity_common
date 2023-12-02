@@ -432,6 +432,20 @@ bool PatchUtils::HookCall(void *call_addr, void **orig, void *new_addr)
 
 #endif
 
+bool PatchUtils::HookConditionalJump(void *jump_addr, void **orig, void *new_addr)
+{
+	uint8_t *ptr = (uint8_t *)jump_addr; 
+	if (ptr[0] != 0xF || ptr[1] < 0x80 || ptr[1] > 0x8F)
+		return false;
+	
+	// Not the most elegant implementation...
+	uint8_t restore = ptr[1];
+	Write8(ptr+1, 0xE9);
+	bool ret = HookCall(ptr+1, orig, new_addr);
+	Write8(ptr+1, restore);
+	return ret;	
+}
+
 bool PatchUtils::HookResolveTarget(void *call_addr, void **orig, void *new_addr, bool expect_call)
 {
 	uint8_t *ptr = (uint8_t *)call_addr;

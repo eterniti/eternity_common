@@ -118,3 +118,20 @@ size_t Xv2PatcherSlotsFileStage::RemoveSlots(uint32_t stage_id)
 
     return removed;
 }
+
+bool Xv2PatcherSlotsFileStage::PlaceAtPos(size_t idx, const Xv2StageSlot &slot)
+{
+    if (idx > stage_slots.size())
+        return false;
+
+    if (idx == stage_slots.size())
+    {
+        stage_slots.push_back(slot);
+    }
+    else
+    {
+        stage_slots.insert(stage_slots.begin()+idx, slot);
+    }
+
+    return true;
+}

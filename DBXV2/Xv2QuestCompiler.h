@@ -345,8 +345,9 @@ enum InstructionParamsTypes
     PARAM_FLOAT,
     PARAM_BOOLEAN,
     PARAM_REVERSE_BOOLEAN,
-    PARAM_STRING,
-    PARAM_STRING_LONG,
+    PARAM_STRING, // 20 chars
+    PARAM_STRING_LONG, // 24 chars
+    PARAM_STRING_SHORT, // 12 chars
     PARAM_OPERATOR,
     PARAM_SCMS,
     PARAM_SKILL,
@@ -710,6 +711,8 @@ public:
         if (it != mods_table.end())
             mods_table.erase(guid);
     }
+
+    inline void RemoveAllMods() { mods_table.clear(); }
 
     inline void SetTestMode(bool value) { test_mode = value; }
 

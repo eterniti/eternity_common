@@ -102,6 +102,7 @@ namespace Utils
     bool VisitDirectory(const std::string &path, bool files, bool directories, bool recursive, bool (* visitor)(const std::string &path, bool is_directory, void *custom_param), void *custom_param=nullptr, bool show_error=false, bool ignore_error=false);
     bool IsDirectoryEmpty(const std::string &path, bool ignore_directories);
     size_t CountFiles(const std::string &path, bool recursive);
+    bool ListFiles(const std::string &path, bool files, bool directories, bool recursive, std::vector<std::string> &paths);
 
 	bool CompareFiles(const std::string &file1, const std::string &file2);
     bool CompareFilesPartial(const std::string &file1, const std::string &file2, uint64_t compare_size);

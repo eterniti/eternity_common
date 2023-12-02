@@ -71,6 +71,8 @@ bool QxdFile::Load(const uint8_t *buf, size_t size)
         COPY_I_Q(unlock_requirement);
         COPY_I_Q(time_limit);
         COPY_I_Q(difficulty);
+        COPY_I_Q(level);
+        COPY_I_Q(unk_70);
         COPY_I_Q(start_stage);
         COPY_I_Q(start_demo);
         COPY_I_Q(xp_reward);
@@ -83,7 +85,7 @@ bool QxdFile::Load(const uint8_t *buf, size_t size)
         COPY_I_Q(tp_medals);
         COPY_I_Q(tp_medals_special);
         COPY_I_Q(resistance_points);
-        COPY_I_Q(unk_C0);
+        COPY_I_Q(unk_C8);
         COPY_I_Q(flags);
         COPY_I_Q(update_requirement);
         COPY_I_Q(dlc_requirement);
@@ -92,8 +94,8 @@ bool QxdFile::Load(const uint8_t *buf, size_t size)
         COPY_I_Q(enemy_near_music);
         COPY_I_Q(battle_music);
         COPY_I_Q(ult_finish_music);
-        COPY_I_Q(unk_114);
-        COPY_I_Q(unk_118);
+        COPY_I_Q(unk_11C);
+        COPY_I_Q(unk_120);
 
         quest.msg_entries.resize(file_quest->num_msg_entries);
         const char *file_msg_entries = (const char *)(buf + file_quest->msg_entries_offset);
@@ -142,7 +144,17 @@ bool QxdFile::Load(const uint8_t *buf, size_t size)
         }
 
         memcpy(quest.enemy_portraits, file_quest->enemy_portraits, sizeof(quest.enemy_portraits));
-        memcpy(quest.unk_E8, file_quest->unk_E8, sizeof(quest.unk_E8));
+        memcpy(quest.unk_F0, file_quest->unk_F0, sizeof(quest.unk_F0));
+
+        /*if (quest.unk_6C != 0)
+        {
+            DPRINTF("%s:unk_6C = %d\n", quest.name.c_str(), quest.unk_6C);
+        }
+
+        if (quest.unk_70 != 0)
+        {
+            DPRINTF("%s:unk_70 = %d\n", quest.name.c_str(), quest.unk_70);
+        }*/
 
         /*static std::unordered_set<uint32_t> knowns;
         for (const QxdItemReward &reward : quest.item_rewards)
@@ -359,6 +371,8 @@ uint8_t *QxdFile::Save(size_t *psize)
         COPY_O_Q(unlock_requirement);
         COPY_O_Q(time_limit);
         COPY_O_Q(difficulty);
+        COPY_O_Q(level);
+        COPY_O_Q(unk_70);
         COPY_O_Q(start_stage);
         COPY_O_Q(start_demo);
         COPY_O_Q(xp_reward);
@@ -371,7 +385,7 @@ uint8_t *QxdFile::Save(size_t *psize)
         COPY_O_Q(tp_medals);
         COPY_O_Q(tp_medals_special);
         COPY_O_Q(resistance_points);
-        COPY_O_Q(unk_C0);
+        COPY_O_Q(unk_C8);
         COPY_O_Q(flags);
         COPY_O_Q(update_requirement);
         COPY_O_Q(dlc_requirement);
@@ -380,8 +394,8 @@ uint8_t *QxdFile::Save(size_t *psize)
         COPY_O_Q(enemy_near_music);
         COPY_O_Q(battle_music);
         COPY_O_Q(ult_finish_music);
-        COPY_O_Q(unk_114);
-        COPY_O_Q(unk_118);
+        COPY_O_Q(unk_11C);
+        COPY_O_Q(unk_120);
 
         strncpy(file_quest->name, quest.name.c_str(), 16);
         file_quest->name[15] = 0;
@@ -474,7 +488,7 @@ uint8_t *QxdFile::Save(size_t *psize)
         file_stage_portraits += 16;
 
         memcpy(file_quest->enemy_portraits, quest.enemy_portraits, sizeof(quest.enemy_portraits));
-        memcpy(file_quest->unk_E8, quest.unk_E8, sizeof(quest.unk_E8));
+        memcpy(file_quest->unk_F0, quest.unk_F0, sizeof(quest.unk_F0));
 
         file_quest++;
     }
@@ -484,6 +498,16 @@ uint8_t *QxdFile::Save(size_t *psize)
     {
         *file_char = ch;
         file_char++;
+
+        /*if (ch.unk_7C != 0xFFFF)
+        {
+            DPRINTF("Char %s:unk_7C = %d\n", ch.cms_name, ch.unk_7C);
+        }
+
+        if (ch.unk_7E != 0)
+        {
+            DPRINTF("Char %s:unk_7E = %d\n", ch.cms_name, ch.unk_7E);
+        }*/
     }
 
     QXDCharacter *file_schar = (QXDCharacter *)GetOffsetPtr(buf, hdr->special_chars_start);
@@ -491,6 +515,16 @@ uint8_t *QxdFile::Save(size_t *psize)
     {
         *file_schar = ch;
         file_schar++;
+
+        /*if (ch.unk_7C != 0xFFFF)
+        {
+            DPRINTF("SChar %s:unk_7C = %d\n", ch.cms_name, ch.unk_7C);
+        }
+
+        if (ch.unk_7E != 0)
+        {
+            DPRINTF("SChar %s:unk_7E = %d\n", ch.cms_name, ch.unk_7E);
+        }*/
     }
 
     QXDCollectionEntry *file_collection = (QXDCollectionEntry *)GetOffsetPtr(buf, hdr->collections_entries_start);
@@ -524,6 +558,19 @@ QxdQuest *QxdFile::FindQuestByName(const std::string &name)
     }
 
     return nullptr;
+}
+
+int QxdFile::GetQuestIndex(const std::string &name)
+{
+    std::string name_upper = Utils::ToUpperCase(name);
+
+    for (size_t i = 0; i < quests.size(); i++)
+    {
+        if (Utils::ToUpperCase(quests[i].name) == name_upper)
+            return (int)i;
+    }
+
+    return -1;
 }
 
 QxdQuest *QxdFile::FindQuestById(uint32_t id)

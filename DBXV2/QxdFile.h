@@ -1,8 +1,6 @@
 #ifndef QXDFILE_H
 #define QXDFILE_H
-
 #include "CusFile.h"
-
 // "#QXD"
 #define QXD_SIGNATURE  0x44585123
 
@@ -22,6 +20,11 @@ enum QxdQuestType
     QUEST_TYPE_TNB, // Hero colosseum (bulma quests and battles with conton citizens)
     QUEST_TYPE_OSQ, // Fuu quests
     QUEST_TYPE_PRB, // Player Raid Boss
+    QUEST_TYPE_PRD, // Crystal Raid
+    QUEST_TYPE_RBD, // Extra Raid quests
+    QUEST_TYPE_RBS, // Million Raid quest
+    QUEST_TYPE_GBB, // Cross Versus
+    QUEST_TYPE_EVT, // Festival of Universes
 
     NUM_QUEST_TYPES
 };
@@ -70,6 +73,7 @@ enum QxdUpdate
     QXD_UPDATE_DLC15 = 0x20000,
     QXD_UPDATE_CELL_MAX = 0x40000,
     QXD_UPDATE_DLC16 = 0x80000,
+    QXD_UPDATE_GBB = 0x100000,
     QXD_UPDATE_DEVELOPER = 0x10000000,
 };
 
@@ -379,6 +383,69 @@ struct PACKED QXDQuest
     uint32_t unk2_offset; // 0x64
     uint16_t time_limit; // 0x68
     uint16_t difficulty; // 0x6A
+    uint32_t level; // 0x6C --- New in 1.21. Only used by TMQ, I think
+    uint32_t unk_70; // 0x70 --- New in 1.21 As of 1.21, all values have been found to be zero
+    uint16_t start_stage; // 0x74
+    uint16_t start_demo; // 0x76   Only used in TPQ and OSQ quests
+    uint32_t num_scripts; // 0x78
+    uint32_t scripts_offset; // 0x7C
+    uint32_t xp_reward; // 0x80
+    uint32_t ult_xp_reward; // 0x84
+    uint32_t fail_xp_reward; // 0x88
+    uint32_t zeni_reward; // 0x8C
+    uint32_t ult_zeni_reward; // 0x90
+    uint32_t fail_zeni_reward; // 0x94
+    uint32_t tp_medals_once; // 0x98
+    uint32_t tp_medals; // 0x9C
+    uint32_t tp_medals_special; // 0xA0
+    uint32_t resistance_points; // 0xA4
+    uint32_t num_item_rewards; // 0xA8
+    uint32_t item_rewards_offset; // 0xAC
+    uint32_t num_skill_rewards; // 0xB0
+    uint32_t skill_rewards_offset; // 0xB4
+    uint32_t num_chars_rewards; // 0xB8
+    uint32_t chars_rewards_offset; // 0xBC
+    uint32_t num_stages; // 0xC0 - Found to be 1 in 100% of cases
+    uint32_t stages_offset; // 0xC4
+    uint32_t unk_C8; // It could be a "has portraits" ? It is mostly 1, 0 in empty quests or in hero colisseum, and 2 in TCQ_ZMS_00
+    QXDCharPortrait enemy_portraits[6]; // 0xCC
+    uint16_t unk_F0[10];
+    uint32_t flags; // 0x104
+    uint32_t update_requirement; // 0x108
+    uint32_t dlc_requirement; // 0x10C
+    uint32_t unk_108; // 0x110
+    uint16_t no_enemy_music; // 0x114
+    uint16_t enemy_near_music; // 0x116
+    uint16_t battle_music; // 0x118
+    uint16_t ult_finish_music; // 0x11A
+    float unk_11C;
+    uint32_t unk_120; // 0 in everything but CHQ_0200, CHQ_0500, CHQ_0700, CHQ_1100
+};
+CHECK_STRUCT_SIZE(QXDQuest, 0x124);
+
+// Backup of pre 1.21
+/*struct PACKED QXDQuest
+{
+    char name[16];
+    uint32_t id; // 0x10
+    uint32_t episode; // 0x14
+    uint32_t sub_type; // 0x18
+    uint32_t num_players; // 0x1C
+    uint32_t num_msg_entries; // 0x20
+    uint32_t msg_entries_offset; // 0x24
+    uint16_t unk_28;
+    uint16_t parent_quest; // 0x2A - (quest ID)
+    uint16_t unk_2C;
+    uint16_t unk_2E; // Found zero in all quest of all files
+    uint32_t unk_30[4];
+    uint32_t unlock_requirement; // 0x40
+    uint32_t unk_44[5];
+    uint32_t num_unk1; // 0x58 - num of 16 * 16-bit numbers array
+    uint32_t unk1_offset; // 0x5C
+    uint32_t num_unk2; // 0x60 - num of 16 * 16-bit numbers array
+    uint32_t unk2_offset; // 0x64
+    uint16_t time_limit; // 0x68
+    uint16_t difficulty; // 0x6A
     uint16_t start_stage; // 0x6C
     uint16_t start_demo; // 0x6E   Only used in TPQ and OSQ quests
     uint32_t num_scripts; // 0x70
@@ -415,7 +482,7 @@ struct PACKED QXDQuest
     float unk_114;
     uint32_t unk_118; // 0 in everything but CHQ_0200, CHQ_0500, CHQ_0700, CHQ_1100
 };
-CHECK_STRUCT_SIZE(QXDQuest, 0x11C);
+CHECK_STRUCT_SIZE(QXDQuest, 0x11C);*/
 
 struct PACKED QXDCharacter
 {
@@ -445,6 +512,8 @@ struct PACKED QXDCharacter
     uint16_t unk_6A[7]; //  [0] -> misc values (mostly 0 or -1), [1,3] -> only used in chars from HLQ and RBQ (exact decimal quantities) [2,4-6] -> always zero
     uint16_t transformation; // 0x78
     uint16_t special_effect; // 0x7A
+    uint16_t unk_7C; // New in 1.21  Found to be always 0xFFFF(-1) except in characters from gbb_data.qxd, where it gets values from 100-105
+    uint16_t unk_7E; // New in 1.21  As of 1.21, all entries in all .qxd files are zero.
 
     QXDCharacter()
     {
@@ -460,6 +529,8 @@ struct PACKED QXDCharacter
         memset(skills, 0xFF, sizeof(skills));
         memset(unk_6A, 0, sizeof(unk_6A));
         transformation = special_effect = 0xFFFF;
+        unk_7C = 0xFFFF;
+        unk_7E = 0;
     }
 
     bool ComparePartial(const QXDCharacter &rhs) const
@@ -539,6 +610,12 @@ struct PACKED QXDCharacter
         if (special_effect != rhs.special_effect)
             return false;
 
+        if (unk_7C != rhs.unk_7C)
+            return false;
+
+        if (unk_7E != rhs.unk_7E)
+            return false;
+
         return true;
     }
 
@@ -555,7 +632,7 @@ struct PACKED QXDCharacter
         return !(*this == rhs);
     }
 };
-CHECK_STRUCT_SIZE(QXDCharacter, 0x7C);
+CHECK_STRUCT_SIZE(QXDCharacter, 0x80);
 
 struct PACKED QXDCollectionEntry
 {
@@ -597,6 +674,8 @@ struct QxdQuest
     std::vector<QxdUnk> unk2s;
     uint16_t time_limit;
     uint16_t difficulty;
+    uint32_t level; // New in 1.21. Only used by TMQ, I think
+    uint32_t unk_70; // New in 1.21 As of 1.21, all values have been found to be zero
     uint16_t start_stage;
     uint16_t start_demo; //  Only used in TPQ and OSQ quests. Does it work outside?
     std::vector<std::string> scripts;
@@ -614,9 +693,9 @@ struct QxdQuest
     std::vector<QxdSkillReward> skill_rewards;
     std::vector<QxdCharReward> char_rewards;
     uint16_t stages[16];
-    uint32_t unk_C0; // It could be a "has portraits" ? It is mostly 1, 0 in empty quests or in hero colisseum, and 2 in TCQ_ZMS_00
+    uint32_t unk_C8; // It could be a "has portraits" ? It is mostly 1, 0 in empty quests or in hero colisseum, and 2 in TCQ_ZMS_00
     QxdCharPortrait enemy_portraits[6];
-    uint16_t unk_E8[10];
+    uint16_t unk_F0[10];
     uint32_t flags;
     uint32_t update_requirement;
     uint32_t dlc_requirement;
@@ -625,8 +704,8 @@ struct QxdQuest
     uint16_t enemy_near_music;
     uint16_t battle_music;
     uint16_t ult_finish_music;
-    float unk_114;
-    uint32_t unk_118; // 0 in everything but CHQ_0200, CHQ_0500, CHQ_0700, CHQ_1100
+    float unk_11C;
+    uint32_t unk_120; // 0 in everything but CHQ_0200, CHQ_0500, CHQ_0700, CHQ_1100
 
     QxdQuest()
     {
@@ -643,6 +722,8 @@ struct QxdQuest
         memset(unk_44, 0xFF, sizeof(unk_44));
         time_limit = 0;
         difficulty = 0;
+        level = 0;
+        unk_70 = 0;
         start_stage = 0;
         start_demo = 0;
         xp_reward = ult_xp_reward = fail_xp_reward = 0;
@@ -650,14 +731,14 @@ struct QxdQuest
         tp_medals_once = tp_medals = tp_medals_special = 0;
         resistance_points = 0;
         memset(stages, 0xFF, sizeof(stages));
-        unk_C0 = 0;
-        memset(unk_E8, 0, sizeof(unk_E8));
+        unk_C8 = 0;
+        memset(unk_F0, 0, sizeof(unk_F0));
         flags = 0;
         update_requirement = dlc_requirement = 0;
         unk_108 = 0;
         no_enemy_music = enemy_near_music = battle_music = ult_finish_music = 0;
-        unk_114 = 0.0f;
-        unk_118 = 0;
+        unk_11C = 0.0f;
+        unk_120 = 0;
     }
 
     inline bool operator==(const QxdQuest &rhs) const
@@ -696,6 +777,12 @@ struct QxdQuest
             return false;
 
         if (difficulty != rhs.difficulty)
+            return false;
+
+        if (level != rhs.level)
+           return false;
+
+        if (unk_70 != rhs.unk_70)
             return false;
 
         if (start_stage != rhs.start_stage)
@@ -749,7 +836,7 @@ struct QxdQuest
         if (memcmp(stages, rhs.stages, sizeof(stages)) != 0)
             return false;
 
-        if (unk_C0 != rhs.unk_C0)
+        if (unk_C8 != rhs.unk_C8)
             return false;
 
         for (int i = 0; i < 6; i++)
@@ -758,7 +845,7 @@ struct QxdQuest
                 return false;
         }
 
-        if (memcmp(unk_E8, rhs.unk_E8, sizeof(unk_E8)) != 0)
+        if (memcmp(unk_F0, rhs.unk_F0, sizeof(unk_F0)) != 0)
             return false;
 
         if (flags != rhs.flags)
@@ -782,10 +869,10 @@ struct QxdQuest
         if (ult_finish_music != rhs.ult_finish_music)
             return false;
 
-        if (unk_114 != rhs.unk_114)
+        if (unk_11C != rhs.unk_11C)
             return false;
 
-        if (unk_118 != rhs.unk_118)
+        if (unk_120 != rhs.unk_120)
             return false;
 
         return true;
@@ -898,6 +985,7 @@ public:
     inline QxdQuest &GetQuest(size_t idx) { return quests[idx]; }
 
     QxdQuest *FindQuestByName(const std::string &name);
+    int GetQuestIndex(const std::string &name);
     QxdQuest *FindQuestById(uint32_t id);
     bool AddQuest(QxdQuest &quest, int new_id_search_start);
     void RemoveQuest(uint32_t id, bool only_erase);

@@ -40,21 +40,21 @@ struct PACKED BCMEntry
     uint16_t unk_2E;
     uint32_t sibling;
     uint32_t child;
-    uint32_t parent;
+    uint32_t parent; // 0x38
     uint32_t root;
     uint32_t ki_cost;
     uint32_t unk_44;
     uint32_t unk_48;
-    uint32_t receiver_link_id;
+    uint32_t receiver_link_id; // 0x4C
     uint32_t unk_50;
     uint32_t stamina_cost;
     uint32_t unk_58;
-    uint32_t ki_required; // 5C
-    float health_required; // 60
-    uint16_t trans_modifier; // 64
-    uint16_t cus_aura; // 66
+    uint32_t ki_required; // 0x5C
+    float health_required; // 0x60
+    uint16_t trans_modifier; // 0x64
+    uint16_t cus_aura; // 0x66
     uint32_t unk_68;
-    uint32_t unk_6C;
+    uint32_t character_conditions; // 0x6C
 };
 CHECK_STRUCT_SIZE(BCMEntry, 0x70);
 
@@ -97,7 +97,9 @@ struct BcmEntry
     uint16_t trans_modifier;
     uint16_t cus_aura;
     uint32_t unk_68;
-    uint32_t unk_6C;
+    // None of the game files are currently using this condition, but the code in the exe is pretty clear.
+    // 0=none, 1=is_cac, 2=is_hum, 3=is_huf, 4=is_sym, 5=is_syf 6=is_nmc, 7=is_fri, 8=is_mam, 9=is_maf
+    uint32_t character_conditions;
 
     TiXmlElement *Decompile(TiXmlNode *root, uint32_t idx) const;
     bool Compile(const TiXmlElement *root);

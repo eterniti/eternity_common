@@ -273,6 +273,8 @@ static const std::vector<ci_string> quest_params =
 
     "time_limit",
     "difficulty",
+    "level", // 1.21
+    "i112", // 1.21
     "start_stage",
     "start_demo",
 
@@ -343,6 +345,8 @@ static const std::vector<int> quest_types =
 
     TOKEN_INTEGER,
     TOKEN_INTEGER,
+    TOKEN_INTEGER, // 1.21
+    TOKEN_INTEGER, // 1.21
     TOKEN_POLI_INTEGER_STRING_IDENTIFIER,
     TOKEN_INTEGER,
 
@@ -381,7 +385,7 @@ static const std::vector<int> quest_types =
     TOKEN_INTEGER,
     TOKEN_INTEGER,
     TOKEN_FLOAT,
-    TOKEN_INTEGER
+    TOKEN_INTEGER,
 };
 
 static const std::vector<ci_string> qxd_char_params =
@@ -423,7 +427,11 @@ static const std::vector<ci_string> qxd_char_params =
 
     "i106",
     "i108",
-    "i112"
+    "i112",
+
+    // 1.21
+    "i124",
+    "i126"
 };
 
 static const std::vector<int> qxd_char_types =
@@ -464,6 +472,10 @@ static const std::vector<int> qxd_char_types =
     TOKEN_POLI_INTEGER_IDENTIFIER,
 
     TOKEN_INTEGER,
+    TOKEN_INTEGER,
+    TOKEN_INTEGER,
+
+    // 1.21
     TOKEN_INTEGER,
     TOKEN_INTEGER
 };
@@ -783,6 +795,7 @@ static const std::unordered_map<int, std::string> update_to_constant =
     { QXD_UPDATE_DLC15, "DLC15" },
     { QXD_UPDATE_CELL_MAX, "CELL_MAX" },
     { QXD_UPDATE_DLC16, "DLC16" },
+    { QXD_UPDATE_GBB, "GBB" },
     { QXD_UPDATE_DEVELOPER, "DEVELOPER" }
 };
 
@@ -810,6 +823,7 @@ static const std::unordered_map<ci_string, int, CIStrHash> constant_to_update =
     { "DLC15", QXD_UPDATE_DLC15 },
     { "CELL_MAX", QXD_UPDATE_CELL_MAX },
     { "DLC16", QXD_UPDATE_DLC16 },
+    { "GBB", QXD_UPDATE_GBB },
     { "DEVELOPER", QXD_UPDATE_DEVELOPER }
 };
 
@@ -1279,6 +1293,7 @@ static const std::vector<InstructionDef> instructions_defs =
     { QED_ACT_HERO_COLOSSEUM_HINT, "HCHint", true, { PARAM_STRING } },
     { QED_ACT_CHARA_RESET, "CharaReset", true, { PARAM_QCHAR } },
     { QED_ACT_UNK_119, "Unk119", true, { PARAM_QCHAR } },
+    { QED_ACT_UNK_126, "Unk126", true, { PARAM_INTEGER } },
 
     { QED_COND_TIME_PASSED, "TimePassed", false, { PARAM_OPERATOR, PARAM_FLOAT } },
     { QED_COND_PLAYER_HEALTH, "PlayerHealth", false, { PARAM_OPERATOR, PARAM_FLOAT } },
@@ -1293,6 +1308,8 @@ static const std::vector<InstructionDef> instructions_defs =
     { QED_COND_DRAGON_BALL_OBTAINED, "TeamCarriesDragonBalls", false, { PARAM_TEAM_TYPE, PARAM_INTEGER } },
     { QED_COND_REMAINING_TIME, "RemainingTime", false, { PARAM_OPERATOR, PARAM_FLOAT } },
     { QED_COND_HEALTH_DAMAGE_OVER, "HealthDamageOver", false, { PARAM_QCHAR, PARAM_INTEGER } },
+    { QED_COND_UNK_64, "Unk64", false, { PARAM_QCHAR, PARAM_BOOLEAN } },
+    { QED_COND_UNK_65, "Unk65", false, { PARAM_INTEGER, PARAM_INTEGER } },
     { QED_ACT_LOAD_DEMO, "LoadDemo", true, { PARAM_STRING, PARAM_FADE } },
     { QED_ACT_UNK_10, "Unk10", true, { PARAM_QCHAR, PARAM_INTEGER } },
     { QED_ACT_QUICK_POWERUP, "QuickPowerup", true, { PARAM_QCHAR, PARAM_INTEGER } }, // Used mostly for demos.
@@ -1341,6 +1358,7 @@ static const std::vector<InstructionDef> instructions_defs =
     { QED_COND_EVENT_DONE, "EventDone", false, { PARAM_INTEGER, PARAM_INTEGER, PARAM_INTEGER } },
     { QED_COND_UNK_55, "Unk55", false, { PARAM_QCHAR, PARAM_INTEGER, PARAM_BOOLEAN } },
     { QED_COND_UNK_60, "Unk60", false, { PARAM_BOOLEAN, PARAM_INTEGER, PARAM_INTEGER } },
+    { QED_COND_UNK_63, "Unk63", false, { PARAM_INTEGER, PARAM_BOOLEAN, PARAM_FLOAT } },
     { QED_ACT_PLAY_BGM, "PlayBgm", true, { PARAM_INTEGER, PARAM_INTEGER, PARAM_INTEGER } },
     { QED_ACT_STOP_BGM, "StopBgm", true, { PARAM_BOOLEAN, PARAM_INTEGER, PARAM_INTEGER } }, // Set boolean to false
     { QED_ACT_UNK_9, "Unk9", true, { PARAM_INTEGER, PARAM_INTEGER, PARAM_BOOLEAN } },
@@ -1356,6 +1374,8 @@ static const std::vector<InstructionDef> instructions_defs =
     { QED_ACT_LOAD_AIC, "LoadAic", true, { PARAM_STRING, PARAM_INTEGER, PARAM_BOOLEAN } },
     { QED_ACT_UNK_114, "Unk114", true, { PARAM_BOOLEAN, PARAM_INTEGER, PARAM_INTEGER } },
     { QED_ACT_UNK_121, "Unk121", true, { PARAM_QCHAR, PARAM_INTEGER, PARAM_INTEGER } },
+    { QED_ACT_UNK_124, "Unk124", true, { PARAM_QCHAR, PARAM_QCHAR, PARAM_FLOAT } },
+    { QED_ACT_UNK_125, "Unk125", true, { PARAM_INTEGER, PARAM_BOOLEAN, PARAM_FLOAT } },
 
     { QED_COND_UNK_10, "Unk10", false, { PARAM_SCMS, PARAM_INTEGER, PARAM_INTEGER, PARAM_INTEGER } },
     { QED_COND_UNK_13, "Unk13", false, { PARAM_SCMS, PARAM_INTEGER, PARAM_INTEGER, PARAM_INTEGER } },
@@ -1387,6 +1407,7 @@ static const std::vector<InstructionDef> instructions_defs =
     { QED_ACT_STAT_REGENERATION, "StatsRegeneration", true, { PARAM_QCHAR, PARAM_BOOLEAN, PARAM_STATS_COMBINATION, PARAM_FLOAT } },
     { QED_ACT_POWERUP_EX, "PowerUpEx", true, { PARAM_QCHAR, PARAM_QBT, PARAM_INTEGER, PARAM_STRINGVAR } },
     { QED_ACT_UNK_120, "Unk120", true, { PARAM_INTEGER, PARAM_INTEGER, PARAM_INTEGER, PARAM_INTEGER } },
+    { QED_ACT_UNK_127, "Unk127", true, { PARAM_INTEGER, PARAM_BOOLEAN, PARAM_STRING_SHORT, PARAM_STRING_SHORT } },
 
     // XV2Patcher extensions
     { QED_COND_EXT_IS_AVATAR, "XV2P_IsAvatar", false, { PARAM_QCHAR } },
@@ -1522,6 +1543,21 @@ int Xv2QuestCompiler::GetQuestType(const std::string &name)
     else if (Utils::BeginsWith(name, "PRB_", false))
         return QUEST_TYPE_PRB;
 
+    else if (Utils::BeginsWith(name, "PRD_", false))
+        return QUEST_TYPE_PRD;
+
+    else if (Utils::BeginsWith(name, "RBD_", false))
+        return QUEST_TYPE_RBD;
+
+    else if (Utils::BeginsWith(name, "RBS_", false))
+        return QUEST_TYPE_RBS;
+
+    else if (Utils::BeginsWith(name, "GBB_", false))
+        return QUEST_TYPE_GBB;
+
+    else if (Utils::BeginsWith(name, "EVT_", false))
+        return QUEST_TYPE_EVT;
+
     return -1;
 }
 
@@ -1611,6 +1647,26 @@ std::string Xv2QuestCompiler::GetDialogueFile(const std::string &name, uint32_t 
     {
         ret = "prb_battle";
     }
+    else if (quest_type == QUEST_TYPE_PRD)
+    {
+        ret = "prd_battle";
+    }
+    else if (quest_type == QUEST_TYPE_RBD)
+    {
+        ret = "qrd_battle";
+    }
+    else if (quest_type == QUEST_TYPE_RBS)
+    {
+        ret = "qrs_battle";
+    }
+    else if (quest_type == QUEST_TYPE_GBB)
+    {
+        ret = "gbb_battle";
+    }
+    else if (quest_type == QUEST_TYPE_EVT)
+    {
+        ret = "qet_battle";
+    }
 
     return ret;
 }
@@ -1618,7 +1674,9 @@ std::string Xv2QuestCompiler::GetDialogueFile(const std::string &name, uint32_t 
 bool Xv2QuestCompiler::SupportsAudio()
 {
     if (quest_type == QUEST_TYPE_RBQ || quest_type == QUEST_TYPE_LEQ || quest_type == QUEST_TYPE_TTQ ||
-        quest_type == QUEST_TYPE_TFB || quest_type == QUEST_TYPE_TNB || quest_type == QUEST_TYPE_PRB)
+        quest_type == QUEST_TYPE_TFB || quest_type == QUEST_TYPE_TNB || quest_type == QUEST_TYPE_PRB ||
+        quest_type == QUEST_TYPE_PRD || quest_type == QUEST_TYPE_RBD || quest_type == QUEST_TYPE_RBS ||
+        quest_type == QUEST_TYPE_GBB)
     {
         return false;
     }
@@ -1714,10 +1772,15 @@ std::string Xv2QuestCompiler::GetAudioFile(const std::string &name, uint32_t epi
     {
         prefix = "OSQ";
         file = "CAOS_" + name;
+    }    
+    else if (quest_type == QUEST_TYPE_EVT)
+    {
+       prefix = "EVT";
+       file = "CAP_UD" + Utils::ToStringAndPad(active_qxd.GetQuestIndex(name), 3);
     }
 
     if (english)
-    {
+    {        
         file = prefix + "/en/" + file;
     }
     else
@@ -1873,6 +1936,26 @@ std::string Xv2QuestCompiler::GetTitlePath() const
             file = "prb_title";
         break;
 
+        case QUEST_TYPE_PRD:
+            file = "prd_title";
+        break;
+
+        case QUEST_TYPE_RBD:
+            file = "qrd_title";
+        break;
+
+        case QUEST_TYPE_RBS:
+            file = "qrs_title";
+        break;
+
+        case QUEST_TYPE_GBB:
+            file = "gbb_title";
+        break;
+
+        case QUEST_TYPE_EVT:
+            file = "qet_title";
+        break;
+
         default:
             file = "qe_title";
     }
@@ -1959,6 +2042,26 @@ bool Xv2QuestCompiler::LoadQxd(QxdFile &qxd, bool vanilla) const
 
         case QUEST_TYPE_PRB:
             file = "PRB/prb_data.qxd";
+        break;
+
+        case QUEST_TYPE_PRD:
+            file = "PRD/prd_data.qxd";
+        break;
+
+        case QUEST_TYPE_RBD:
+            file = "RBD/rbd_data.qxd";
+        break;
+
+        case QUEST_TYPE_RBS:
+            file = "RBS/rbs_data.qxd";
+        break;
+
+        case QUEST_TYPE_GBB:
+            file = "GBB/gbb_data.qxd";
+        break;
+
+        case QUEST_TYPE_EVT:
+            file = "EVT/evt_data.qxd";
         break;
     }
 
@@ -2525,6 +2628,26 @@ bool Xv2QuestCompiler::CommitActiveQxd()
 
         case QUEST_TYPE_PRB:
             file = "PRB/prb_data.qxd";
+        break;
+
+        case QUEST_TYPE_PRD:
+            file = "PRD/prd_data.qxd";
+        break;
+
+        case QUEST_TYPE_RBD:
+            file = "RBD/rbd_data.qxd";
+        break;
+
+        case QUEST_TYPE_RBS:
+            file = "RBS/rbs_data.qxd";
+        break;
+
+        case QUEST_TYPE_GBB:
+            file = "GBB/gbb_data.qxd";
+        break;
+
+        case QUEST_TYPE_EVT:
+            file = "EVT/evt_data.qxd";
         break;
     }
 
@@ -6421,7 +6544,8 @@ bool Xv2QuestCompiler::DecompileQxdUnk(const QxdUnk &unk, int type, std::ostring
 
 bool Xv2QuestCompiler::DecompileItemReward(const QxdItemReward &reward, std::ostringstream &oss)
 {
-    if (reward.flags != 0 && reward.flags != 1 && reward.flags != 2 && reward.flags != 5 && reward.flags != 6 && reward.flags != 9 && reward.flags != 10 && reward.flags != 11 && reward.flags != 12)
+    if (reward.flags != 0 && reward.flags != 1 && reward.flags != 2 && reward.flags != 5 && reward.flags != 6 &&
+        reward.flags != 8 && reward.flags != 9 && reward.flags != 10 && reward.flags != 11 && reward.flags != 12)
     {
         DPRINTF("%s: Unexpected value for flags (%d)\n", FUNCNAME, reward.flags);
         return false;
@@ -6438,7 +6562,7 @@ bool Xv2QuestCompiler::DecompileItemReward(const QxdItemReward &reward, std::ost
     WriteIntegerParam(oss, "condition", reward.condition, false); // TODO: Maybe find out about this?
     WriteIntegerParam(oss, "i12", reward.unk_0C, false);
 
-    if (reward.flags == 1 || reward.flags == 5 || reward.flags == 6 || reward.flags == 9 || reward.flags == 10 || reward.flags == 11 || reward.flags == 12)
+    if (reward.flags == 1 || reward.flags == 5 || reward.flags == 6 || reward.flags == 8 || reward.flags == 9 || reward.flags == 10 || reward.flags == 11 || reward.flags == 12)
         WriteIntegerParam(oss, "flags", reward.flags, false);
     else //0, 2
         WriteIdentifierParam(oss, "flags", (reward.flags == 2) ? "HIDDEN" : "NORMAL", false);
@@ -6616,6 +6740,10 @@ bool Xv2QuestCompiler::DecompileQuestStruct(const QxdQuest &quest, std::ostrings
 
     WriteIntegerParam(oss, "time_limit", (int16_t)quest.time_limit);
     WriteIntegerParam(oss, "difficulty", (int16_t)quest.difficulty);
+    // 1.21
+    WriteIntegerParam(oss, "level", quest.level);
+    WriteIntegerParam(oss, "i112", quest.unk_70);
+    //
     WriteStageParam(oss, "start_stage", quest.start_stage);
     WriteIntegerParam(oss, "start_demo", (int16_t)quest.start_demo);
 
@@ -6693,7 +6821,7 @@ bool Xv2QuestCompiler::DecompileQuestStruct(const QxdQuest &quest, std::ostrings
         oss << tss.str();
     }
 
-    WriteIntegerParam(oss, "i192", quest.unk_C0);
+    WriteIntegerParam(oss, "i192", quest.unk_C8);
 
     oss << '\n';
 
@@ -6709,7 +6837,7 @@ bool Xv2QuestCompiler::DecompileQuestStruct(const QxdQuest &quest, std::ostrings
     for (int i = 0; i < 10; i++)
     {
         std::string param_name = "i" + Utils::ToString(2*i+232);
-        WriteIntegerParam(oss, param_name, (int16_t)quest.unk_E8[i]);
+        WriteIntegerParam(oss, param_name, (int16_t)quest.unk_F0[i]);
     }
 
     WriteIntegerParam(oss, "flags", quest.flags, true, "", (quest.flags != 0));
@@ -6738,8 +6866,8 @@ bool Xv2QuestCompiler::DecompileQuestStruct(const QxdQuest &quest, std::ostrings
     WriteIntegerParam(oss, "enemy_near_bgm", (int16_t)quest.enemy_near_music);
     WriteIntegerParam(oss, "battle_bgm", (int16_t)quest.battle_music);
     WriteIntegerParam(oss, "ultimate_finish_bgm", (int16_t)quest.ult_finish_music);
-    WriteFloatParam(oss, "f276", quest.unk_114);
-    WriteIntegerParam(oss, "i280", quest.unk_118);
+    WriteFloatParam(oss, "f276", quest.unk_11C);
+    WriteIntegerParam(oss, "i280", quest.unk_120);
 
     indent_level--;
     WriteIndent(oss, true);
@@ -6841,6 +6969,10 @@ bool Xv2QuestCompiler::DecompileQxdChar(const QxdCharacter &chara, bool special,
     WriteIntegerParam(oss, "i106", (int16_t)chara.unk_6A[0]);
     WriteIntegerParam(oss, "i108", (int16_t)chara.unk_6A[1]);
     WriteIntegerParam(oss, "i112", (int16_t)chara.unk_6A[3]);
+
+    // 1.21
+    WriteIntegerParam(oss, "i124", (int16_t)chara.unk_7C);
+    WriteIntegerParam(oss, "i126", (int16_t)chara.unk_7E);
 
     indent_level--;
     WriteIndent(oss, true);
@@ -7394,6 +7526,8 @@ bool Xv2QuestCompiler::DecompileInstruction(const InstructionDef &def, const Qed
             oss << ", ";
         }
 
+        //DPRINTF("IsAction = %d, Opcode = %d, i = %Id\n", def.is_action, def.opcode, i);
+
         if (i == 0)
         {
             param_int = &params.group1.group.nums.param1.num.i;
@@ -7412,6 +7546,9 @@ bool Xv2QuestCompiler::DecompileInstruction(const InstructionDef &def, const Qed
             param_int = &params.group1.group.nums.param3.num.i;
             next_int = &params.group1.group.nums.param4.num.i;
             param_float = &params.group1.group.nums.param3.num.f;
+
+            if (def.param_types[p] == PARAM_STRING_SHORT)
+                param_string = (const char *)param_int;
         }
         else if (i == 3)
         {
@@ -7430,6 +7567,9 @@ bool Xv2QuestCompiler::DecompileInstruction(const InstructionDef &def, const Qed
             param_int = &params.group2.param2.num.i;
             next_int = &params.group2.param3.num.i;
             param_float = &params.group2.param2.num.f;
+
+            if (def.param_types[p] == PARAM_STRING_SHORT)
+                param_string = (const char *)param_int;
         }
         else if (i == 6)
         {
@@ -7463,7 +7603,7 @@ bool Xv2QuestCompiler::DecompileInstruction(const InstructionDef &def, const Qed
         {
             oss << ((*param_int != 0) ? "false" : "true");
         }
-        else if (def.param_types[p] == PARAM_STRING || def.param_types[p] == PARAM_STRING_LONG)
+        else if (def.param_types[p] == PARAM_STRING || def.param_types[p] == PARAM_STRING_LONG || def.param_types[p] == PARAM_STRING_SHORT)
         {
             std::string str = param_string;
 
@@ -7475,7 +7615,9 @@ bool Xv2QuestCompiler::DecompileInstruction(const InstructionDef &def, const Qed
 
             if (def.param_types[p] == PARAM_STRING)
                 i += 4;
-            else
+            else if (def.param_types[p] == PARAM_STRING_SHORT)
+                i += 2;
+            else // Long
                 i += 5;
         }
         else if (def.param_types[p] == PARAM_OPERATOR)
@@ -8660,7 +8802,7 @@ bool Xv2QuestCompiler::CompileQuestStruct()
             {
                 if (!defined[i])
                 {
-                    if (quest_params[i] != "warning" && quest_params[i] != "ex_success")
+                    if (quest_params[i] != "warning" && quest_params[i] != "ex_success" && quest_params[i] != "level" && quest_params[i] != "i112")
                     {
                         DPRINTF("Parameter \"%s\" was not defined in Quest object ", quest_params[i].c_str());
                         return LineError(token);
@@ -8984,47 +9126,47 @@ bool Xv2QuestCompiler::CompileQuestStruct()
                 }
                 else if (token.str == "i192")
                 {
-                    compiled_quest.unk_C0 = value_int;
+                    compiled_quest.unk_C8 = value_int;
                 }
                 else if (token.str == "i232")
                 {
-                    compiled_quest.unk_E8[0] = (int16_t)value_int;
+                    compiled_quest.unk_F0[0] = (int16_t)value_int;
                 }
                 else if (token.str == "i234")
                 {
-                    compiled_quest.unk_E8[1] = (int16_t)value_int;
+                    compiled_quest.unk_F0[1] = (int16_t)value_int;
                 }
                 else if (token.str == "i236")
                 {
-                    compiled_quest.unk_E8[2] = (int16_t)value_int;
+                    compiled_quest.unk_F0[2] = (int16_t)value_int;
                 }
                 else if (token.str == "i238")
                 {
-                    compiled_quest.unk_E8[3] = (int16_t)value_int;
+                    compiled_quest.unk_F0[3] = (int16_t)value_int;
                 }
                 else if (token.str == "i240")
                 {
-                    compiled_quest.unk_E8[4] = (int16_t)value_int;
+                    compiled_quest.unk_F0[4] = (int16_t)value_int;
                 }
                 else if (token.str == "i242")
                 {
-                    compiled_quest.unk_E8[5] = (int16_t)value_int;
+                    compiled_quest.unk_F0[5] = (int16_t)value_int;
                 }
                 else if (token.str == "i244")
                 {
-                    compiled_quest.unk_E8[6] = (int16_t)value_int;
+                    compiled_quest.unk_F0[6] = (int16_t)value_int;
                 }
                 else if (token.str == "i246")
                 {
-                    compiled_quest.unk_E8[7] = (int16_t)value_int;
+                    compiled_quest.unk_F0[7] = (int16_t)value_int;
                 }
                 else if (token.str == "i248")
                 {
-                    compiled_quest.unk_E8[8] = (int16_t)value_int;
+                    compiled_quest.unk_F0[8] = (int16_t)value_int;
                 }
                 else if (token.str == "i250")
                 {
-                    compiled_quest.unk_E8[9] = (int16_t)value_int;
+                    compiled_quest.unk_F0[9] = (int16_t)value_int;
                 }
                 else if (token.str == "flags")
                 {
@@ -9074,11 +9216,20 @@ bool Xv2QuestCompiler::CompileQuestStruct()
                 }
                 else if (token.str == "f276")
                 {
-                    compiled_quest.unk_114 = value_float;
+                    compiled_quest.unk_11C = value_float;
                 }
                 else if (token.str == "i280")
                 {
-                    compiled_quest.unk_118 = value_int;
+                    compiled_quest.unk_120 = value_int;
+                }
+                // 1.21
+                else if (token.str == "level")
+                {
+                    compiled_quest.level = value_int;
+                }
+                else if (token.str == "i112")
+                {
+                    compiled_quest.unk_70 = value_int;
                 }
                 else
                 {
@@ -9119,8 +9270,11 @@ bool Xv2QuestCompiler::CompileQxdChar(bool special)
             {
                 if (!defined[i])
                 {
-                    DPRINTF("Parameter \"%s\" was not defined in QxdChar object ", qxd_char_params[i].c_str());
-                    return LineError(token);
+                    if (qxd_char_params[i] != "i124" && qxd_char_params[i] != "i126") // 1.21 exceptions
+                    {
+                        DPRINTF("Parameter \"%s\" was not defined in QxdChar object ", qxd_char_params[i].c_str());
+                        return LineError(token);
+                    }
                 }
             }
 
@@ -9291,6 +9445,15 @@ bool Xv2QuestCompiler::CompileQxdChar(bool special)
             {
                 chara.unk_6A[3] = (int16_t)value_int;
             }
+            // 1.21
+            else if (token.str == "i124")
+            {
+                chara.unk_7C = (int16_t)value_int;
+            }
+            else if (token.str == "i126")
+            {
+                chara.unk_7E = (int16_t)value_int;
+            }
             else
             {
                 DPRINTF("%s: BUG, shouldn't be here (%s)\n", FUNCNAME, token.str.c_str());
@@ -9367,9 +9530,9 @@ bool Xv2QuestCompiler::CompileQmlChar()
 
             if (token.str == "battle_index")
             {
-                if (value_int < -1 || value_int > 6)
+                if (value_int < -1 || value_int > 7) // 1.21: in GBB quests, value can now be 7
                 {
-                    DPRINTF("battle_index out of valid range [-1,6] ");
+                    DPRINTF("battle_index out of valid range [-1,7] ");
                     return LineError(value);
                 }
 
@@ -10478,6 +10641,9 @@ bool Xv2QuestCompiler::CompileInstruction(const InstructionDef &def, QedInstruct
             out_param_int = &params.group1.group.nums.param3.num.i;
             out_next_int = &params.group1.group.nums.param4.num.i;
             out_param_float = &params.group1.group.nums.param3.num.f;
+
+            if (def.param_types[p] == PARAM_STRING_SHORT)
+                out_param_string = (char *)out_param_int;
         }
         else if (o == 3)
         {
@@ -10496,6 +10662,9 @@ bool Xv2QuestCompiler::CompileInstruction(const InstructionDef &def, QedInstruct
             out_param_int = &params.group2.param2.num.i;
             out_next_int = &params.group2.param3.num.i;
             out_param_float = &params.group2.param2.num.f;
+
+            if (def.param_types[p] == PARAM_STRING_SHORT)
+                out_param_string = (char *)out_param_int;
         }
         else if (o == 6)
         {
@@ -10537,12 +10706,18 @@ bool Xv2QuestCompiler::CompileInstruction(const InstructionDef &def, QedInstruct
 
             *out_param_int = (param.b != true);
         }
-        else if (def.param_types[p] == PARAM_STRING || def.param_types[p] == PARAM_STRING_LONG)
+        else if (def.param_types[p] == PARAM_STRING || def.param_types[p] == PARAM_STRING_LONG || def.param_types[p] == PARAM_STRING_SHORT)
         {
             if (!ExpectTokenType(param, TOKEN_STRING))
                 return false;
 
-            size_t max_size = (def.param_types[p] == PARAM_STRING) ? 20 : 24;
+            size_t max_size;
+            if (def.param_types[p] == PARAM_STRING)
+                max_size = 20;
+            else if (def.param_types[p] == PARAM_STRING_LONG)
+                max_size = 24;
+            else // SHORT
+                max_size = 12;
 
             if (param.str.length() >= max_size)
             {
@@ -10554,7 +10729,9 @@ bool Xv2QuestCompiler::CompileInstruction(const InstructionDef &def, QedInstruct
 
             if (def.param_types[p] == PARAM_STRING)
                 o += 4;
-            else
+            else if (def.param_types[p] == PARAM_STRING_SHORT)
+                o += 2;
+            else // Long
                 o += 5;
         }
         else if (def.param_types[p] == PARAM_OPERATOR)

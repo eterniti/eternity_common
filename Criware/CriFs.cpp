@@ -90,12 +90,15 @@ bool CriFs::BuildVisitor(const std::string &path, bool, void *param)
         local_path += '/';
 
     pthis->directories.insert(local_path);
+    pthis->directories_loose.insert(local_path);
     return true;
 }
 
 void CriFs::BuildDirList()
 {
     directories.clear();
+    directories_cpk.clear();
+    directories_loose.clear();
 
     Utils::VisitDirectory(loose_files_root, false, true, true, BuildVisitor, this);
 
@@ -116,6 +119,11 @@ void CriFs::BuildDirList()
             if (directories.find(path) == directories.end())
             {
                 directories.insert(path);
+            }
+
+            if (directories_cpk.find(path) == directories_cpk.end())
+            {
+                directories_cpk.insert(path);
             }
         }
     }
@@ -348,6 +356,32 @@ bool CriFs::FileExists(const std::string &file, bool check_cpk, bool check_loose
     return false;
 }
 
+bool CriFs::DirExists(const std::string &dir, bool check_cpk, bool check_loose)
+{
+    std::string conv_path = ConvertPath(dir);
+
+    if (conv_path.length() == 0)
+        return false;
+
+    if (check_loose)
+    {
+        std::string loose_path = loose_files_root + conv_path;
+        if (Utils::DirExists(loose_path))
+            return true;
+    }
+
+    if (!check_cpk)
+        return false;
+
+    if (directories_cpk.size() == 0)
+        BuildDirList();
+
+    if (!Utils::EndsWith(conv_path, "/"))
+        conv_path.push_back('/');
+
+    return (directories_cpk.find(conv_path) != directories_cpk.end());
+}
+
 bool CriFs::VisitVisitor(const std::string &path, bool, void *param)
 {
     CriFs *pthis = (CriFs *)param;
@@ -502,4 +536,16 @@ bool CriFs::VisitDirectory(const std::string &path, bool files, bool directories
     }
 
     return true;
+}
+
+static bool list_visitor(const std::string &path, bool, void *custom_param)
+{
+    std::vector<std::string> *plist = static_cast< std::vector<std::string> *>(custom_param);
+    plist->push_back(path);
+    return true;
+}
+
+bool CriFs::ListDirectory(const std::string &path, std::vector<std::string> &out_paths, bool files, bool directories, bool recursive)
+{
+    return VisitDirectory(path, files, directories, recursive, list_visitor, &out_paths);
 }

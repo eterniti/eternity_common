@@ -749,6 +749,19 @@ size_t Utils::CountFiles(const std::string &path, bool recursive)
     return ret;
 }
 
+static bool list_files_visitor(const std::string &path, bool, void *custom_param)
+{
+    std::vector<std::string> *ppaths = (std::vector<std::string> *)custom_param;
+    ppaths->push_back(path);
+    return true;
+}
+
+bool Utils::ListFiles(const std::string &path, bool files, bool directories, bool recursive, std::vector<std::string> &paths)
+{
+    paths.clear();
+    return Utils::VisitDirectory(path, files, directories, recursive, list_files_visitor, &paths);
+}
+
 bool Utils::CompareFiles(const std::string &file1, const std::string &file2)
 {
 	struct stat st1, st2;

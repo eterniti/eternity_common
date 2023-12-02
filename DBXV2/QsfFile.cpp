@@ -34,6 +34,7 @@ bool QsfFile::Load(const uint8_t *buf, size_t size)
 
         entry.type = (const char *)GetOffsetPtr(&file_entries[i].quest_type_offset, file_entries[i].quest_type_offset);
         entry.quest_entries.resize(file_entries[i].num_quest_entries);
+        //DPRINTF("Type: %s\n", entry.type.c_str());
 
         const QSFQuestEntry *file_quest_entries = (const QSFQuestEntry *)GetOffsetPtr(&file_entries[i].quest_entries_offset, file_entries[i].quest_entries_offset);
 

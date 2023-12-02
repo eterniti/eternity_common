@@ -97,11 +97,17 @@ struct CUSSkill
 };
 STATIC_ASSERT_STRUCT(CUSSkill, 0x44);
 
-struct CUSSkillNew : CUSSkill
+struct CUSSkill119 : CUSSkill
 {
     uint32_t unk_44; // New in 1.19
 };
-STATIC_ASSERT_STRUCT(CUSSkillNew, 0x48);
+STATIC_ASSERT_STRUCT(CUSSkill119, 0x48);
+
+struct CUSSkill121 : CUSSkill119
+{
+    uint32_t unk_48; // New in 1.21
+};
+STATIC_ASSERT_STRUCT(CUSSkill121, 0x4C);
 
 #pragma pack(pop)
 
@@ -152,13 +158,15 @@ struct CusSkill
     uint16_t change_skillset;
     uint32_t num_transforms;
     uint32_t unk_44; // New in 1.19
+    uint32_t unk_48; // New in 1.21
 
     TiXmlElement *Decompile(TiXmlNode *root) const;
-    bool Compile(const TiXmlElement *root, bool *new_format=nullptr);
+    bool Compile(const TiXmlElement *root, int *version=nullptr);
 
     CusSkill()
     {
         unk_44 = 0xFFFFFF00;
+        unk_48 = 0;
     }
 };
 
@@ -174,12 +182,14 @@ private:
     std::vector<CusSkill> blast_skills;
     std::vector<CusSkill> awaken_skills;
 
-    bool new_format;
+    int version;
 
     bool LoadSkills(const uint8_t *top, const CUSSkill *sets_in, std::vector<CusSkill> &sets_out, uint32_t num);
-    bool LoadSkillsNew(const uint8_t *top, const CUSSkillNew *sets_in, std::vector<CusSkill> &sets_out, uint32_t num);
+    bool LoadSkills119(const uint8_t *top, const CUSSkill119 *sets_in, std::vector<CusSkill> &sets_out, uint32_t num);
+    bool LoadSkills121(const uint8_t *top, const CUSSkill121 *sets_in, std::vector<CusSkill> &sets_out, uint32_t num);
     void SaveSkills(uint8_t *top, char *str_top, char **str_current, const std::vector<CusSkill> &sets_in, CUSSkill *sets_out, std::unordered_set<std::string> &strings_list);
-    void SaveSkillsNew(uint8_t *top, char *str_top, char **str_current, const std::vector<CusSkill> &sets_in, CUSSkillNew *sets_out, std::unordered_set<std::string> &strings_list);
+    void SaveSkills119(uint8_t *top, char *str_top, char **str_current, const std::vector<CusSkill> &sets_in, CUSSkill119 *sets_out, std::unordered_set<std::string> &strings_list);
+    void SaveSkills121(uint8_t *top, char *str_top, char **str_current, const std::vector<CusSkill> &sets_in, CUSSkill121 *sets_out, std::unordered_set<std::string> &strings_list);
 
     TiXmlElement *DecompileSkills(const char *name, TiXmlNode *root, const std::vector<CusSkill> &skills, int type) const;
     bool CompileSkills(const TiXmlElement *root, std::vector<CusSkill> &skills);
@@ -274,7 +284,7 @@ public:
 
     size_t FindReferencesToPupId(uint16_t pup_id, std::vector<CusSkill *>&skills);
 
-    inline bool IsNewFormat() const { return new_format; }
+    inline int GetVersion() const { return version; }
 };
 
 #endif // __CUSFILE_H__

@@ -26,6 +26,9 @@ const std::vector<std::string> x2m_cr_code =
     "MAF"
 };
 
+std::string X2mFile::restore_path;
+std::unordered_set<std::string> X2mFile::restore_cms_set;
+
 void X2mSlotEntry::CopyFrom(const CharaListSlotEntry &entry, bool name)
 {
     costume_index = entry.costume_index;
@@ -485,6 +488,9 @@ TiXmlElement *X2mSkillAura::Decompile(TiXmlNode *root) const
     {
         if (!aura.Decompile(entry_root, aura_types))
             return nullptr;
+
+        if (!extra.Decompile(entry_root))
+            return nullptr;
     }
 
     root->LinkEndChild(entry_root);
@@ -504,6 +510,7 @@ bool X2mSkillAura::Compile(const TiXmlElement *root)
         return false;
 
     aura = AurAura();
+    extra = AuraExtraData();
 
     if (data.aur_aura_id == X2M_INVALID_ID16)
     {
@@ -515,6 +522,14 @@ bool X2mSkillAura::Compile(const TiXmlElement *root)
 
         if (!aura.Compile(elem, aura_types))
             return false;
+
+        if (Utils::GetElemCount(root, "AuraExtraData", &elem) > 0) // If newer mod
+        {
+            if (!extra.Compile(elem))
+                return false;
+        }
+
+        extra.aur_id = X2M_INVALID_ID; // If there is custom aura, this value is needed.
     }
 
     return true;
@@ -1427,6 +1442,7 @@ void X2mFile::Reset()
     chara_name.resize(XV2_LANG_NUM);
     mult_chara_names.clear();
     is_ozaru = false;
+    is_cellmax = false;
     body_shape = -1;
     can_use_any_dual_skill = false;
 
@@ -1443,6 +1459,7 @@ void X2mFile::Reset()
 
     chara_skill_depends.clear();
     chara_auras.clear();
+    chara_auras_extra.clear();
 
     custom_audios.clear();
 
@@ -1459,6 +1476,8 @@ void X2mFile::Reset()
     skill_name.resize(XV2_LANG_NUM);
     skill_desc.clear();
     skill_desc.resize(XV2_LANG_NUM);
+    skill_how.clear();
+    skill_how.resize(XV2_LANG_NUM);
     skill_type = X2mSkillType::SUPER;
     skill_trans_names.clear();
     skill_entry.id = X2M_INVALID_ID16;
@@ -1789,6 +1808,12 @@ bool X2mFile::Validate(bool write)
             return false;
         }
 
+        if (chara_auras.size() != 0 && chara_auras.size() != chara_auras_extra.size())
+        {
+            DPRINTF("%s: chara_auras_extra size must match chara_auras size.\n", FUNCNAME);
+            return false;
+        }
+
         if (HasCustomAudio())
         {
             for (const X2mCustomAudio &audio : custom_audios)
@@ -2030,29 +2055,41 @@ check_myself:
     }
     else if (type == X2mType::NEW_SKILL)
     {
-        if (skill_type == X2mSkillType::BLAST)
+        if (skill_type != X2mSkillType::BLAST)
         {
-            DPRINTF("%s: BLAST skill type is currently not supported.\n", FUNCNAME);
-            return false;
-        }
-
-        if (skill_name[XV2_LANG_ENGLISH].length() == 0)
-        {
-            DPRINTF("%s: SKILL_NAME_EN cannot be empty.\n", FUNCNAME);
-            return false;
-        }
-
-        if (skill_desc[XV2_LANG_ENGLISH].length() == 0)
-        {
-            for (int i = 0; i < XV2_LANG_NUM; i++)
+            if (skill_name[XV2_LANG_ENGLISH].length() == 0)
             {
-                if (i == XV2_LANG_ENGLISH)
-                    continue;
+                DPRINTF("%s: SKILL_NAME_EN cannot be empty.\n", FUNCNAME);
+                return false;
+            }
 
-                if (skill_desc[XV2_LANG_ENGLISH].length() != 0)
+            if (skill_desc[XV2_LANG_ENGLISH].length() == 0)
+            {
+                for (int i = 0; i < XV2_LANG_NUM; i++)
                 {
-                    DPRINTF("%s: skill description in language %d, but not in english.\n", FUNCNAME, i);
-                    return false;
+                    if (i == XV2_LANG_ENGLISH)
+                        continue;
+
+                    if (skill_desc[XV2_LANG_ENGLISH].length() != 0)
+                    {
+                        DPRINTF("%s: skill description in language %d, but not in english.\n", FUNCNAME, i);
+                        return false;
+                    }
+                }
+            }
+
+            if (format_version >= X2M_MIN_VERSION_SKILL_HOW && skill_how[XV2_LANG_ENGLISH].length() == 0)
+            {
+                for (int i = 0; i < XV2_LANG_NUM; i++)
+                {
+                    if (i == XV2_LANG_ENGLISH)
+                        continue;
+
+                    if (skill_how[XV2_LANG_ENGLISH].length() != 0)
+                    {
+                        DPRINTF("%s: skill how in language %d, but not in english.\n", FUNCNAME, i);
+                        return false;
+                    }
                 }
             }
         }
@@ -2314,6 +2351,10 @@ bool X2mFile::Decompile()
         {
             Utils::WriteParamString(root, "IS_OZARU", "true");
         }
+        else if (is_cellmax)
+        {
+            Utils::WriteParamString(root, "IS_CELLMAX", "true");
+        }
 
         if (body_shape >= 0)
         {
@@ -2438,6 +2479,14 @@ bool X2mFile::Decompile()
                 return false;
         }
 
+        for (AuraExtraData &aed : chara_auras_extra)
+        {
+            aed.aur_id = X2M_DUMMY_ID;
+
+            if (!aed.Decompile(root))
+                return false;
+        }
+
         for (const X2mCustomAudio &audio : custom_audios)
         {
             if (!audio.Decompile(root))
@@ -2515,26 +2564,40 @@ bool X2mFile::Decompile()
 
         Utils::WriteParamString(root, "SKILL_TYPE", temp_str);
 
-        for (size_t i = 0; i < XV2_LANG_NUM; i++)
+        if (skill_type != X2mSkillType::BLAST)
         {
-            const std::string &name = skill_name[i];
+            for (size_t i = 0; i < XV2_LANG_NUM; i++)
+            {
+                const std::string &name = skill_name[i];
 
-            if (name.length() == 0)
-                continue;
+                if (name.length() == 0)
+                    continue;
 
-            temp_str = "SKILL_NAME_" + Utils::ToUpperCase(xv2_lang_codes[i]);
-            Utils::WriteParamString(root, temp_str.c_str(), name);
-        }
+                temp_str = "SKILL_NAME_" + Utils::ToUpperCase(xv2_lang_codes[i]);
+                Utils::WriteParamString(root, temp_str.c_str(), name);
+            }
 
-        for (size_t i = 0; i < XV2_LANG_NUM; i++)
-        {
-            const std::string &desc = skill_desc[i];
+            for (size_t i = 0; i < XV2_LANG_NUM; i++)
+            {
+                const std::string &desc = skill_desc[i];
 
-            if (desc.length() == 0)
-                continue;
+                if (desc.length() == 0)
+                    continue;
 
-            temp_str = "SKILL_DESC_" + Utils::ToUpperCase(xv2_lang_codes[i]);
-            Utils::WriteParamString(root, temp_str.c_str(), desc);
+                temp_str = "SKILL_DESC_" + Utils::ToUpperCase(xv2_lang_codes[i]);
+                Utils::WriteParamString(root, temp_str.c_str(), desc);
+            }
+
+            for (size_t i = 0; i < XV2_LANG_NUM; i++)
+            {
+                const std::string &how = skill_how[i];
+
+                if (how.length() == 0)
+                    continue;
+
+                temp_str = "SKILL_HOW_" + Utils::ToUpperCase(xv2_lang_codes[i]);
+                Utils::WriteParamString(root, temp_str.c_str(), how);
+            }
         }
 
         if (skill_type == X2mSkillType::AWAKEN)
@@ -2575,6 +2638,12 @@ bool X2mFile::Decompile()
             {
                 aura.data.cus_aura_id = X2M_DUMMY_ID16;
                 aura.aura.id = X2M_DUMMY_ID;
+
+                // These two values must always be synchronized
+                if (aura.data.aur_aura_id == X2M_INVALID_ID16)
+                    aura.extra.aur_id = X2M_INVALID_ID;
+                else
+                    aura.extra.aur_id = -1;
 
                 if (!aura.Decompile(root))
                     return false;
@@ -2624,7 +2693,7 @@ bool X2mFile::Decompile()
             Utils::WriteParamString(root, temp_str.c_str(), name);
         }
 
-        stage_def.ssid = 0xFF;
+        stage_def.ssid = -1;
         if (!stage_def.Decompile(root, X2M_DUMMY_ID))
             return false;
 
@@ -2780,7 +2849,7 @@ bool X2mFile::Compile()
             Utils::ReadParamString(root, temp_str.c_str(), chara_name[i]);
         }
 
-        std::string ozaru_str;
+        std::string ozaru_str, cm_str;
 
         if (format_version >= X2M_MIN_VERSION_OZARU && Utils::ReadParamString(root, "IS_OZARU", ozaru_str))
         {
@@ -2789,6 +2858,15 @@ bool X2mFile::Compile()
         else
         {
             is_ozaru = false; // Not really needed, done at Reset
+        }
+
+        if (format_version >= X2M_MIN_VERSION_CELLMAX && Utils::ReadParamString(root, "IS_CELLMAX", cm_str) && !is_ozaru)
+        {
+            is_cellmax = (Utils::ToLowerCase(cm_str) == "true" || cm_str == "1");
+        }
+        else
+        {
+            is_cellmax = false; // Not really needed, done at Reset
         }
 
         if (format_version >= X2M_MIN_VERSION_BODY_SHAPES)
@@ -2833,13 +2911,22 @@ bool X2mFile::Compile()
             return false;
         }
 
-        for (int i = 0; i < XV2_LANG_NUM; i++)
+        if (skill_type != X2mSkillType::BLAST)
         {
-            temp_str = "SKILL_NAME_" + Utils::ToUpperCase(xv2_lang_codes[i]);
-            Utils::ReadParamString(root, temp_str.c_str(), skill_name[i]);
+            for (int i = 0; i < XV2_LANG_NUM; i++)
+            {
+                temp_str = "SKILL_NAME_" + Utils::ToUpperCase(xv2_lang_codes[i]);
+                Utils::ReadParamString(root, temp_str.c_str(), skill_name[i]);
 
-            temp_str = "SKILL_DESC_" + Utils::ToUpperCase(xv2_lang_codes[i]);
-            Utils::ReadParamString(root, temp_str.c_str(), skill_desc[i]);
+                temp_str = "SKILL_DESC_" + Utils::ToUpperCase(xv2_lang_codes[i]);
+                Utils::ReadParamString(root, temp_str.c_str(), skill_desc[i]);
+
+                if (format_version >= X2M_MIN_VERSION_SKILL_HOW)
+                {
+                    temp_str = "SKILL_HOW_" + Utils::ToUpperCase(xv2_lang_codes[i]);
+                    Utils::ReadParamString(root, temp_str.c_str(), skill_how[i]);
+                }
+            }
         }
     }
     else if (type == X2mType::NEW_STAGE)
@@ -2997,6 +3084,20 @@ bool X2mFile::Compile()
                     return false;
 
                 chara_auras.push_back(aura);
+
+                if (format_version < X2M_MIN_VERSION_AURA_EXTRA)
+                {
+                    chara_auras_extra.push_back(AuraExtraData());
+                }
+            }
+            else if (param_name == "AuraExtraData" && format_version >= X2M_MIN_VERSION_AURA_EXTRA)
+            {
+                AuraExtraData aed;
+
+                if (!aed.Compile(elem))
+                    return false;
+
+                chara_auras_extra.push_back(aed);
             }
             else if (param_name == "X2mCustomAudio" && format_version >= X2M_MIN_VERSION_CUSTOM_AUDIO)
             {
@@ -3087,7 +3188,7 @@ bool X2mFile::Compile()
 
                 skill_entry.id = X2M_DUMMY_ID16;
             }
-            else if (param_name == "IdbEntry")
+            else if (skill_type != X2mSkillType::BLAST && param_name == "IdbEntry")
             {
                 if (!skill_idb_entry.Compile(elem))
                 {
@@ -3173,7 +3274,7 @@ bool X2mFile::Compile()
                 if (!stage_def.Compile(elem))
                     return false;
 
-                stage_def.ssid = 0xFF;
+                stage_def.ssid = -1;
             }
 
         } // END NEW_STAGE
@@ -3266,6 +3367,7 @@ X2mFile *X2mFile::CreateDummyPackage()
     dummy->chara_name = chara_name;
     dummy->mult_chara_names = mult_chara_names;
     dummy->is_ozaru = is_ozaru;
+    dummy->is_cellmax = is_cellmax;
     dummy->body_shape = body_shape;
     dummy->can_use_any_dual_skill = can_use_any_dual_skill;
 
@@ -3282,6 +3384,7 @@ X2mFile *X2mFile::CreateDummyPackage()
 
     dummy->chara_skill_depends = chara_skill_depends;
     dummy->chara_auras = chara_auras;
+    dummy->chara_auras_extra = chara_auras_extra;
 
     dummy->custom_audios = custom_audios;
 
@@ -3295,6 +3398,7 @@ X2mFile *X2mFile::CreateDummyPackage()
 
     dummy->skill_name = skill_name;
     dummy->skill_desc = skill_desc;
+    dummy->skill_how = skill_how;
     dummy->skill_type = skill_type;
     dummy->skill_trans_names = skill_trans_names;
     dummy->skill_entry = skill_entry;
@@ -3539,6 +3643,12 @@ bool X2mFile::AudioFileExists(const std::string &name) const
 
 HcaFile *X2mFile::LoadAudioFile(const std::string &name, bool english, bool fallback)
 {
+    if (IsDummyMode())
+    {
+        DPRINTF("%s: I shouldn't be called in dummy mode!\n", FUNCNAME);
+        return nullptr;
+    }
+
     std::string jp_path;
     std::string en_path;
 
@@ -3819,6 +3929,9 @@ bool X2mFile::RemoveCharaSkillDepends(const std::string &guid)
 bool X2mFile::CharaSkillDependsHasAttachment(size_t idx) const
 {
     if (idx >= chara_skill_depends.size())
+        return false;
+
+    if (IsDummyMode())
         return false;
 
     const std::string att_path = X2M_CHARA_SKILLS_ATTACHMENTS + Utils::GUID2String(chara_skill_depends[idx].guid) + ".x2m";
@@ -4401,7 +4514,6 @@ size_t X2mFile::GetNumSkillCustomAuras() const
 
 CusSkill *X2mFile::FindInstalledSkill(const uint8_t *guid, X2mSkillType type)
 {
-
     std::vector<CmsEntryXV2 *> entries;
     FindX2mSkillCMS(entries);
 
@@ -4561,6 +4673,9 @@ X2mDepends *X2mFile::SetSkillCostumeDepend(const uint8_t *guid, const std::strin
 
 bool X2mFile::SkillCostumeDependHasAttachment() const
 {
+    if (IsDummyMode())
+        return false;
+
     const std::string att_path = X2M_SKILLS_COSTUME_ATTACHMENTS + Utils::GUID2String(skill_costume_depend.guid) + ".x2m";
     return FileExists(att_path);
 }
@@ -4776,6 +4891,9 @@ HcaFile *X2mFile::GetStageBgm()
     if (!StageHasCustomBgm())
         return nullptr;
 
+    if (IsDummyMode())
+        return RecoverStageBgm();
+
     size_t size;
     uint8_t *buf = ReadFile(X2M_STAGE_CUSTOM_BGM, &size);
 
@@ -4876,6 +4994,10 @@ size_t X2mFile::GetQuestAttachments(std::vector<X2mFile *> &x2ms)
 {
     x2ms.clear();
     temp_attachments = &x2ms;
+
+    if (IsDummyMode())
+        return 0;
+
     VisitDirectory(X2M_QUEST_ATTACHMENTS, GetQuestAttachmentsVisitor, this);
     return x2ms.size();
 }
@@ -5048,23 +5170,44 @@ bool X2mFile::InstallCssAudio(X2mSlotEntry &entry)
             return false;
         }
 
-        HcaFile *hca_jp = LoadAudioFile(entry.audio_files[i], false, true);
-        if (!hca_jp)
-        {
-            DPRINTF("%s: Cannot load css audio sound \"%s\". Most likely reasons is that it is an invalid HCA file.\n", FUNCNAME, entry.audio_files[i].c_str());
-            return false;
-        }
-
-        HcaFile *hca_en = LoadAudioFile(entry.audio_files[i], true, true);
-        if (!hca_en)
-        {
-            DPRINTF("%s: Cannot load css audio sound \"%s\" (2). Most likely reasons is that it is an invalid HCA file.\n", FUNCNAME, entry.audio_files[i].c_str());
-            delete hca_jp;
-            return false;
-        }
-
-        uint32_t cue_id_jp, cue_id_en;
+        HcaFile *hca_jp, *hca_en;
         const std::string cue_name = "X2M_" + entry_name + "_" + Utils::ToStringAndPad((int)installed_css_audio.size(), 2);
+
+        if (IsDummyMode())
+        {
+            hca_jp = RecoverCssSound(cue_name, false);
+            if (!hca_jp)
+            {
+                DPRINTF("%s: couldn't recover CSS sound (JP) \"%s\"", FUNCNAME, cue_name.c_str());
+                return false;
+            }
+
+            hca_en = RecoverCssSound(cue_name, true);
+            if (!hca_en)
+            {
+                DPRINTF("%s: couldn't recover CSS sound (EN) \"%s\"", FUNCNAME, cue_name.c_str());
+                return false;
+            }
+        }
+        else
+        {
+            hca_jp = LoadAudioFile(entry.audio_files[i], false, true);
+            if (!hca_jp)
+            {
+                DPRINTF("%s: Cannot load css audio sound \"%s\". Most likely reasons is that it is an invalid HCA file.\n", FUNCNAME, entry.audio_files[i].c_str());
+                return false;
+            }
+
+            hca_en = LoadAudioFile(entry.audio_files[i], true, true);
+            if (!hca_en)
+            {
+                DPRINTF("%s: Cannot load css audio sound \"%s\" (2). Most likely reasons is that it is an invalid HCA file.\n", FUNCNAME, entry.audio_files[i].c_str());
+                delete hca_jp;
+                return false;
+            }
+        }
+
+        uint32_t cue_id_jp, cue_id_en;        
 
         cue_id_jp = Xenoverse2::SetCssSound(cue_name, false, *hca_jp, 3, 4);
         delete hca_jp;
@@ -5102,11 +5245,13 @@ bool X2mFile::InstallCssAudio(X2mSlotEntry &entry)
     return true;
 }
 
-size_t X2mFile::FindX2mSkillCMS(std::vector<CmsEntryXV2 *> &entries)
+size_t X2mFile::FindX2mSkillCMS(std::vector<CmsEntryXV2 *> &entries, CmsFile *another_cms)
 {
     entries.clear();
 
-    for (CmsEntry *entry : *game_cms)
+    CmsFile *cms = (another_cms) ? another_cms : game_cms;
+
+    for (CmsEntry *entry : *cms)
     {
         CmsEntryXV2 *entry_xv2 = dynamic_cast<CmsEntryXV2 *>(entry);
         if (!entry_xv2)
@@ -5254,8 +5399,11 @@ bool X2mFile::AssignSkillIds()
 
         if (!game_cms->FindEntryByName(dummy_char.name))
         {
-            found = true;
-            break;
+            if (!IsDummyMode() || restore_cms_set.find(dummy_char.name) == restore_cms_set.end())
+            {
+                found = true;
+                break;
+            }
         }
     }
 
@@ -5283,11 +5431,14 @@ bool X2mFile::AssignSkillIds()
             }
 
             if (!game_cms->FindEntryByName(dummy_char.name))
-                break;
+            {
+                if (!IsDummyMode() || restore_cms_set.find(dummy_char.name) == restore_cms_set.end())
+                    break;
+            }
         }
     }
 
-    dummy_char.unk_10 = X2M_DUMMY_ID;
+    dummy_char.unk_10 = dummy_char.unk_1C = X2M_DUMMY_ID;
     dummy_char.unk_16 = dummy_char.load_cam_dist = dummy_char.unk_18 = dummy_char.unk_1A = X2M_DUMMY_ID16;
 
     if (!game_cms->AddEntryXV2(dummy_char, true))
@@ -5849,6 +6000,32 @@ void X2mFile::GetInstalledCustomAuraChara()
     ini.GetMultipleIntegersValues("General", "AUR", temp_aur_in, true);
 }
 
+bool X2mFile::InstallAuraExtraChara()
+{
+    UninstallAuraExtraChara();
+
+    for (size_t i = 0; i < chara_auras_extra.size(); i++)
+    {
+        if (chara_auras[i].id != X2M_INVALID_ID)
+        {
+            chara_auras_extra[i].aur_id = chara_auras[i].id;
+            game_prebaked->SetAuraExtra(chara_auras_extra[i]);
+        }
+    }
+
+    return true;
+}
+
+bool X2mFile::UninstallAuraExtraChara()
+{
+    for (int32_t aur_id : temp_aur_in)
+    {
+        game_prebaked->RemoveAuraExtra(aur_id);
+    }
+
+    return true;
+}
+
 bool X2mFile::InstallCustomAuraChara()
 {
     GetInstalledCustomAuraChara();
@@ -5859,7 +6036,7 @@ bool X2mFile::InstallCustomAuraChara()
     if (temp_aur_in.size() == num_custom)
     {
         if (num_custom == 0)
-            return true;
+            return InstallAuraExtraChara();
 
         // Case of "perfect update"
         std::vector<AurAura *> update_entries;
@@ -5878,14 +6055,14 @@ bool X2mFile::InstallCustomAuraChara()
 
         for (size_t i = 0, j = 0; i < aur_entries.size(); i++)
         {
-            if (j >= update_entries.size())
-            {
-                DPRINTF("%s: Internal coding error.\n", FUNCNAME);
-                return false;
-            }
-
             if (aur_entries[i].aura_id != X2M_INVALID_ID)
                 continue;
+
+            if (j >= update_entries.size())
+            {
+                DPRINTF("%s: Internal coding error (%Id >= %Id).\n", FUNCNAME, j, update_entries.size());
+                return false;
+            }
 
             AurAura *update_aura = update_entries[j];
             AurAura &aura = chara_auras[i];
@@ -5912,7 +6089,7 @@ new_install:
     }
 
     if (!HasCharaAura(true))
-        return true;
+        return InstallAuraExtraChara();
 
     for (size_t i = 0; i < chara_auras.size(); i++)
     {
@@ -5931,7 +6108,7 @@ new_install:
 setup_aura:
 
     // Nothing to do, setup happened before
-    return true;
+    return InstallAuraExtraChara();
 }
 
 bool X2mFile::FillAurEntries()
@@ -6057,12 +6234,25 @@ bool X2mFile::InstallSevAudio()
     {
         std::string name = "X2M_SEV_" + cms_entry.name + "_" + Utils::ToString(i);
         uint32_t cue_id, cue_id_en;
+        HcaFile *hca;
 
-        HcaFile *hca = LoadAudioFile(audio.name, false, true);
-        if (!hca)
+        if (IsDummyMode())
         {
-            DPRINTF("%s: Failed to load japanese audio file \"%s\".\n", FUNCNAME, audio.name.c_str());
-            return false;
+            hca = RecoverSevSound(name, false);
+            if (!hca)
+            {
+                DPRINTF("%s: couldn't recover SEV japanese audio \"%s\"", FUNCNAME, name.c_str());
+                return false;
+            }
+        }
+        else
+        {
+            hca = LoadAudioFile(audio.name, false, true);
+            if (!hca)
+            {
+                DPRINTF("%s: Failed to load japanese audio file \"%s\".\n", FUNCNAME, audio.name.c_str());
+                return false;
+            }
         }
 
         cue_id = Xenoverse2::SetSevCmnSound(name, false, *hca, true);
@@ -6074,13 +6264,25 @@ bool X2mFile::InstallSevAudio()
             return false;
         }
 
-        hca = LoadAudioFile(audio.name, true, true);
-        if (!hca)
+        if (IsDummyMode())
         {
+            hca = RecoverSevSound(name, true);
             if (!hca)
             {
-                DPRINTF("%s: Failed to load english audio file \"%s\".\n", FUNCNAME, audio.name.c_str());
+                DPRINTF("%s: couldn't recover SEV english audio \"%s\"", FUNCNAME, name.c_str());
                 return false;
+            }
+        }
+        else
+        {
+            hca = LoadAudioFile(audio.name, true, true);
+            if (!hca)
+            {
+                if (!hca)
+                {
+                    DPRINTF("%s: Failed to load english audio file \"%s\".\n", FUNCNAME, audio.name.c_str());
+                    return false;
+                }
             }
         }
 
@@ -7047,12 +7249,25 @@ bool X2mFile::InstallTtbAudio()
     {
         std::string cue_name = "X2M_TTB_" + cms_entry.name + "_" + Utils::ToString(i);
         uint32_t cue_id, cue_id_en;
+        HcaFile *hca;
 
-        HcaFile *hca = LoadAudioFile(audio.name, false, true);
-        if (!hca)
+        if (IsDummyMode())
         {
-            DPRINTF("%s: Failed to load japanese audio file \"%s\".\n", FUNCNAME, audio.name.c_str());
-            return false;
+            hca = RecoverSevSound(cue_name, false);
+            if (!hca)
+            {
+                DPRINTF("%s: couldn't recover TTB japanese audio \"%s\"", FUNCNAME, cue_name.c_str());
+                return false;
+            }
+        }
+        else
+        {
+            hca = LoadAudioFile(audio.name, false, true);
+            if (!hca)
+            {
+                DPRINTF("%s: Failed to load japanese audio file \"%s\".\n", FUNCNAME, audio.name.c_str());
+                return false;
+            }
         }
 
         cue_id = Xenoverse2::SetSevCmnSound(cue_name, false, *hca, true);
@@ -7064,13 +7279,25 @@ bool X2mFile::InstallTtbAudio()
             return false;
         }
 
-        hca = LoadAudioFile(audio.name, true, true);
-        if (!hca)
+        if (IsDummyMode())
         {
+            hca = RecoverSevSound(cue_name, true);
             if (!hca)
             {
-                DPRINTF("%s: Failed to load english audio file \"%s\".\n", FUNCNAME, audio.name.c_str());
+                DPRINTF("%s: couldn't recover TTB english audio \"%s\"", FUNCNAME, cue_name.c_str());
                 return false;
+            }
+        }
+        else
+        {
+            hca = LoadAudioFile(audio.name, true, true);
+            if (!hca)
+            {
+                if (!hca)
+                {
+                    DPRINTF("%s: Failed to load english audio file \"%s\".\n", FUNCNAME, audio.name.c_str());
+                    return false;
+                }
             }
         }
 
@@ -7513,9 +7740,23 @@ bool X2mFile::InstallSelPortrait()
         return false;
 
     size_t size;
-    uint8_t *buf = ReadFile(X2M_SEL_PORTRAIT, &size);
-    if (!buf)
-        return false;
+    uint8_t *buf;
+
+    if (IsDummyMode())
+    {
+        buf = RecoverSelPortrait(&size);
+        if (!buf)
+        {
+            DPRINTF("%s: Failed to recover portrait.", FUNCNAME);
+            return false;
+        }
+    }
+    else
+    {
+        buf = ReadFile(X2M_SEL_PORTRAIT, &size);
+        if (!buf)
+            return false;
+    }
 
     std::string name = entry_name + "_000.dds";
     bool ret = Xenoverse2::SetSelPortrait(name, buf, size);
@@ -7535,10 +7776,20 @@ void X2mFile::InstallColors()
     std::string bcs_path = entry_name + "/" + entry_name + ".bcs";
 
     size_t size;
-    uint8_t *buf = this->ReadFile(bcs_path, &size);
+    uint8_t *buf;
 
-    if (!buf)
-        return;
+    if (IsDummyMode())
+    {
+        buf = RecoverCharaFile(entry_name + ".bcs", &size, false);
+        if (!buf)
+            return;
+    }
+    else
+    {
+        buf = this->ReadFile(bcs_path, &size);
+        if (!buf)
+            return;
+    }
 
     bool ret = bcs.Load(buf, size);
     delete[] buf;
@@ -7608,6 +7859,15 @@ bool X2mFile::InstallPreBaked()
         game_prebaked->RemoveOzaru(entry_name);
     }
 
+    if (is_cellmax)
+    {
+        game_prebaked->AddCellMax(entry_name);
+    }
+    else
+    {
+        game_prebaked->RemoveCellMax(entry_name);
+    }
+
     game_prebaked->RemoveBodyShape(cms_entry.id);
     game_prebaked->RemoveAutoBtlPortrait(cms_entry.id);
 
@@ -7673,9 +7933,23 @@ bool X2mFile::InstallBtlPortrait(bool update)
     }
 
     size_t size;
-    uint8_t *buf = ReadFile(X2M_BTL_PORTRAIT, &size);
-    if (!buf)
-        return false;
+    uint8_t *buf;
+
+    if (IsDummyMode())
+    {
+        buf = RecoverBtlPortrait(&size);
+        if (!buf)
+        {
+            DPRINTF("%s: Failed to recover battle portrait.", FUNCNAME);
+            return false;
+        }
+    }
+    else
+    {
+        buf = ReadFile(X2M_BTL_PORTRAIT, &size);
+        if (!buf)
+            return false;
+    }
 
     std::string emb_path = std::string("data/ui/texture/") + entry_name + ".emb";
     bool ret = xv2fs->WriteFile(emb_path, buf, size);
@@ -7719,11 +7993,29 @@ bool X2mFile::InstallDir(const std::string &in_path, const std::string &out_path
             continue;
 
         size_t size;
-        uint8_t *buf = ReadFile(zstat.name, &size);
-        if (!buf)
-            return false;
-
+        uint8_t *buf;
         std::string out_file = proper_out_path + entry_path.substr(proper_in_path.length());
+
+        if (IsDummyMode())
+        {
+            if (Utils::BeginsWith(out_file, "data2/", false) || Utils::BeginsWith(out_file, "/data2/", false))
+            {
+                // some mode out there is using data2 even if it doesn't really use it
+                // Just ignore
+                return true;
+            }
+
+            buf = RecoverFile(out_file, &size);
+            if (!buf)
+                return false;
+        }
+        else
+        {
+            buf = ReadFile(zstat.name, &size);
+            if (!buf)
+                return false;
+        }
+
         bool ret = xv2fs->WriteFile(out_file, buf, size);
         delete[] buf;
 
@@ -7905,7 +8197,7 @@ bool X2mFile::UninstallAur()
     }
 
     game_aur->RemoveCharaLinks(cms_entry.id);
-    return true;
+    return UninstallAuraExtraChara();
 }
 
 bool X2mFile::UninstallSevAudio()
@@ -8249,6 +8541,7 @@ bool X2mFile::UninstallPreBaked()
         return false;
 
     game_prebaked->RemoveOzaru(entry_name);
+    game_prebaked->RemoveCellMax(entry_name);
     game_prebaked->RemoveBodyShape(cms_entry.id);
     game_prebaked->RemoveAutoBtlPortrait(cms_entry.id);
     game_prebaked->RemoveAlias(cms_entry.id);
@@ -8408,6 +8701,32 @@ setup_pup:
     return true;
 }
 
+bool X2mFile::InstallAuraExtraSkill()
+{
+    UninstallAuraExtraSkill();
+
+    for (X2mSkillAura &aura : skill_aura_entries)
+    {
+        if ((int16_t)aura.data.aur_aura_id >= 0 && aura.extra.aur_id == X2M_INVALID_ID)
+        {
+            aura.extra.aur_id = aura.data.aur_aura_id;
+            game_prebaked->SetAuraExtra(aura.extra);
+        }
+    }
+
+    return true;
+}
+
+bool X2mFile::UninstallAuraExtraSkill()
+{
+    for (int32_t aur_id : temp_aur_in)
+    {
+        game_prebaked->RemoveAuraExtra(aur_id);
+    }
+
+    return true;
+}
+
 bool X2mFile::InstallCustomAuraSkill()
 {
     temp_aur_out.clear();
@@ -8419,7 +8738,7 @@ bool X2mFile::InstallCustomAuraSkill()
     if (temp_aur_in.size() == num_custom)
     {
         if (!HasSkillCustomAuras())
-            return true;
+            return InstallAuraExtraSkill();
 
         // Case of "perfect update"
         std::vector<AurAura *> update_entries;
@@ -8472,7 +8791,7 @@ new_install:
     }
 
     if (!HasSkillCustomAuras())
-        return true;
+        return InstallAuraExtraSkill();
 
     for (size_t i = 0; i < skill_aura_entries.size(); i++)
     {
@@ -8491,7 +8810,7 @@ new_install:
 setup_aura:
 
     // Nothing to do, setup happened before
-    return true;
+    return InstallAuraExtraSkill();
 }
 
 bool X2mFile::InstallAuraSkill()
@@ -8639,6 +8958,9 @@ bool X2mFile::InstallSkillName()
         return false;
     }
 
+    if (skill_type == X2mSkillType::BLAST)
+        return true;
+
     if (skill_name[XV2_LANG_ENGLISH].length() == 0)
         return false;
 
@@ -8720,6 +9042,9 @@ bool X2mFile::InstallSkillDesc()
         return false;
     }
 
+    if (skill_type == X2mSkillType::BLAST)
+        return true;
+
     if (skill_desc[XV2_LANG_ENGLISH].length() == 0)
     {
         // This is for case where previous version had description and current one doesn't.
@@ -8765,6 +9090,65 @@ bool X2mFile::InstallSkillDesc()
     return true;
 }
 
+bool X2mFile::InstallSkillHow()
+{
+    if (type != X2mType::NEW_SKILL)
+        return false;
+
+    if (skill_entry.id == X2M_INVALID_ID16 || skill_entry.id == X2M_DUMMY_ID16)
+    {
+        DPRINTF("%s: InstallCusSkill must be called before this!\n", FUNCNAME);
+        return false;
+    }
+
+    if (skill_type == X2mSkillType::BLAST)
+        return true;
+
+    if (skill_how[XV2_LANG_ENGLISH].length() == 0)
+    {
+        // This is for case where previous version had description and current one doesn't.
+        return UninstallSkillHow();
+    }
+
+    for (int i = 0; i < XV2_LANG_NUM; i++)
+    {
+        const std::string *how;
+
+        if (skill_how[i].length() != 0)
+            how = &skill_how[i];
+        else
+            how = &skill_how[XV2_LANG_ENGLISH];
+
+        if (skill_type == X2mSkillType::SUPER)
+        {
+            if (!Xenoverse2::SetSuperSkillHow(skill_entry.id2, *how, i))
+                return false;
+        }
+        else if (skill_type == X2mSkillType::ULTIMATE)
+        {
+            if (!Xenoverse2::SetUltimateSkillHow(skill_entry.id2, *how, i))
+                return false;
+        }
+        else if (skill_type == X2mSkillType::EVASIVE)
+        {
+            if (!Xenoverse2::SetEvasiveSkillHow(skill_entry.id2, *how, i))
+                return false;
+        }
+        else if (skill_type == X2mSkillType::AWAKEN)
+        {
+            if (!Xenoverse2::SetAwakenSkillHow(skill_entry.id2, *how, i))
+                return false;
+        }
+        else
+        {
+            DPRINTF("%s: Internal error.\n", FUNCNAME);
+            return false;
+        }
+    }
+
+    return true;
+}
+
 bool X2mFile::InstallIdbSkill()
 {
     if (type != X2mType::NEW_SKILL)
@@ -8775,6 +9159,9 @@ bool X2mFile::InstallIdbSkill()
         DPRINTF("%s: InstallCusSkill must be called before this!\n", FUNCNAME);
         return false;
     }
+
+    if (skill_type == X2mSkillType::BLAST)
+        return true;
 
     if (!HasSkillIdbEntry())
     {
@@ -8921,9 +9308,23 @@ bool X2mFile::InstallSkillVisitor(const std::string &path, void *param)
     const std::string filename = Utils::GetFileNameString(path);
 
     size_t size;
-    uint8_t *buf = pthis->ReadFile(path, &size);
-    if (!buf)
-        return false;
+    uint8_t *buf;
+
+    if (IsDummyMode())
+    {
+        buf = pthis->RecoverSkillFile(path, &size);
+        if (!buf)
+        {
+            DPRINTF("%s: Failed to recover skill file \"%s\"", FUNCNAME, filename.c_str());
+            return false;
+        }
+    }
+    else
+    {
+        buf = pthis->ReadFile(path, &size);
+        if (!buf)
+            return false;
+    }
 
     if (path.back() == '/' || path.back() == '\\')
         return true;
@@ -9001,6 +9402,26 @@ bool X2mFile::InstallSkillVisitor(const std::string &path, void *param)
                 return false;
 
             return true;
+        }
+        else if (Utils::EndsWith(path, ".bdm", false))
+        {
+            BdmFile bdm;
+            bool ret;
+
+            if (bdm.Load(buf, size))
+            {
+                bdm.ChangeReferencesToSkill(X2M_DUMMY_ID16, pthis->skill_entry.id2);
+                bdm.ChangeReferencesToSkill(X2M_DUMMY_ID16_2, pthis->skill_entry.id);
+
+                ret = xv2fs->SaveFile(&bdm, out_path);
+            }
+            else
+            {
+                 ret = xv2fs->WriteFile(out_path, buf, size);
+            }
+
+            delete[] buf;
+            return ret;
         }
         else
         {
@@ -9108,7 +9529,7 @@ bool X2mFile::UninstallAuraSkill()
         game_prebaked->RemoveAuraData((uint16_t)cus_aur_id);
     }
 
-    return true;
+    return UninstallAuraExtraSkill();
 }
 
 bool X2mFile::UninstallCusSkill()
@@ -9137,6 +9558,9 @@ bool X2mFile::UninstallSkillName()
 
     if (skill_entry.id == X2M_DUMMY_ID16)
         return true; // Yes, true
+
+    if (skill_type == X2mSkillType::BLAST)
+        return true;
 
     for (int i = 0; i < XV2_LANG_NUM; i++)
     {
@@ -9190,6 +9614,9 @@ bool X2mFile::UninstallSkillDesc()
     if (skill_entry.id == X2M_DUMMY_ID16)
         return true; // Yes, true
 
+    if (skill_type == X2mSkillType::BLAST)
+        return true;
+
     for (int i = 0; i < XV2_LANG_NUM; i++)
     {
         if (skill_type == X2mSkillType::SUPER)
@@ -9222,6 +9649,52 @@ bool X2mFile::UninstallSkillDesc()
     return true;
 }
 
+bool X2mFile::UninstallSkillHow()
+{
+    if (type != X2mType::NEW_SKILL)
+        return false;
+
+    if (skill_entry.id == X2M_INVALID_ID16)
+        return false;
+
+    if (skill_entry.id == X2M_DUMMY_ID16)
+        return true; // Yes, true
+
+    if (skill_type == X2mSkillType::BLAST)
+        return true;
+
+    for (int i = 0; i < XV2_LANG_NUM; i++)
+    {
+        if (skill_type == X2mSkillType::SUPER)
+        {
+            if (!Xenoverse2::RemoveSuperSkillHow(skill_entry.id2, i))
+                return false;
+        }
+        else if (skill_type == X2mSkillType::ULTIMATE)
+        {
+            if (!Xenoverse2::RemoveUltimateSkillHow(skill_entry.id2, i))
+                return false;
+        }
+        else if (skill_type == X2mSkillType::EVASIVE)
+        {
+            if (!Xenoverse2::RemoveEvasiveSkillHow(skill_entry.id2, i))
+                return false;
+        }
+        else if (skill_type == X2mSkillType::AWAKEN)
+        {
+            if (!Xenoverse2::RemoveAwakenSkillHow(skill_entry.id2, i))
+                return false;
+        }
+        else
+        {
+            DPRINTF("%s: Internal error.\n", FUNCNAME);
+            return false;
+        }
+    }
+
+    return true;
+}
+
 bool X2mFile::UninstallIdbSkill()
 {
     if (type != X2mType::NEW_SKILL)
@@ -9232,6 +9705,9 @@ bool X2mFile::UninstallIdbSkill()
 
     if (skill_entry.id == X2M_DUMMY_ID16)
         return true; // Yes, true
+
+    if (skill_type == X2mSkillType::BLAST)
+        return true;
 
     game_skill_idb->RemoveEntry(skill_entry.id2, GetCusSkillType());
     return true;
@@ -9384,33 +9860,53 @@ bool X2mFile::InstallCostumePartSets()
     static std::vector<BcsFile *> races_bcs;
 
     if (candidates_partsets.size() == 0)
-    {
-        for (uint16_t i = 535; i <= 549; i++)
+    {        
+        for (uint16_t i = 2000; i != 0; i++) // 2000-65535
+        {
+            if (i >= 10000 && i <= 10099) // To avoid any potential conflict with the numbers used internally by the creator/installer
+                continue;
+
+            candidates_partsets.push_back(i);
+        }
+
+        /*for (uint16_t i = 535; i <= 549; i++) // 15
             candidates_partsets.push_back(i);
 
-        for (uint16_t i = 555; i <= 599; i++)
+        for (uint16_t i = 559; i <= 599; i++) // 41
             candidates_partsets.push_back(i);
 
-        for (uint16_t i = 631; i <= 649; i++)
+        for (uint16_t i = 631; i <= 649; i++) // 19
             candidates_partsets.push_back(i);
 
-        for (uint16_t i = 670; i <= 699; i++)
+        for (uint16_t i = 670; i <= 699; i++) // 30
             candidates_partsets.push_back(i);
 
-        for (uint16_t i = 741; i <= 799; i++)
+        for (uint16_t i = 796; i <= 799; i++) // 4
             candidates_partsets.push_back(i);
 
-        for (uint16_t i = 801; i <= 830; i++)
+        for (uint16_t i = 801; i <= 830; i++) // 30
             candidates_partsets.push_back(i);
 
-        for (uint16_t i = 866; i <= 884; i++)
+        for (uint16_t i = 866; i <= 884; i++) // 19
             candidates_partsets.push_back(i);
 
-        for (uint16_t i = 921; i <= 929; i++)
+        for (uint16_t i = 973; i <= 999; i++) // 27
             candidates_partsets.push_back(i);
 
-        for (uint16_t i = 942; i <= 999; i++)
+        for (uint16_t i = 1000; i <= 1199; i++) // 200
             candidates_partsets.push_back(i);
+
+        for (uint16_t i = 1211; i <= 1299; i++) // 89
+            candidates_partsets.push_back(i);
+
+        for (uint16_t i = 1331; i <= 1499; i++) // 169
+            candidates_partsets.push_back(i);
+
+        for (uint16_t i = 1521; i <= 1699; i++) // 179
+            candidates_partsets.push_back(i);
+
+        for (uint16_t i = 1741; i <= 1770; i++) // 30
+            candidates_partsets.push_back(i);*/
     }
 
     if (races_bcs.size() == 0)
@@ -9531,7 +10027,10 @@ bool X2mFile::InstallCostumePartSets()
                 std::vector<BcsPartSet> &sets = bcs->GetPartSets();
 
                 if (partset >= sets.size())
-                    sets.resize(partset+1);
+                {
+                    bcs->GetPartSets().resize(partset+1);
+                    sets = bcs->GetPartSets();
+                }
 
                 BcsPartSet &new_ps = GetCostumePartSet(race, i).bcs;
 
@@ -10414,9 +10913,23 @@ bool X2mFile::InstallCostumeVisitor(const std::string &path, void *param)
     output_path += name;
 
     size_t size;
-    uint8_t *buf = pthis->ReadFile(path, &size);
-    if (!buf)
-        return false;
+    uint8_t *buf;
+
+    if (IsDummyMode())
+    {
+        buf = pthis->RecoverCostumeFile(path.substr(0, 3), Utils::GetFileNameString(path), (uint16_t)pthis->update_costume_entry.partsets.size(), &size);
+        if (!buf)
+        {
+            DPRINTF("%s: Cannot recover costume file (local path=%s)", FUNCNAME, path.c_str());
+            return false;
+        }
+    }
+    else
+    {
+        buf = pthis->ReadFile(path, &size);
+        if (!buf)
+            return false;
+    }
 
     if (!xv2fs->WriteFile(output_path, buf, size))
         return false;
@@ -10808,11 +11321,25 @@ bool X2mFile::InstallStageSelImages()
     const std::string portrait_name = std::string("ICO") + stage_def.code + ".dds";
 
     size_t portrait_size;
-    uint8_t *portrait_buf = ReadFile(X2M_STAGE_SEL_PORTRAIT, &portrait_size);
-    if (!portrait_buf)
+    uint8_t *portrait_buf;
+
+    if (IsDummyMode())
     {
-        DPRINTF("%s: Failed because cannot load portrait from package.\n", FUNCNAME);
-        return false;
+        portrait_buf = RecoverStageSelPortrait(&portrait_size);
+        if (!portrait_buf)
+        {
+            DPRINTF("%s: Failed to recover stage sel portrait.", FUNCNAME);
+            return false;
+        }
+    }
+    else
+    {
+        portrait_buf = ReadFile(X2M_STAGE_SEL_PORTRAIT, &portrait_size);
+        if (!portrait_buf)
+        {
+            DPRINTF("%s: Failed because cannot load portrait from package.\n", FUNCNAME);
+            return false;
+        }
     }
 
     uint16_t idx = game_stage02_emb->FindIndexByName(portrait_name);
@@ -10829,11 +11356,25 @@ bool X2mFile::InstallStageSelImages()
     const std::string background_name = stage_def.code + ".dds";
 
     size_t background_size;
-    uint8_t *background_buf = ReadFile(X2M_STAGE_SEL_BACKGROUND, &background_size);
-    if (!background_buf)
+    uint8_t *background_buf;
+
+    if (IsDummyMode())
     {
-        DPRINTF("%s: Failed because cannot load background from package.\n", FUNCNAME);
-        return false;
+        background_buf = RecoverStageBackground(&background_size);
+        if (!background_buf)
+        {
+            DPRINTF("%s: Failed to recover stage background.", FUNCNAME);
+            return false;
+        }
+    }
+    else
+    {
+        background_buf = ReadFile(X2M_STAGE_SEL_BACKGROUND, &background_size);
+        if (!background_buf)
+        {
+            DPRINTF("%s: Failed because cannot load background from package.\n", FUNCNAME);
+            return false;
+        }
     }
 
     idx = game_stage02_emb->FindIndexByName(background_name);
@@ -10864,11 +11405,25 @@ bool X2mFile::InstallStageQstPortrait()
     const std::string portrait_name = stage_def.code + ".dds";
 
     size_t portrait_size;
-    uint8_t *portrait_buf = ReadFile(X2M_STAGE_QST_PORTRAIT, &portrait_size);
-    if (!portrait_buf)
+    uint8_t *portrait_buf;
+
+    if (IsDummyMode())
     {
-        DPRINTF("%s: Failed because cannot load qst portrait from package.\n", FUNCNAME);
-        return false;
+        portrait_buf = RecoverStageQstPortrait(&portrait_size);
+        if (!portrait_buf)
+        {
+            DPRINTF("%s: Failed to recover stage qst portrait.", FUNCNAME);
+            return false;
+        }
+    }
+    else
+    {
+        portrait_buf = ReadFile(X2M_STAGE_QST_PORTRAIT, &portrait_size);
+        if (!portrait_buf)
+        {
+            DPRINTF("%s: Failed because cannot load qst portrait from package.\n", FUNCNAME);
+            return false;
+        }
     }
 
     uint16_t idx = game_stage01_emb->FindIndexByName(portrait_name);
@@ -10890,7 +11445,7 @@ bool X2mFile::InstallStageSlot()
     if (type != X2mType::NEW_STAGE)
         return false;
 
-    if (stage_def.ssid == 0xFF)
+    if (stage_def.ssid < 0)
     {
         DPRINTF("%s: You cannot call me before a succesful call to InstallStageDef.\n", FUNCNAME);
         return false;
@@ -11031,9 +11586,23 @@ bool X2mFile::InstallStageLighting()
         return false;
 
     size_t size;
-    uint8_t *buf = ReadFile(X2M_STAGE_LIGHTING, &size);
-    if (!buf)
-        return false;
+    uint8_t *buf;
+
+    if (IsDummyMode())
+    {
+        buf = RecoverStageLighting(&size);
+        if (!buf)
+        {
+            DPRINTF("%s: Cannot recover stage lighting.", FUNCNAME);
+            return false;
+        }
+    }
+    else
+    {
+        buf = ReadFile(X2M_STAGE_LIGHTING, &size);
+        if (!buf)
+            return false;
+    }
 
     std::string emb_path = std::string("data/lighting/environment/") + stage_def.code + ".emb";
     bool ret = xv2fs->WriteFile(emb_path, buf, size);
@@ -11123,7 +11692,7 @@ bool X2mFile::UninstallStageSlot()
     if (type != X2mType::NEW_STAGE)
         return false;
 
-    if (stage_def.ssid == 0xFF)
+    if (stage_def.ssid < 0)
         return true;
 
     game_stage_slots_file->RemoveSlots(stage_def.ssid);
@@ -11191,6 +11760,616 @@ bool X2mFile::UninstallStageLighting()
     return true;
 }
 
+bool X2mFile::RecoverInitSound(AcbFile **pacb, AwbFile **pawb, const std::string &base_path)
+{
+    if (!(*pacb))
+    {
+        *pacb = new AcbFile();
+        if (!(*pacb)->LoadFromFile(base_path + ".acb"))
+        {
+            delete *pacb; *pacb = nullptr;
+            return false;
+        }
+    }
 
+    if (!(*pawb))
+    {
+        *pawb = new Afs2File();
+        if (!(*pawb)->LoadFromFile(base_path + ".awb"))
+        {
+            delete *pawb; *pawb = nullptr;
+            return false;
+        }
+    }
 
+    return true;
+}
 
+bool X2mFile::RecoverInitEmb(EmbFile **pemb, const std::string &path)
+{
+    if (!(*pemb))
+    {
+        *pemb = new EmbFile();
+        if (!(*pemb)->LoadFromFile(path))
+        {
+            delete *pemb; *pemb = nullptr;
+            return false;
+        }
+    }
+
+    return true;
+}
+
+HcaFile *X2mFile::RecoverSound(AcbFile *acb, AwbFile *awb, uint32_t cue_id)
+{
+    bool external;
+    uint32_t awb_idx = acb->CueIdToAwbIndex(cue_id, &external);
+
+    if (awb_idx == (uint32_t)-1 || !external)
+        return nullptr;
+
+    uint64_t size;
+    uint8_t *hca_buf = awb->ExtractFile(awb_idx, &size);
+
+    if (hca_buf)
+    {
+        HcaFile *hca = new HcaFile();
+
+        bool ret = hca->Load(hca_buf, size);
+        delete[] hca_buf;
+
+        if (ret)
+            return hca;
+
+        delete hca;
+    }
+
+    return nullptr;
+}
+
+HcaFile *X2mFile::RecoverSound(AcbFile *acb, AwbFile *awb, const std::string &name)
+{
+    uint32_t cue_id = acb->FindCueId(name);
+    if (cue_id == (uint32_t)-1)
+        return nullptr;
+
+    return RecoverSound(acb, awb, cue_id);
+}
+
+uint8_t *X2mFile::RecoverTexture(EmbFile *emb, const std::string &name, size_t *psize)
+{
+    uint16_t idx = emb->FindIndexByName(name);
+    if (idx == 0xFFFF)
+        return nullptr;
+
+    const EmbContainedFile &file = (*emb)[idx];
+
+    *psize = file.GetSize();
+    uint8_t *buf = new uint8_t[*psize];
+
+    memcpy(buf, file.GetData(), *psize);
+    return buf;
+}
+
+HcaFile *X2mFile::RecoverCssSound(const std::string &name, bool english)
+{
+    static AcbFile *css_acb_jp = nullptr, *css_acb_en = nullptr;
+    static AwbFile *css_awb_jp = nullptr, *css_awb_en = nullptr;
+
+    AcbFile *acb;
+    AwbFile *awb;
+
+    // UGLY HACK
+    if (name == "INSTALLER_CLOSE_AWB")
+    {
+        if (css_awb_jp)
+        {
+            delete css_awb_jp;
+            css_awb_jp = nullptr;
+        }
+
+        if (css_awb_en)
+        {
+            delete css_awb_en;
+            css_awb_en = nullptr;
+        }
+
+        return nullptr;
+    }
+    //
+
+    if (!english)
+    {
+        if (!css_acb_jp && !RecoverInitSound(&css_acb_jp, &css_awb_jp, Utils::MakePathString(restore_path, "sound/VOX/Sys/CRT_CS_vox")))
+            return nullptr;
+
+        acb = css_acb_jp;
+        awb = css_awb_jp;
+    }
+    else
+    {
+        if (!css_acb_en && !RecoverInitSound(&css_acb_en, &css_awb_en, Utils::MakePathString(restore_path, "sound/VOX/Sys/en/CRT_CS_vox")))
+            return nullptr;
+
+        acb = css_acb_en;
+        awb = css_awb_en;
+    }
+
+    return RecoverSound(acb, awb, name);
+}
+
+HcaFile *X2mFile::RecoverSevSound(const std::string &name, bool english)
+{
+    static AcbFile *sev_acb_jp = nullptr, *sev_acb_en = nullptr;
+    static AcbFile *sev2_acb_jp = nullptr, *sev2_acb_en = nullptr;
+    static AwbFile *sev_awb_jp = nullptr, *sev_awb_en = nullptr;
+    static AwbFile *sev2_awb_jp = nullptr, *sev2_awb_en = nullptr;
+
+    AcbFile *acb1, *acb2;
+    AwbFile *awb1, *awb2;
+
+    // UGLY HACK
+    if (name == "INSTALLER_CLOSE_AWB")
+    {
+        if (sev_awb_jp)
+        {
+            delete sev_awb_jp;
+            sev_awb_jp = nullptr;
+        }
+
+        if (sev_awb_en)
+        {
+            delete sev_awb_en;
+            sev_awb_en = nullptr;
+        }
+
+        if (sev2_awb_jp)
+        {
+            delete sev2_awb_jp;
+            sev2_awb_jp = nullptr;
+        }
+
+        if (sev2_awb_en)
+        {
+            delete sev2_awb_en;
+            sev2_awb_en = nullptr;
+        }
+
+        return nullptr;
+    }
+    //
+
+    if (!english)
+    {
+        if (!sev_acb_jp)
+        {
+            if (!RecoverInitSound(&sev_acb_jp, &sev_awb_jp, "data/sound/VOX/Quest/Dialogue/CAQD_ALL_VOX") ||
+                !RecoverInitSound(&sev2_acb_jp, &sev2_awb_jp, "data/sound/VOX/Quest/Dialogue/CAQD_ADD_VOX"))
+                return nullptr;
+        }
+
+        acb1 = sev_acb_jp;
+        acb2 = sev2_acb_jp;
+        awb1 = sev_awb_jp;
+        awb2 = sev2_awb_jp;
+    }
+    else
+    {
+        if (!sev_acb_en)
+        {
+            if (!RecoverInitSound(&sev_acb_en, &sev_awb_en, "data/sound/VOX/Quest/Dialogue/en/CAQD_ALL_VOX") ||
+                !RecoverInitSound(&sev2_acb_en, &sev2_awb_en, "data/sound/VOX/Quest/Dialogue/en/CAQD_ADD_VOX"))
+                return nullptr;
+        }
+
+        acb1 = sev_acb_en;
+        acb2 = sev2_acb_en;
+        awb1 = sev_awb_en;
+        awb2 = sev2_awb_en;
+    }
+
+    // Will search in both, but x2m mods should only be in the ADD_VOX
+    HcaFile *ret = RecoverSound(acb2, awb2, name);
+    if (!ret)
+        ret = RecoverSound(acb1, awb1, name);
+
+    return ret;
+}
+
+uint8_t *X2mFile::RecoverSelPortrait(size_t *psize)
+{
+    static EmbFile *sel_port = nullptr;
+
+    if (!RecoverInitEmb(&sel_port, Utils::MakePathString(restore_path, "ui/texture/CHARA01.emb")))
+        return nullptr;
+
+    std::string name = entry_name + "_000.dds";    
+    return RecoverTexture(sel_port, name, psize);
+}
+
+uint8_t *X2mFile::RecoverBtlPortrait(size_t *psize)
+{
+    std::string emb_path = Utils::MakePathString(restore_path, std::string("ui/texture/") + entry_name + ".emb");
+    return Utils::ReadFile(emb_path, psize);
+}
+
+uint8_t *X2mFile::RecoverFile(const std::string &path, size_t *psize)
+{
+    std::string old_path = path;
+
+    if (old_path.front() == '/')
+        old_path = old_path.substr(1);
+
+    if (!Utils::BeginsWith(Utils::ToLowerCase(old_path), "data/"))
+    {
+        DPRINTF("%s: Cannot recover a file outside data (path = %s)", FUNCNAME, old_path.c_str());
+        return nullptr;
+    }
+
+    old_path = Utils::MakePathString(restore_path, old_path.substr(5));
+    return Utils::ReadFile(old_path, psize);
+}
+
+uint8_t *X2mFile::RecoverCharaFile(const std::string &fn, size_t *psize, bool show_error)
+{
+    std::string path = Utils::MakePathString(restore_path, std::string("/chara/") + entry_name + "/" + fn);
+    return Utils::ReadFile(path, psize, show_error);
+}
+
+uint8_t *X2mFile::RecoverCostumeFile(const std::string &race, const std::string &fn, uint16_t num, size_t *psize)
+{
+    static X2mCostumeFile *costume_file = nullptr;
+
+    if (!costume_file)
+    {
+        costume_file = new X2mCostumeFile();
+        if (!costume_file->CompileFromFile(Utils::MakePathString(restore_path, "X2M_COSTUME.xml")))
+        {
+            delete costume_file; costume_file = nullptr;
+            return nullptr;
+        }
+    }
+
+    X2mCostumeEntry *entry = costume_file->FindCostume(mod_guid);
+    if (!entry || entry->partsets.size() == 0)
+        return nullptr;
+
+    std::string old_fn = fn;
+
+    static const uint16_t lower_limit = 10000;
+    uint16_t upper_limit = lower_limit+num;
+
+    bool found = false;
+
+    for (uint16_t i = lower_limit; i < upper_limit; i++)
+    {
+        std::string str_num = Utils::ToString(i);
+        size_t pos = old_fn.find(str_num);
+
+        if (pos != std::string::npos)
+        {
+            size_t idx = i-lower_limit;
+            uint16_t base = entry->partsets[0];
+            std::string temp = old_fn.substr(0, pos);
+            temp += Utils::ToStringAndPad((int)idx+base, 3);
+            temp += old_fn.substr(pos+str_num.length());
+
+            old_fn = temp;
+            found = true;
+            break;
+        }
+    }
+
+    if (!found)
+        return nullptr;
+
+    std::string old_path = Utils::MakePathString(restore_path, std::string("/chara/") + race);
+    old_path = Utils::MakePathString(old_path, old_fn);
+    return Utils::ReadFile(old_path, psize);
+}
+
+uint8_t *X2mFile::RecoverStageSelPortrait(size_t *psize)
+{
+    static EmbFile *stage02_emb = nullptr;
+
+    if (!RecoverInitEmb(&stage02_emb, Utils::MakePathString(restore_path, "ui/texture/STAGE02.emb")))
+        return nullptr;
+
+    const std::string portrait_name = std::string("ICO") + stage_def.code + ".dds";
+    return RecoverTexture(stage02_emb, portrait_name, psize);
+}
+
+uint8_t *X2mFile::RecoverStageBackground(size_t *psize)
+{
+    static EmbFile *stage02_emb = nullptr;
+
+    if (!RecoverInitEmb(&stage02_emb, Utils::MakePathString(restore_path, "ui/texture/STAGE02.emb")))
+        return nullptr;
+
+    const std::string background_name = stage_def.code + ".dds";
+    return RecoverTexture(stage02_emb, background_name, psize);
+}
+
+uint8_t *X2mFile::RecoverStageQstPortrait(size_t *psize)
+{
+    static EmbFile *stage01_emb = nullptr;
+
+    if (!RecoverInitEmb(&stage01_emb, Utils::MakePathString(restore_path, "ui/texture/STAGE01.emb")))
+        return nullptr;
+
+    const std::string portrait_name = stage_def.code + ".dds";
+    return RecoverTexture(stage01_emb, portrait_name, psize);
+}
+
+HcaFile *X2mFile::RecoverStageBgm(const std::string &n)
+{
+    static AcbFile *bgm_acb = nullptr;
+    static AwbFile *bgm_awb = nullptr;
+
+    // UGLY HACK
+    if (n == "INSTALLER_CLOSE_AWB")
+    {
+        if (bgm_awb)
+        {
+            delete bgm_awb;
+            bgm_awb = nullptr;
+        }
+
+        return nullptr;
+    }
+    //
+
+    if (!RecoverInitSound(&bgm_acb, &bgm_awb, Utils::MakePathString(restore_path, "sound/BGM/CAR_BGM")))
+        return nullptr;
+
+    const std::string track_name = "X2M_" + stage_def.code;
+    return RecoverSound(bgm_acb, bgm_awb, track_name);
+}
+
+uint8_t *X2mFile::RecoverStageLighting(size_t *psize)
+{
+    std::string emb_path = std::string("lighting/environment/") + stage_def.code + ".emb";
+    return Utils::ReadFile(Utils::MakePathString(restore_path, emb_path), psize);
+}
+
+bool X2mFile::RecoverSkillVars()
+{
+    static CmsFile *cms = nullptr;
+    static CusFile *cus = nullptr;
+
+    if (restore_skill_path.length() > 0) // Already done
+        return true;
+
+    if (!cms)
+    {
+        cms = new CmsFile();
+        if (!cms->LoadFromFile(Utils::MakePathString(restore_path, "system/char_model_spec.cms")))
+        {
+            delete cms; cms = nullptr;
+            return false;
+        }
+    }
+
+    if (!cus)
+    {
+        cus = new CusFile();
+        if (!cus->LoadFromFile(Utils::MakePathString(restore_path, "system/custom_skill.cus")))
+        {
+            delete cus; cus = nullptr;
+            return false;
+        }
+    }
+
+    std::vector<CmsEntryXV2 *> entries;
+    FindX2mSkillCMS(entries, cms);
+
+    for (CmsEntryXV2 *entry : entries)
+    {
+        for (int i = 0; i < 10; i++)
+        {
+            uint16_t id = (entry->id*10) + i;
+            id = IdFromId2(id);
+
+            const CusSkill *skill = cus->FindSkillAnyByID(id);
+            if (!skill)
+                continue;
+
+            if (skill->name == skill_entry.name)
+            {
+                std::string skill_path = Utils::MakePathString(restore_path, "skill");
+
+                if (skill_type == X2mSkillType::SUPER)
+                    skill_path += "/SPA/";
+                else if (skill_type == X2mSkillType::ULTIMATE)
+                    skill_path += "/ULT/";
+                else if (skill_type == X2mSkillType::EVASIVE)
+                    skill_path += "/ESC/";
+                else if (skill_type == X2mSkillType::BLAST)
+                    skill_path += "/BLT/";
+                else if (skill_type == X2mSkillType::AWAKEN)
+                    skill_path += "/MET/";
+                else
+                {
+                    DPRINTF("%s: Internal error.\n", FUNCNAME);
+                    return false;
+                }
+
+                skill_path += Utils::ToStringAndPad(skill->id2, 3);
+                skill_path += '_';
+
+                CmsEntry *entry = cms->FindEntryByID(skill->id2 / 10);
+                if (!entry)
+                {
+                    DPRINTF("%s: Failed to find old cms skill dummy entry 0x%x\n", FUNCNAME, skill->id2 / 10);
+                    return false;
+                }
+
+                skill_path += entry->name;
+                skill_path += '_';
+                skill_path += skill_entry.name;
+
+                IniFile ini;
+
+                if (ini.LoadFromFile(skill_path + std::string("/") + X2M_SKILL_INI, false))
+                {
+                    uint8_t guid[16];
+                    std::string guid_str;
+
+                    if (ini.GetStringValue("General", "GUID", guid_str))
+                    {
+                        if (Utils::String2GUID(guid, guid_str) && memcmp(guid, mod_guid, sizeof(mod_guid)) == 0)
+                        {
+                            // Found
+                            restore_skill_path = skill_path;
+                            restore_skill_id = skill->id;
+                            restore_skill_id2 = skill->id2;
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
+void X2mFile::RecoverSkillBodies()
+{
+    static X2mCostumeFile *costume_file = nullptr;
+
+    if (restore_bodies_map.size() > 0) // Already done
+        return;
+
+    if (!costume_file)
+    {
+        costume_file = new X2mCostumeFile();
+        if (!costume_file->CompileFromFile(Utils::MakePathString(restore_path, "X2M_COSTUME.xml"), false))
+        {
+            delete costume_file; costume_file = nullptr;
+            return;
+        }
+    }
+
+    std::vector<X2mBody *> found_bodies;
+    if (costume_file->FindBody(mod_guid, found_bodies) > 0)
+    {
+        for (size_t i = 0; i < found_bodies.size(); i++)
+        {
+            X2mBody *body = found_bodies[i];
+            restore_bodies_map[body->id] = (uint32_t)(X2M_SKILL_BODY_ID_BEGIN + i);
+        }
+    }
+}
+
+uint8_t *X2mFile::RecoverSkillFile(const std::string &local_path, size_t *psize)
+{
+    uint8_t *buf = nullptr;
+
+    if (!RecoverSkillVars())
+        return buf;
+
+    std::string filename = Utils::GetFileNameString(local_path);
+
+    if (Utils::BeginsWith(filename, X2M_SKILL_PREFIX, false))
+    {
+        std::string skill_prefix = Utils::GetFileNameString(restore_skill_path);
+        std::string restore_fp = Utils::MakePathString(restore_skill_path, skill_prefix + filename.substr(strlen(X2M_SKILL_PREFIX)));
+
+        buf = Utils::ReadFile(restore_fp, psize);
+        if (!buf)
+            return buf;
+
+        if (Utils::EndsWith(filename, ".bac", false))
+        {
+            BacFile bac;
+
+            if (!bac.Load(buf, *psize))
+            {
+                DPRINTF("%s: Failed to load bac file: \"%s\"\n", FUNCNAME, restore_fp.c_str());
+                delete[] buf;
+                return nullptr;
+            }
+
+            delete[] buf; buf = nullptr;
+
+            bac.ChangeReferencesToSkill(restore_skill_id2, X2M_DUMMY_ID16);
+            bac.ChangeReferencesToSkill(restore_skill_id, X2M_DUMMY_ID16_2);
+
+            if (bodies_map.size() > 0)
+            {
+                for (BacEntry &entry : bac)
+                {
+                    if (entry.has_type[15])
+                    {
+                        for (BACTransformControl &tc : entry.type15)
+                        {
+                            if (tc.type != 0x2a)
+                                continue;
+
+                            RecoverSkillBodies();
+                            if (restore_bodies_map.size() == 0)
+                                break;
+
+                            int body = (int)tc.parameter;
+                            auto it = restore_bodies_map.find(body);
+                            if (it != restore_bodies_map.end())
+                            {
+                                tc.parameter = (float)it->second;
+                                //UPRINTF("--------Body restored to %d\n", it->second);
+                            }
+                        }
+                    }
+                }
+            }
+
+            buf = bac.Save(psize);
+        }
+        else if (Utils::EndsWith(filename, ".bsa", false))
+        {
+            BsaFile bsa;
+
+            if (!bsa.Load(buf, *psize))
+            {
+                DPRINTF("%s: Failed to load bsa file: \"%s\"\n", FUNCNAME, restore_fp.c_str());
+                delete[] buf;
+                return nullptr;
+            }
+
+            delete[] buf; buf = nullptr;
+            bsa.ChangeReferencesToSkill(restore_skill_id2, X2M_DUMMY_ID16);
+            bsa.ChangeReferencesToSkill(restore_skill_id, X2M_DUMMY_ID16_2);
+
+            buf = bsa.Save(psize);
+        }
+        else if (Utils::EndsWith(filename, ".bdm", false))
+        {
+            BdmFile bdm;
+
+            if (bdm.Load(buf, *psize))
+            {
+                delete[] buf; buf = nullptr;
+                bdm.ChangeReferencesToSkill(restore_skill_id2, X2M_DUMMY_ID16);
+                bdm.ChangeReferencesToSkill(restore_skill_id, X2M_DUMMY_ID16_2);
+
+                buf = bdm.Save(psize);
+            }
+        }
+    }
+    else
+    {
+        buf = Utils::ReadFile(Utils::MakePathString(restore_skill_path, filename), psize);
+    }
+
+    return buf;
+}
+
+void X2mFile::RecoverCloseAwb()
+{
+    // UGLY HACK
+    X2mFile dummy;
+
+    dummy.RecoverCssSound("INSTALLER_CLOSE_AWB", false);
+    dummy.RecoverSevSound("INSTALLER_CLOSE_AWB", false);
+    dummy.RecoverStageBgm("INSTALLER_CLOSE_AWB");
+}

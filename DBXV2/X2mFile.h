@@ -5,7 +5,9 @@
 #include "Xenoverse2.h"
 #include "BacFile.h"
 #include "BsaFile.h"
+#include "BdmFile.h"
 #include "X2mCostumeFile.h"
+
 
 #define X2M_SEL_PORTRAIT    "UI/SEL.DDS"
 #define X2M_BTL_PORTRAIT    "UI/BTL.EMB"
@@ -243,6 +245,7 @@ struct X2mSkillAura
 {
     CusAuraData data;
     AurAura aura;
+    AuraExtraData extra;
 
     TiXmlElement *Decompile(TiXmlNode *root) const;
     bool Compile(const TiXmlElement *root);
@@ -458,6 +461,7 @@ private:
     std::vector<X2mCharaName> mult_chara_names;
 
     bool is_ozaru;
+    bool is_cellmax;
     int32_t body_shape;
     bool can_use_any_dual_skill;
 
@@ -474,6 +478,7 @@ private:
 
     std::vector<X2mDepends> chara_skill_depends;
     std::vector<AurAura> chara_auras;
+    std::vector<AuraExtraData> chara_auras_extra;
 
     std::vector<X2mCustomAudio> custom_audios;
 
@@ -488,6 +493,7 @@ private:
     // For skill
     std::vector<std::string> skill_name;
     std::vector<std::string> skill_desc;
+    std::vector<std::string> skill_how;
     X2mSkillType skill_type;
     std::vector<X2mSkillTransName> skill_trans_names;
     CusSkill skill_entry;
@@ -520,7 +526,18 @@ private:
     size_t temp_quest_attachments_num;
     std::vector<X2mFile *> *temp_attachments;
 
+    // Dummy mode vars
+    std::string restore_skill_path;
+    uint16_t restore_skill_id=-1, restore_skill_id2=-1;
+    std::unordered_map<uint32_t, uint32_t> restore_bodies_map; // From old install id to local X2M_SKILL_BODY_ID_BEGIN based index
     // ///////////////////////////////
+
+    // Classes vars
+    // Dummy mode vars
+    static std::string restore_path;
+    static std::unordered_set<std::string> restore_cms_set;
+    //
+
     bool Validate(bool write);
 
     bool Decompile();
@@ -546,7 +563,7 @@ private:
     void UninstallCssAudio();
     bool InstallCssAudio(X2mSlotEntry &entry);
 
-    static size_t FindX2mSkillCMS(std::vector<CmsEntryXV2 *> &entries);
+    static size_t FindX2mSkillCMS(std::vector<CmsEntryXV2 *> &entries, CmsFile *another_cms=nullptr);
     uint16_t IdFromId2(uint16_t id2) const;
     static uint16_t IdFromId2(uint16_t id2, X2mSkillType skill_type);
     bool AssignSkillIds();
@@ -559,6 +576,10 @@ private:
 
     bool InstallCustomAuraSkill();
     bool InstallCustomAuraChara();
+    bool InstallAuraExtraSkill();
+    bool UninstallAuraExtraSkill();
+    bool InstallAuraExtraChara();
+    bool UninstallAuraExtraChara();
 
     void GetInstalledCustomAuraChara();
 
@@ -566,7 +587,31 @@ private:
 
     void InstallColors();
 
-    static BcsFile *GetBcsForRace(uint32_t race);
+    // /////
+    // These functions are intended for dummy mode (mods restoration)
+    bool RecoverInitSound(AcbFile **pacb, AwbFile **pawb, const std::string &base_path);
+    bool RecoverInitEmb(EmbFile **pemb, const std::string &path);
+    HcaFile *RecoverSound(AcbFile *acb, AwbFile *awb, uint32_t cue_id);
+    HcaFile *RecoverSound(AcbFile *acb, AwbFile *awb, const std::string &name);
+    uint8_t *RecoverTexture(EmbFile *emb, const std::string &name, size_t *psize);
+    HcaFile *RecoverCssSound(const std::string &name, bool english);
+    HcaFile *RecoverSevSound(const std::string &name, bool english);
+    uint8_t *RecoverSelPortrait(size_t *psize);
+    uint8_t *RecoverBtlPortrait(size_t *psize);
+    uint8_t *RecoverFile(const std::string &path, size_t *psize);
+    uint8_t *RecoverCharaFile(const std::string &fn, size_t *psize, bool show_error=true);
+    uint8_t *RecoverCostumeFile(const std::string &race, const std::string &fn, uint16_t num, size_t *psize);
+    uint8_t *RecoverStageSelPortrait(size_t *psize);
+    uint8_t *RecoverStageBackground(size_t *psize);
+    uint8_t *RecoverStageQstPortrait(size_t *psize);
+    HcaFile *RecoverStageBgm(const std::string &n="");
+    uint8_t *RecoverStageLighting(size_t *psize);
+    bool RecoverSkillVars();
+    void RecoverSkillBodies();
+    uint8_t *RecoverSkillFile(const std::string &local_path, size_t *psize);
+    // /////
+
+    static BcsFile *GetBcsForRace(uint32_t race);   
 
     static bool InstallSkillVisitor(const std::string &path, void *param);
     static bool InstallCostumeVisitor(const std::string &path, void *param);
@@ -580,7 +625,7 @@ protected:
 
 public:
 
-    const float X2M_CURRENT_VERSION = 20.0f;
+    const float X2M_CURRENT_VERSION = 21.0f;
 
     const float X2M_MIN_VERSION_CSO = 2.0f;
     const float X2M_MIN_VERSION_PSC = 3.0f;
@@ -609,9 +654,19 @@ public:
     const float X2M_MIN_VERGION_STAGE_LIMIT = 15.0f;
     const float X2M_MIN_VERSION_STAGE_BGM = 16.0f;
     const float X2M_MIN_VERSION_NEW_IDB_FORMAT = 17.0f;
-    const float X2M_MIN_VERSION_NEW_CUS_FORMAT = 18.0f;
+    const float X2M_MIN_VERSION_CUS119_FORMAT = 18.0f;
     const float X2M_MIN_VERSION_NEW_PSCSPEC = 19.0f;
     const float X2M_MIN_VERSION_BAC30 = 20.0f;
+    const float X2M_MIN_VERSION_GBB_GATE = 21.0f;
+    const float X2M_MIN_VERSION_CUS121_FORMAT = 21.0f;
+    const float X2M_MIN_VERSION_QXD121_FORMAT = 21.0f;
+    const float X2M_MIN_VERSION_CELLMAX = 21.0f;
+    const float X2M_MIN_VERSION_BDM = 21.0f;
+    const float X2M_MIN_VERSION_ADDITIONAL_BCS_COLORS = 21.0f;
+    const float X2M_MIN_VERSION_AURA_EXTRA = 21.0f;
+    const float X2M_MIN_VERSION_BH64 = 21.0f;
+    const float X2M_MIN_VERSION_SKILL_HOW = 21.0f;
+    const float X2M_MIN_VERSION_BLT_SKILL = 21.0f;
 
     X2mFile();
     virtual ~X2mFile() override;
@@ -681,6 +736,9 @@ public:
 
     inline bool IsOzaru() const { return is_ozaru; }
     inline void SetOzaru(bool ozaru_flag) { is_ozaru = ozaru_flag; }
+
+    inline bool IsCellMax() const { return is_cellmax; }
+    inline void SetCellMax(bool cm_flag) { is_cellmax = cm_flag; }
 
     inline bool UsesBodyShape() const { return (format_version >= X2M_MIN_VERSION_BODY_SHAPES && body_shape >= 0); }
     inline int32_t GetBodyShape() const { return body_shape; }
@@ -847,9 +905,11 @@ public:
     size_t GetNumCharaAuras(bool install_mode) const;
     inline const AurAura &GetCharaAura(size_t idx) const { return chara_auras[idx]; }
     inline AurAura &GetCharaAura(size_t idx) { return chara_auras[idx]; }
+    inline const AuraExtraData &GetCharaAuraExtraData(size_t idx) const { return chara_auras_extra[idx]; }
+    inline AuraExtraData &GetCharaAuraExtraData(size_t idx) { return chara_auras_extra[idx]; }
 
-    inline size_t AddCharaAura(const AurAura &aura) { chara_auras.push_back(aura); return (chara_auras.size()-1); }
-    inline void RemoveCharaAura(size_t idx) { chara_auras.erase(chara_auras.begin()+idx); }
+    inline size_t AddCharaAura(const AurAura &aura, const AuraExtraData &extra) { chara_auras.push_back(aura); chara_auras_extra.push_back(extra); return (chara_auras.size()-1); }
+    inline void RemoveCharaAura(size_t idx) { chara_auras.erase(chara_auras.begin()+idx); chara_auras_extra.erase(chara_auras_extra.begin()+idx); }
 
     inline bool HasCharaAura(bool install_mode) const { return (GetNumCharaAuras(install_mode) > 0); }
 
@@ -956,12 +1016,29 @@ public:
         return skill_desc[lang];
     }
 
-    inline bool SetSkillDesc(const std::string &name, int lang)
+    inline bool SetSkillDesc(const std::string &desc, int lang)
     {
         if (lang >= XV2_LANG_NUM)
             return false;
 
-        skill_desc[lang] = name;
+        skill_desc[lang] = desc;
+        return true;
+    }
+
+    inline std::string GetSkillHow(int lang) const
+    {
+        if (lang >= XV2_LANG_NUM)
+            return std::string();
+
+        return skill_how[lang];
+    }
+
+    inline bool SetSkillHow(const std::string &how, int lang)
+    {
+        if (lang >= XV2_LANG_NUM)
+            return false;
+
+        skill_how[lang] = how;
         return true;
     }
 
@@ -975,7 +1052,7 @@ public:
     inline const CusSkill &GetSkillEntry() const { return skill_entry; }
     inline CusSkill &GetSkillEntry() { return skill_entry; }
 
-    inline bool HasSkillIdbEntry() const { return (skill_idb_entry.id != X2M_INVALID_ID16); }
+    inline bool HasSkillIdbEntry() const { return (skill_idb_entry.id != X2M_INVALID_ID16 && skill_type != X2mSkillType::BLAST); }
     inline const IdbEntry &GetSkillIdbEntry() const { return skill_idb_entry; }
     inline IdbEntry &GetSkillIdbEntry() { return skill_idb_entry; }
 
@@ -1186,6 +1263,7 @@ public:
     bool InstallCusSkill();
     bool InstallSkillName();
     bool InstallSkillDesc();
+    bool InstallSkillHow();
     bool InstallIdbSkill();
     bool InstallSkillBodies();
 
@@ -1198,6 +1276,7 @@ public:
     bool UninstallCusSkill();
     bool UninstallSkillName();
     bool UninstallSkillDesc();
+    bool UninstallSkillHow();
     bool UninstallIdbSkill();
     bool UninstallSkillBodies();
 
@@ -1256,6 +1335,9 @@ public:
 
     // Static members
     static std::string GetSkillDirectory(const CusSkill &skill_entry, X2mSkillType skill_type);
+    static inline void SetDummyMode(const std::string &path, const std::unordered_set<std::string> &cms_set) { restore_path = path; restore_cms_set = cms_set; }
+    static inline bool IsDummyMode() { return (restore_path.length() > 0); }
+    static void RecoverCloseAwb();
 };
 
 #endif // __X2MFILE_H__

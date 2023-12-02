@@ -141,7 +141,7 @@ TiXmlElement *BcmEntry::Decompile(TiXmlNode *root, uint32_t idx) const
     Utils::WriteParamUnsigned(entry_root, "CUS_AURA", cus_aura, true);
 
     Utils::WriteParamUnsigned(entry_root, "U_68", unk_68, true);
-    Utils::WriteParamUnsigned(entry_root, "U_6C", unk_6C, true);
+    Utils::WriteParamUnsigned(entry_root, "U_6C", character_conditions, true);
 
     root->LinkEndChild(entry_root);
     return entry_root;
@@ -214,7 +214,7 @@ bool BcmEntry::Compile(const TiXmlElement *root)
     if (!Utils::GetParamUnsigned(root, "TRANS_MODIFIER", &trans_modifier)) return false;
     if (!Utils::GetParamUnsigned(root, "CUS_AURA", &cus_aura)) return false;
     if (!Utils::GetParamUnsigned(root, "U_68", &unk_68)) return false;
-    if (!Utils::GetParamUnsigned(root, "U_6C", &unk_6C)) return false;
+    if (!Utils::GetParamUnsigned(root, "U_6C", &character_conditions)) return false;
 
     return true;
 }
@@ -285,7 +285,7 @@ bool BcmFile::Load(const uint8_t *buf, size_t size)
         COPY_IN(trans_modifier);
         COPY_IN(cus_aura);
         COPY_IN(unk_68);
-        COPY_IN(unk_6C);
+        COPY_IN(character_conditions);
     }
 
     return true;
@@ -342,7 +342,7 @@ uint8_t *BcmFile::Save(size_t *psize)
         COPY_OUT(trans_modifier);
         COPY_OUT(cus_aura);
         COPY_OUT(unk_68);
-        COPY_OUT(unk_6C);
+        COPY_OUT(character_conditions);
     }
 
     *psize = size;
