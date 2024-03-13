@@ -10,6 +10,9 @@
 #include <climits>
 #include <algorithm>
 
+#include <codecvt>
+#include <locale>
+
 #ifdef _WIN32
 
 #include <Windows.h>
@@ -3645,19 +3648,20 @@ std::string Utils::GetRandomString(size_t len)
     return s;
 }
 
-static int utf8_to_ucs2(const unsigned char * input, const unsigned char ** end_ptr)
+// Don't need this anymore
+/*static int utf8_to_ucs2(const unsigned char * input, const unsigned char ** end_ptr)
 {
     *end_ptr = input;
     if (input[0] == 0) {
         return -1;
     }
     if (input[0] < 0x80) {
-	/* One byte (ASCII) case. */
+	// One byte (ASCII) case. 
         * end_ptr = input + 1;
         return input[0];
     }
     if ((input[0] & 0xE0) == 0xE0) {
-	/* Three byte case. */
+	// Three byte case. 
         if (input[1] < 0x80 || input[1] > 0xBF ||
 	    input[2] < 0x80 || input[2] > 0xBF) {
             return -1;
@@ -3669,7 +3673,7 @@ static int utf8_to_ucs2(const unsigned char * input, const unsigned char ** end_
             (input[2] & 0x3F);
     }
     if ((input[0] & 0xC0) == 0xC0) {
-	/* Two byte case. */
+	// Two byte case. 
         if (input[1] < 0x80 || input[1] > 0xBF) {
             return -1;
 	}
@@ -3679,14 +3683,17 @@ static int utf8_to_ucs2(const unsigned char * input, const unsigned char ** end_
             (input[1] & 0x3F);
     }
     return -1;
-}
+}*/
 
 std::u16string Utils::Utf8ToUcs2(const std::string &utf8)
 {
-	if (utf8.length() == 0)
+	// New GCC version don't like the dirty implementation 
+	// It compiled, but caused freeze, there is probably a bug in the *c_utf8 != 0 check, but it doesn't worth to keep this implementation any more.
+	
+	/*if (utf8.length() == 0)
     {
         return std::u16string(); // Empty string
-    }
+    }	
 	
 	const char *c_utf8 = utf8.c_str();
 	std::u16string ucs2;
@@ -3698,7 +3705,11 @@ std::u16string Utils::Utf8ToUcs2(const std::string &utf8)
 			ucs2.push_back((char16_t)ret);
 	}
 	
-	return ucs2;
+	return ucs2;*/
+	
+	// New implementation:
+	std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
+    return convert.from_bytes(utf8);
 }
 
 static int ucs2_to_utf8 (int ucs2, unsigned char *utf8)
