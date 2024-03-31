@@ -442,6 +442,11 @@ bool IniFile::GetIntegerValue(const std::string &section, const std::string &nam
     return true;
 }
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat"
+#endif
+
 bool IniFile::SetIntegerValue(const std::string &section, const std::string &name, int64_t value, bool hexadecimal, bool must_exist)
 {
     char raw[32];
@@ -459,6 +464,10 @@ bool IniFile::SetIntegerValue(const std::string &section, const std::string &nam
 
     return SetRawValue(section, name, raw, must_exist);
 }
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 void IniFile::ParseString(const std::string &raw, std::string &value, const std::string section, const std::string &name)
 {
@@ -791,6 +800,11 @@ bool IniFile::SetMultipleIntegersValues(const std::string &section, const std::s
     return SetStringValue(section, name, str, true, must_exist);
 }
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat"
+#endif
+
 bool IniFile::SetMultipleIntegersValues(const std::string &section, const std::string &name, const std::vector<int64_t> &values, bool hexadecimal, bool must_exist)
 {
     std::string str;
@@ -827,6 +841,10 @@ bool IniFile::SetMultipleIntegersValues(const std::string &section, const std::s
 
     return SetStringValue(section, name, str, true, must_exist);
 }
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 bool IniFile::GetMultipleStringsValues(const std::string &section, const std::string &name, std::vector<std::string> &values, bool clear_on_error)
 {

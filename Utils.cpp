@@ -854,7 +854,7 @@ bool Utils::CompareFilesPartial(const std::string &file1, const std::string &fil
     if (st1.st_size < (off_t)compare_size || st2.st_size < (off_t)compare_size)
         return false;
 	
-	FILE *f1 = fopen(file1.c_str(), "rb");
+    FILE *f1 = fopen(file1.c_str(), "rb");
 	FILE *f2 = fopen(file2.c_str(), "rb");
 	
 	if (!f1 || !f2)
@@ -982,6 +982,11 @@ bool Utils::DoCopyFile(const std::string &input, const std::string &output, bool
 	return ret;
 }
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat"
+#endif
+
 std::string Utils::UnsignedToString(uint64_t value, bool hexadecimal)
 {
 	char temp[16];
@@ -999,6 +1004,10 @@ std::string Utils::UnsignedToString(uint64_t value, bool hexadecimal)
 	str = temp;
 	return str;
 }
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 std::string Utils::UnsignedToHexString(uint8_t value, bool zeropad, bool prefix)
 {
@@ -1072,6 +1081,12 @@ std::string Utils::UnsignedToHexString(uint32_t value, bool zeropad, bool prefix
     return str;
 }
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat"
+#pragma GCC diagnostic ignored "-Wformat-extra-args"
+#endif
+
 std::string Utils::UnsignedToHexString(uint64_t value, bool zeropad, bool prefix)
 {
     char temp[20];
@@ -1096,6 +1111,15 @@ std::string Utils::UnsignedToHexString(uint64_t value, bool zeropad, bool prefix
     return str;
 }
 
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
+
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat"
+#endif
+
 std::string Utils::SignedToString(int64_t value)
 {
     char temp[16];
@@ -1106,6 +1130,10 @@ std::string Utils::SignedToString(int64_t value)
     str = temp;
     return str;
 }
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 std::string Utils::FloatToString(float value)
 {
@@ -2327,6 +2355,11 @@ uint32_t Utils::GetUnsigned(const std::string &str, uint32_t default_value)
 	return ret;
 }
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat"
+#endif
+
 uint64_t Utils::GetUnsigned64(const std::string &str, uint64_t default_value)
 {
     uint64_t ret = 0;
@@ -2388,6 +2421,10 @@ uint64_t Utils::GetUnsigned64(const std::string &str, uint64_t default_value)
 
     return ret;
 }
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 int32_t Utils::GetSigned(const std::string &str, int32_t default_value)
 {
@@ -4652,6 +4689,11 @@ uint16_t Utils::FloatToHalf(float f)
     return static_cast<uint16_t>(Result | Sign);
 }
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wuninitialized"
+#endif
+
 // Implementation taken from DirectXMath
 float Utils::HalfToFloat(uint16_t h)
 {
@@ -4691,3 +4733,7 @@ float Utils::HalfToFloat(uint16_t h)
 
     return reinterpret_cast<float*>(&Result)[0];
 }
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif

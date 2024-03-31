@@ -302,8 +302,8 @@ void EPatch::LogParam(size_t param, int index)
     if (index >= 0 && !log_select[index])
         return;
 	
-	if (index < 0 && log_result_type < 0)
-		return;
+    if (index < 0 && log_result_type < 0)
+        return;
 
     int extra = (index >= 0) ? log_extra[index] : log_result_extra;
     const char *param_name = (index >= 0) ? log_params[index].c_str() : "result";
@@ -853,8 +853,8 @@ bool EPatch::Compile(const TiXmlElement *root)
     if (!Utils::ReadAttrUnsigned(root, "search_up", &search_up))
         search_up = DEFAULT_SEARCH_UP;
 	
-	if (!Utils::ReadAttrUnsigned(root, "matches", &num_matches))
-		num_matches = 1;
+    if (!Utils::ReadAttrUnsigned(root, "matches", &num_matches))
+        num_matches = 1;
 
     size_t inst_count = Utils::GetElemCount(root, "Instruction");
     if (inst_count == 0)

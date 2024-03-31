@@ -404,8 +404,8 @@ bool PatchUtils::HookCall(void *call_addr, void **orig, void *new_addr, const st
     if (!tramp)
         return false;
 	
-	if (add_code.size() > 0)
-		memcpy(tramp, add_code.data(), add_code.size());
+    if (add_code.size() > 0)
+        memcpy(tramp, add_code.data(), add_code.size());
 
     size_t idx = add_code.size();
 	

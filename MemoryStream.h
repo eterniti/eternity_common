@@ -59,7 +59,8 @@ public:
         return *this;
     }
 
-    void Copy(const MemoryStream &other);
+    using Stream::Copy;
+	void Copy(const MemoryStream &other);
 
     uint8_t *GetMemory(bool unlink);
     void SetMemory(void *buf, size_t size);
