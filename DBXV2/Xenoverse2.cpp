@@ -59,6 +59,9 @@
 
 #define GAME_CAC_COSTUME_DESCS_PATH  "data/msg/proper_noun_costume_info_"
 #define GAME_ACCESORY_DESCS_PATH    "data/msg/proper_noun_accessory_info_"
+#define GAME_TALISMAN_DESCS_PATH    "data/msg/proper_noun_talisman_info_"
+
+#define GAME_TALISMAN_HOWS_PATH    "data/msg/proper_noun_talisman_how_"
 
 #define GAME_BOTTOM_IDB_PATH "data/system/item/costume_bottom_item.idb"
 #define GAME_GLOVES_IDB_PATH "data/system/item/costume_gloves_item.idb"
@@ -118,6 +121,11 @@
 
 #define GAME_ERS_PATH   "data/vfx/vfx_spec.ers"
 
+#define GAME_SHOP_TEXT_PATH "data/msg/menu_shop_text_"
+
+// 0x437
+#define BLAST_SOUL_OFFSET 1079
+
 const std::vector<std::string> xv2_lang_codes =
 {
     "en",
@@ -131,7 +139,8 @@ const std::vector<std::string> xv2_lang_codes =
     "ru",
     "tw",
     "zh",
-    "kr"
+    "kr",
+    "ja"
 };
 
 Xv2Fs *xv2fs;
@@ -183,6 +192,11 @@ std::vector<MsgFile *> game_pet_names;
 
 std::vector<MsgFile *> game_cac_costume_descs;
 std::vector<MsgFile *> game_accesory_descs;
+std::vector<MsgFile *> game_talisman_descs;
+
+std::vector<MsgFile *> game_talisman_hows;
+
+std::vector<MsgFile *> game_shop_texts;
 
 IdbFile *game_bottom_idb;
 IdbFile *game_gloves_idb;
@@ -267,6 +281,9 @@ static const std::vector<HtmlEscape> xv2_html_sequences =
     { (const char16_t *)L"&amp;", '&' },
 };
 
+// Based on the ITEMLIST_DETAILS.iggy. Needs update if that one updates too.
+static const std::vector<std::string> SoulSpritBulletTypeString = { "ITM_STR_02_015","ITM_STR_02_016","ITM_STR_02_017","ITM_STR_02_019","ITM_STR_02_018","ITM_STR_02_015","ITM_STR_02_015","ITM_STR_02_016","ITM_STR_02_029","ITM_STR_02_030","ITM_STR_02_031"};
+
 std::string Xenoverse2::UnescapeHtml(const std::string &str)
 {
     if (str.find('&') == std::string::npos || str.find(';') == std::string::npos)
@@ -332,47 +349,155 @@ void Xenoverse2::InitFs(const std::string &game_path)
     xv2fs = new Xv2Fs(game_path);
 }
 
-/*bool Xenoverse2::InitCharaList(const std::string &path, const std::string &list_path)
+bool Xenoverse2::LoadMsgs(const std::string &base_path, std::vector<MsgFile *> &msgs, int only_this_lang)
 {
-    chasel_path = path;
-    chalist_path = list_path;
-
-    if (chara_list)
-        delete chara_list;
-
-    chara_list = new CharaListFile();
-    if (!chara_list->LoadFromFile(chalist_path))
-    {
-        delete chara_list;
-        chara_list = nullptr;
+    if (!xv2fs)
         return false;
+
+    for (MsgFile *msg : msgs)
+    {
+        if (msg)
+            delete msg;
     }
 
-    if (charasele)
-        delete charasele;
+    msgs.clear();
+    msgs.resize(XV2_LANG_NUM);
 
-    charasele = new IggyFile();
-
-    if (!xv2fs->LoadFile(charasele, GAME_CHARASELE_PATH))
+    for (int i = 0; i < XV2_LANG_NUM; i++)
     {
-        delete chara_list; chara_list = nullptr;
-        delete charasele; charasele = nullptr;
-        return false;
+        if (only_this_lang >= 0 && i != only_this_lang)
+            continue;
+
+        std::string path = base_path + xv2_lang_codes[i] + ".msg";
+        msgs[i] = new MsgFile();
+
+        if (!xv2fs->LoadFile(msgs[i], path))
+        {
+            DPRINTF("Failed loading file \"%s\"\n", path.c_str());
+            return false;
+        }
     }
 
     return true;
 }
 
-bool Xenoverse2::CommitCharaList()
+bool Xenoverse2::SaveMsgs(const std::string &base_path, const std::vector<MsgFile *> &msgs, bool mandatory_load)
 {
-    if (!xv2fs || !chara_list || !charasele)
+    if (!xv2fs)
         return false;
 
-    if (!xv2fs->SaveFile(charasele, GAME_CHARASELE_PATH))
+    if (msgs.size() != XV2_LANG_NUM)
+        return !mandatory_load;
+
+    for (size_t i = 0; i < XV2_LANG_NUM; i++)
+    {
+        if (!msgs[i])
+            continue;
+
+        std::string path = base_path + xv2_lang_codes[i] + ".msg";
+
+        if (!xv2fs->SaveFile(msgs[i], path))
+        {
+            DPRINTF("Failed saving file \"%s\"\n", path.c_str());
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool Xenoverse2::GetMsgTextByIndex(const std::vector<MsgFile *> &msgs, uint32_t idx, std::string &text, int lang)
+{
+    if (!xv2fs || msgs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
         return false;
 
-    return chara_list->SaveToFile(chalist_path, true, true);
-}*/
+    if (idx >= msgs[lang]->GetNumEntries())
+        return false;
+
+    const MsgEntry &entry = (*msgs[lang])[idx];
+
+    text = UnescapeHtml(entry.lines[0]);
+    return true;
+}
+
+bool Xenoverse2::SetMsgTextByIndex(std::vector<MsgFile *> &msgs, uint32_t idx, const std::string &text, int lang)
+{
+    if (!xv2fs || msgs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
+        return false;
+
+    if (idx >= msgs[lang]->GetNumEntries())
+        return false;
+
+    MsgEntry &entry = (*msgs[lang])[idx];
+    entry.lines.resize(1);
+    entry.lines[0] = EscapeHtml(text);
+
+    return true;
+}
+
+bool Xenoverse2::GetMsgTextByName(const std::vector<MsgFile *> &msgs, const std::string &entry_name, std::string &text, int lang)
+{
+    if (!xv2fs || msgs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
+        return false;
+
+    MsgEntry *entry = msgs[lang]->FindEntryByName(entry_name);
+    if (!entry)
+        return false;
+
+    text = UnescapeHtml(entry->lines[0]);
+    return true;
+}
+
+bool Xenoverse2::SetMsgTextByName(std::vector<MsgFile *> &msgs, const std::string &entry_name, const std::string &text, int lang)
+{
+    if (!xv2fs || msgs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
+        return false;
+
+    MsgEntry *entry = msgs[lang]->FindEntryByName(entry_name);
+
+     if (entry)
+     {
+         entry->lines.resize(1);
+         entry->lines[0] = EscapeHtml(text);
+     }
+     else
+     {
+         MsgEntry entry;
+
+         entry.name = entry_name;
+         entry.lines.push_back(EscapeHtml(text));
+
+         if (!msgs[lang]->AddEntry(entry, true))
+             return false;
+     }
+
+     return true;
+}
+
+bool Xenoverse2::RemoveMsgTextByIndex(std::vector<MsgFile *> &msgs, uint32_t idx, int lang)
+{
+    if (!xv2fs || msgs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
+        return false;
+
+    if (idx >= msgs[lang]->GetNumEntries())
+        return true; // Yes, true
+
+    if (!msgs[lang]->RemoveEntry(idx))
+        return false;
+
+    return true;
+}
+
+bool Xenoverse2::RemoveMsgTextByName(std::vector<MsgFile *> &msgs, const std::string &entry_name, int lang)
+{
+    if (!xv2fs || msgs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
+        return false;
+
+    if (!msgs[lang]->RemoveEntry(entry_name))
+        return false;
+
+    return true;
+}
 
 bool Xenoverse2::InitCharaList()
 {
@@ -759,110 +884,22 @@ bool Xenoverse2::CommitSystemFiles(bool pup)
 
 bool Xenoverse2::InitCharaNames(int only_this_lang)
 {
-    if (!xv2fs)
-        return false;
-
-    for (MsgFile *msg : game_chara_names)
-    {
-        if (msg)
-            delete msg;
-    }
-
-    game_chara_names.clear();
-    game_chara_names.resize(XV2_LANG_NUM);
-
-    for (int i = 0; i < XV2_LANG_NUM; i++)
-    {
-        if (only_this_lang >= 0 && i != only_this_lang)
-            continue;
-
-        std::string path = GAME_CHARANAMES_PATH + xv2_lang_codes[i] + ".msg";
-        game_chara_names[i] = new MsgFile();
-
-        if (!xv2fs->LoadFile(game_chara_names[i], path))
-        {
-            DPRINTF("Failed loading file \"%s\"\n", path.c_str());
-            return false;
-        }
-    }
-
-    return true;
+    return LoadMsgs(GAME_CHARANAMES_PATH, game_chara_names, only_this_lang);
 }
 
 bool Xenoverse2::CommitCharaNames()
 {
-    if (!xv2fs || game_chara_names.size() != XV2_LANG_NUM)
-        return false;
-
-    for (size_t i = 0; i < XV2_LANG_NUM; i++)
-    {
-        if (!game_chara_names[i])
-            continue;
-
-        std::string path = GAME_CHARANAMES_PATH + xv2_lang_codes[i] + ".msg";
-
-        if (!xv2fs->SaveFile(game_chara_names[i], path))
-        {
-            DPRINTF("Failed saving file \"%s\"\n", path.c_str());
-            return false;
-        }
-    }
-
-    return true;
+    return SaveMsgs(GAME_CHARANAMES_PATH, game_chara_names, true);
 }
 
 bool Xenoverse2::InitCharaCostumeNames(int only_this_lang)
 {
-    if (!xv2fs)
-        return false;
-
-    for (MsgFile *msg : game_chara_costume_names)
-    {
-        if (msg)
-            delete msg;
-    }
-
-    game_chara_costume_names.clear();
-    game_chara_costume_names.resize(XV2_LANG_NUM);
-
-    for (int i = 0; i < XV2_LANG_NUM; i++)
-    {
-        if (only_this_lang >= 0 && i != only_this_lang)
-            continue;
-
-        std::string path = GAME_CHARA_COSTUMENAMES_PATH + xv2_lang_codes[i] + ".msg";
-        game_chara_costume_names[i] = new MsgFile();
-
-        if (!xv2fs->LoadFile(game_chara_costume_names[i], path))
-        {
-            DPRINTF("Failed loading file \"%s\"\n", path.c_str());
-            return false;
-        }
-    }
-
-    return true;
+    return LoadMsgs(GAME_CHARA_COSTUMENAMES_PATH, game_chara_costume_names, only_this_lang);
 }
 
 bool Xenoverse2::CommitCharaCostumeNames()
 {
-    if (!xv2fs || game_chara_costume_names.size() != XV2_LANG_NUM)
-        return false;
-
-    for (size_t i = 0; i < XV2_LANG_NUM; i++)
-    {
-        if (!game_chara_costume_names[i])
-            continue;
-
-        std::string path = GAME_CHARA_COSTUMENAMES_PATH + xv2_lang_codes[i] + ".msg";
-
-        if (!xv2fs->SaveFile(game_chara_costume_names[i], path))
-        {
-            DPRINTF("Failed saving file \"%s\"\n", path.c_str());
-            return false;
-        }
-    }
-
-    return true;
+    return SaveMsgs(GAME_CHARA_COSTUMENAMES_PATH, game_chara_costume_names, true);
 }
 
 static bool InitSkillMsgCommon(int only_this_lang, std::vector<MsgFile *> &sup_msgs, std::vector<MsgFile *> &ult_msgs, std::vector<MsgFile *> &eva_msgs, std::vector<MsgFile *> &awa_msgs, const std::string &sup_path, const std::string &ult_path, const std::string &eva_path, const std::string &awa_path)
@@ -1022,50 +1059,12 @@ bool Xenoverse2::CommitSkillHows()
 
 bool Xenoverse2::InitBtlHudText(int only_this_lang)
 {
-    if (!xv2fs)
-        return false;
-
-    for (MsgFile *msg : quest_btlhud_texts)
-    {
-        if (msg)
-            delete msg;
-    }
-
-    quest_btlhud_texts.clear();
-    quest_btlhud_texts.resize(XV2_LANG_NUM);
-
-    for (int i = 0; i < XV2_LANG_NUM; i++)
-    {
-        if (only_this_lang >= 0 && i != only_this_lang)
-            continue;
-
-        std::string path = GAME_QUEST_BTLHUD_TEXT_PATH + xv2_lang_codes[i] + ".msg";
-        quest_btlhud_texts[i] = new MsgFile();
-
-        if (!xv2fs->LoadFile(quest_btlhud_texts[i], path))
-            return false;
-
-    }
-
-    return true;
+    return LoadMsgs(GAME_QUEST_BTLHUD_TEXT_PATH, quest_btlhud_texts, only_this_lang);
 }
 
 bool Xenoverse2::CommitBtlHudText()
 {
-    if (!xv2fs || quest_btlhud_texts.size() != XV2_LANG_NUM)
-    {
-        return false;
-    }
-
-    for (int i = 0; i < XV2_LANG_NUM; i++)
-    {
-        std::string path = GAME_QUEST_BTLHUD_TEXT_PATH + xv2_lang_codes[i] + ".msg";
-
-        if (!xv2fs->SaveFile(quest_btlhud_texts[i], path))
-            return false;
-    }
-
-    return true;
+    return SaveMsgs(GAME_QUEST_BTLHUD_TEXT_PATH, quest_btlhud_texts, true);
 }
 
 bool Xenoverse2::InitSelPort()
@@ -1119,56 +1118,12 @@ bool Xenoverse2::CommitPreBaked()
 
 bool Xenoverse2::InitLobbyText(int only_this_lang)
 {
-    if (!xv2fs)
-        return false;
-
-    for (MsgFile *msg : game_lobby_texts)
-    {
-        if (msg)
-            delete msg;
-    }
-
-    game_lobby_texts.clear();
-    game_lobby_texts.resize(XV2_LANG_NUM);
-
-    for (int i = 0; i < XV2_LANG_NUM; i++)
-    {
-        if (only_this_lang >= 0 && i != only_this_lang)
-            continue;
-
-        std::string path = GAME_LOBBY_TEXT_PATH + xv2_lang_codes[i] + ".msg";
-        game_lobby_texts[i] = new MsgFile();
-
-        if (!xv2fs->LoadFile(game_lobby_texts[i], path))
-        {
-            DPRINTF("Failed loading file \"%s\"\n", path.c_str());
-            return false;
-        }
-    }
-
-    return true;
+    return LoadMsgs(GAME_LOBBY_TEXT_PATH, game_lobby_texts, only_this_lang);
 }
 
 bool Xenoverse2::CommitLobbyText()
 {
-    if (!xv2fs || game_lobby_texts.size() != XV2_LANG_NUM)
-        return false;
-
-    for (size_t i = 0; i < XV2_LANG_NUM; i++)
-    {
-        if (!game_lobby_texts[i])
-            continue;
-
-        std::string path = GAME_LOBBY_TEXT_PATH + xv2_lang_codes[i] + ".msg";
-
-        if (!xv2fs->SaveFile(game_lobby_texts[i], path))
-        {
-            DPRINTF("Failed saving file \"%s\"\n", path.c_str());
-            return false;
-        }
-    }
-
-    return true;
+    return SaveMsgs(GAME_LOBBY_TEXT_PATH, game_lobby_texts, true);
 }
 
 bool Xenoverse2::InitCacCostumeNames(int only_this_lang)
@@ -1369,162 +1324,52 @@ bool Xenoverse2::CommitCacCostumeDescs()
 
 bool Xenoverse2::InitTalismanNames(int only_this_lang)
 {
-    if (!xv2fs)
-        return false;
+    return LoadMsgs(GAME_TALISMAN_NAMES_PATH, game_talisman_names, only_this_lang);
+}
 
-    for (MsgFile *msg : game_talisman_names)
-    {
-        if (msg)
-            delete msg;
-    }
+bool Xenoverse2::InitTalismanDescs(int only_this_lang)
+{
+    return LoadMsgs(GAME_TALISMAN_DESCS_PATH, game_talisman_descs, only_this_lang);
+}
 
-    game_talisman_names.clear();
-    game_talisman_names.resize(XV2_LANG_NUM);
+bool Xenoverse2::InitTalismanHows(int only_this_lang)
+{
+    return LoadMsgs(GAME_TALISMAN_HOWS_PATH, game_talisman_hows, only_this_lang);
+}
 
-    for (int i = 0; i < XV2_LANG_NUM; i++)
-    {
-        if (only_this_lang >= 0 && i != only_this_lang)
-            continue;
+bool Xenoverse2::CommitTalismanNames()
+{
+    return SaveMsgs(GAME_TALISMAN_NAMES_PATH, game_talisman_names, false);
+}
 
-        std::string path = GAME_TALISMAN_NAMES_PATH + xv2_lang_codes[i] + ".msg";
-        game_talisman_names[i] = new MsgFile();
+bool Xenoverse2::CommitTalismanDescs()
+{
+    return SaveMsgs(GAME_TALISMAN_DESCS_PATH, game_talisman_descs, false);
+}
 
-        if (!xv2fs->LoadFile(game_talisman_names[i], path))
-        {
-            DPRINTF("Failed loading file \"%s\"\n", path.c_str());
-            return false;
-        }
-    }
-
-    return true;
+bool Xenoverse2::CommitTalismanHows()
+{
+    return SaveMsgs(GAME_TALISMAN_HOWS_PATH, game_talisman_hows, false);
 }
 
 bool Xenoverse2::InitMaterialNames(int only_this_lang)
 {
-    if (!xv2fs)
-        return false;
-
-    for (MsgFile *msg : game_material_names)
-    {
-        if (msg)
-            delete msg;
-    }
-
-    game_material_names.clear();
-    game_material_names.resize(XV2_LANG_NUM);
-
-    for (int i = 0; i < XV2_LANG_NUM; i++)
-    {
-        if (only_this_lang >= 0 && i != only_this_lang)
-            continue;
-
-        std::string path = GAME_MATERIAL_NAMES_PATH + xv2_lang_codes[i] + ".msg";
-        game_material_names[i] = new MsgFile();
-
-        if (!xv2fs->LoadFile(game_material_names[i], path))
-        {
-            DPRINTF("Failed loading file \"%s\"\n", path.c_str());
-            return false;
-        }
-    }
-
-    return true;
+    return LoadMsgs(GAME_MATERIAL_NAMES_PATH, game_material_names, only_this_lang);
 }
 
 bool Xenoverse2::InitBattleNames(int only_this_lang)
 {
-    if (!xv2fs)
-        return false;
-
-    for (MsgFile *msg : game_battle_names)
-    {
-        if (msg)
-            delete msg;
-    }
-
-    game_battle_names.clear();
-    game_battle_names.resize(XV2_LANG_NUM);
-
-    for (int i = 0; i < XV2_LANG_NUM; i++)
-    {
-        if (only_this_lang >= 0 && i != only_this_lang)
-            continue;
-
-        std::string path = GAME_BATTLE_NAMES_PATH + xv2_lang_codes[i] + ".msg";
-        game_battle_names[i] = new MsgFile();
-
-        if (!xv2fs->LoadFile(game_battle_names[i], path))
-        {
-            DPRINTF("Failed loading file \"%s\"\n", path.c_str());
-            return false;
-        }
-    }
-
-    return true;
+    return LoadMsgs(GAME_BATTLE_NAMES_PATH, game_battle_names, only_this_lang);
 }
 
 bool Xenoverse2::InitExtraNames(int only_this_lang)
 {
-    if (!xv2fs)
-        return false;
-
-    for (MsgFile *msg : game_extra_names)
-    {
-        if (msg)
-            delete msg;
-    }
-
-    game_extra_names.clear();
-    game_extra_names.resize(XV2_LANG_NUM);
-
-    for (int i = 0; i < XV2_LANG_NUM; i++)
-    {
-        if (only_this_lang >= 0 && i != only_this_lang)
-            continue;
-
-        std::string path = GAME_EXTRA_NAMES_PATH + xv2_lang_codes[i] + ".msg";
-        game_extra_names[i] = new MsgFile();
-
-        if (!xv2fs->LoadFile(game_extra_names[i], path))
-        {
-            DPRINTF("Failed loading file \"%s\"\n", path.c_str());
-            return false;
-        }
-    }
-
-    return true;
+    return LoadMsgs(GAME_EXTRA_NAMES_PATH, game_extra_names, only_this_lang);
 }
 
 bool Xenoverse2::InitPetNames(int only_this_lang)
 {
-    if (!xv2fs)
-        return false;
-
-    for (MsgFile *msg : game_pet_names)
-    {
-        if (msg)
-            delete msg;
-    }
-
-    game_pet_names.clear();
-    game_pet_names.resize(XV2_LANG_NUM);
-
-    for (int i = 0; i < XV2_LANG_NUM; i++)
-    {
-        if (only_this_lang >= 0 && i != only_this_lang)
-            continue;
-
-        std::string path = GAME_PET_NAMES_PATH + xv2_lang_codes[i] + ".msg";
-        game_pet_names[i] = new MsgFile();
-
-        if (!xv2fs->LoadFile(game_pet_names[i], path))
-        {
-            DPRINTF("Failed loading file \"%s\"\n", path.c_str());
-            return false;
-        }
-    }
-
-    return true;
+    return LoadMsgs(GAME_PET_NAMES_PATH, game_pet_names, only_this_lang);
 }
 
 bool Xenoverse2::InitIdb(bool costumes, bool accesories, bool talisman, bool skills, bool material, bool battle, bool extra, bool pet)
@@ -2366,58 +2211,27 @@ bool Xenoverse2::CompileCharaSel(const std::string &chasel_path, const std::stri
 
 bool Xenoverse2::GetCharaName(const std::string &code, std::string &name, int lang, int index)
 {
-    if (!xv2fs || game_chara_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
     std::string entry_name = "chara_" + code + "_" + Utils::ToStringAndPad(index, 3);
-    MsgEntry *entry = game_chara_names[lang]->FindEntryByName(entry_name);
-    if (!entry && index != 0)
-    {
-        entry_name = "chara_" + code + "_000";
-        entry = game_chara_names[lang]->FindEntryByName(entry_name);
-    }
+    if  (GetMsgTextByName(game_chara_names, entry_name, name, lang))
+        return true;
 
-    if (!entry)
+    if (index == 0)
         return false;
 
-    name = UnescapeHtml(entry->lines[0]);
-    return true;
+    entry_name = "chara_" + code + "_000";
+    return GetMsgTextByName(game_chara_names, entry_name, name, lang);
 }
 
 bool Xenoverse2::SetCharaName(const std::string &code, const std::string &name, int lang, int index)
 {
-    if (!xv2fs || game_chara_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
     std::string entry_name = "chara_" + code + "_" + Utils::ToStringAndPad(index, 3);
-    MsgEntry *entry = game_chara_names[lang]->FindEntryByName(entry_name);
-
-    if (entry)
-    {
-        entry->lines.resize(1);
-        entry->lines[0] = EscapeHtml(name);
-    }
-    else
-    {
-        MsgEntry entry;
-
-        entry.name = entry_name;
-        entry.lines.push_back(EscapeHtml(name));
-
-        if (!game_chara_names[lang]->AddEntry(entry, true))
-            return false;
-    }
-
-    return true;
+    return SetMsgTextByName(game_chara_names, entry_name, name, lang);
 }
 
 bool Xenoverse2::RemoveCharaName(const std::string &code, int lang, int index)
 {
-    if (!xv2fs || game_chara_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
     std::string entry_name = "chara_" + code + "_" + Utils::ToStringAndPad(index, 3);
-    return game_chara_names[lang]->RemoveEntry(entry_name);
+    return RemoveMsgTextByName(game_chara_names, entry_name, lang);
 }
 
 bool Xenoverse2::RemoveAllCharaName(const std::string &code, int lang)
@@ -2433,104 +2247,38 @@ bool Xenoverse2::RemoveAllCharaName(const std::string &code, int lang)
 
 bool Xenoverse2::GetCharaCostumeName(const std::string &code, int var, int model_preset, std::string &name, int lang)
 {
-    if (!xv2fs || game_chara_costume_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
     std::string entry_name = "variation_" + code + "_" + Utils::ToStringAndPad(var, 3) + "_" + Utils::ToStringAndPad(model_preset, 3);
-    MsgEntry *entry = game_chara_costume_names[lang]->FindEntryByName(entry_name);
-
-    if (!entry)
-        return false;
-
-    name = UnescapeHtml(entry->lines[0]);
-    return true;
+    return GetMsgTextByName(game_chara_costume_names, entry_name, name, lang);
 }
 
-bool Xenoverse2::SetCharaCostumeName(const std::string &code, int var, int model_preset, const std::string &name, int lang)
-{
-    if (!xv2fs || game_chara_costume_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
+bool Xenoverse2::SetCharaCostumeName(const std::string &code, int var, int model_preset, const std::string &name, int lang){
 
     std::string entry_name = "variation_" + code + "_" + Utils::ToStringAndPad(var, 3) + "_" + Utils::ToStringAndPad(model_preset, 3);
-    MsgEntry *entry = game_chara_costume_names[lang]->FindEntryByName(entry_name);
-
-    if (entry)
-    {
-        entry->lines.resize(1);
-        entry->lines[0] = EscapeHtml(name);
-    }
-    else
-    {
-        MsgEntry entry;
-
-        entry.name = entry_name;
-        entry.lines.push_back(EscapeHtml(name));
-
-        if (!game_chara_costume_names[lang]->AddEntry(entry, true))
-            return false;
-    }
-
-    return true;
+    return SetMsgTextByName(game_chara_costume_names, entry_name, name, lang);
 }
 
 bool Xenoverse2::RemoveCharaCostumeName(const std::string &code, int var, int model_preset, int lang)
 {
-    if (!xv2fs || game_chara_costume_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
     std::string entry_name = "variation_" + code + "_" + Utils::ToStringAndPad(var, 3) + "_" + Utils::ToStringAndPad(model_preset, 3);
-    return game_chara_costume_names[lang]->RemoveEntry(entry_name);
+    return RemoveMsgTextByName(game_chara_costume_names, entry_name, lang);
 }
 
 static bool GetSkillMsgCommon(std::vector<MsgFile *> &msgs, uint16_t name_id, std::string &out, const std::string &prefix, int lang)
 {
-    if (!xv2fs || msgs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
     std::string entry_name = prefix + Utils::ToStringAndPad(name_id, 4);
-    MsgEntry *entry = msgs[lang]->FindEntryByName(entry_name);
-
-    if (!entry)
-        return false;
-
-    out = Xenoverse2::UnescapeHtml(entry->lines[0]);
-    return true;
+    return Xenoverse2::GetMsgTextByName(msgs, entry_name, out, lang);
 }
 
 static bool SetSkillMsgCommon(std::vector<MsgFile *> &msgs, uint16_t name_id, const std::string &in, const std::string &prefix, int lang)
 {
-    if (!xv2fs || msgs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
     std::string entry_name = prefix + Utils::ToStringAndPad(name_id, 4);
-    MsgEntry *entry = msgs[lang]->FindEntryByName(entry_name);
-
-    if (entry)
-    {
-        entry->lines.resize(1);
-        entry->lines[0] = Xenoverse2::EscapeHtml(in);
-    }
-    else
-    {
-        MsgEntry entry;
-
-        entry.name = entry_name;
-        entry.lines.push_back(Xenoverse2::EscapeHtml(in));
-
-        if (!msgs[lang]->AddEntry(entry, true))
-            return false;
-    }
-
-    return true;
+    return Xenoverse2::SetMsgTextByName(msgs, entry_name, in, lang);
 }
 
 static bool RemoveSkillMsgCommon(std::vector<MsgFile *> &msgs, uint16_t name_id, const std::string &prefix, int lang)
 {
-    if (!xv2fs || msgs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
     std::string entry_name = prefix + Utils::ToStringAndPad(name_id, 4);
-    return msgs[lang]->RemoveEntry(entry_name);
+    return Xenoverse2::RemoveMsgTextByName(msgs, entry_name, lang);
 }
 
 bool Xenoverse2::GetSuperSkillName(uint16_t name_id, std::string &name, int lang)
@@ -2742,53 +2490,20 @@ bool Xenoverse2::RemoveAwakenSkillHow(uint16_t name_id, int lang)
 
 bool Xenoverse2::GetBtlHudAwakenName(uint16_t name_id, uint16_t trans_stage, std::string &name, int lang)
 {
-    if (!xv2fs || quest_btlhud_texts.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
     std::string entry_name = "BHD_MET_" + Utils::ToStringAndPad(name_id, 4) + "_" + Utils::ToString(trans_stage);
-    MsgEntry *entry = quest_btlhud_texts[lang]->FindEntryByName(entry_name);
-
-    if (!entry)
-        return false;
-
-    name = UnescapeHtml(entry->lines[0]);
-    return true;
+    return GetMsgTextByName(quest_btlhud_texts, entry_name, name, lang);
 }
 
 bool Xenoverse2::SetBtlHudAwakenName(uint16_t name_id, uint16_t trans_stage, const std::string &name, int lang)
 {
-    if (!xv2fs || quest_btlhud_texts.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
     std::string entry_name = "BHD_MET_" + Utils::ToStringAndPad(name_id, 4) + "_" + Utils::ToString(trans_stage);
-    MsgEntry *entry = quest_btlhud_texts[lang]->FindEntryByName(entry_name);
-
-    if (entry)
-    {
-        entry->lines.resize(1);
-        entry->lines[0] = EscapeHtml(name);
-    }
-    else
-    {
-        MsgEntry entry;
-
-        entry.name = entry_name;
-        entry.lines.push_back(EscapeHtml(name));
-
-        if (!quest_btlhud_texts[lang]->AddEntry(entry, true))
-            return false;
-    }
-
-    return true;
+    return SetMsgTextByName(quest_btlhud_texts, entry_name, name, lang);
 }
 
 bool Xenoverse2::RemoveBtlHudAwakenName(uint16_t name_id, uint16_t trans_stage, int lang)
 {
-    if (!xv2fs || quest_btlhud_texts.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
     std::string entry_name = "BHD_MET_" + Utils::ToStringAndPad(name_id, 4) + "_" + Utils::ToString(trans_stage);
-    return quest_btlhud_texts[lang]->RemoveEntry(entry_name);
+    return RemoveMsgTextByName(quest_btlhud_texts, entry_name, lang);
 }
 
 uint8_t *Xenoverse2::GetSelPortrait(const std::string &name, size_t *psize)
@@ -2836,81 +2551,80 @@ bool Xenoverse2::RemoveSelPortrait(const std::string &name)
 }
 
 bool Xenoverse2::GetLobbyName(uint32_t name_id, std::string &name, int lang)
-{
-    if (!xv2fs || game_lobby_texts.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
+{    
     std::string entry_name = "name_" + Utils::ToStringAndPad(name_id, 4);
-    MsgEntry *entry = game_lobby_texts[lang]->FindEntryByName(entry_name);
-
-    if (!entry)
-        return false;
-
-    name = UnescapeHtml(entry->lines[0]);
-    return true;
+    return GetMsgTextByName(game_lobby_texts, entry_name, name, lang);
 }
 
 bool Xenoverse2::SetLobbyName(uint32_t name_id, const std::string &name, int lang)
 {
-    if (!xv2fs || game_lobby_texts.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
     std::string entry_name = "name_" + Utils::ToStringAndPad(name_id, 4);
-    MsgEntry *entry = game_lobby_texts[lang]->FindEntryByName(entry_name);
-
-    if (entry)
-    {
-        entry->lines.resize(1);
-        entry->lines[0] = EscapeHtml(name);
-    }
-    else
-    {
-        MsgEntry entry;
-
-        entry.name = entry_name;
-        entry.lines.push_back(EscapeHtml(name));
-
-        if (!game_lobby_texts[lang]->AddEntry(entry, true))
-            return false;
-    }
-
-    return true;
+    return SetMsgTextByName(game_lobby_texts, entry_name, name, lang);
 }
 
 bool Xenoverse2::RemoveLobbyName(uint32_t name_id, int lang)
 {
-    if (!xv2fs || game_lobby_texts.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
     std::string entry_name = "name_" + Utils::ToStringAndPad(name_id, 4);
-    return game_lobby_texts[lang]->RemoveEntry(entry_name);
+    return RemoveMsgTextByName(game_lobby_texts, entry_name, lang);
 }
 
 bool Xenoverse2::GetCacCostumeName(uint32_t name_idx, std::string &name, int lang)
 {
-    if (!xv2fs || game_cac_costume_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    if (name_idx >= game_cac_costume_names[lang]->GetNumEntries())
-        return false;
-
-    const MsgEntry &entry = (*game_cac_costume_names[lang])[name_idx];
-
-    name = UnescapeHtml(entry.lines[0]);
-    return true;
+    return GetMsgTextByIndex(game_cac_costume_names, name_idx, name, lang);
 }
 
 bool Xenoverse2::SetCacCostumeName(uint32_t name_idx, const std::string &name, int lang)
 {
-    if (!xv2fs || game_cac_costume_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
+    return SetMsgTextByIndex(game_cac_costume_names, name_idx, name, lang);
+}
 
-    if (name_idx >= game_cac_costume_names[lang]->GetNumEntries())
-        return false;
+static bool UpdateIdbNames(IdbFile *idb, uint32_t name_idx)
+{
+    for (IdbEntry &entry : *idb)
+    {
+        if (entry.name_id > name_idx)
+            entry.name_id--;
 
-    MsgEntry &entry = (*game_cac_costume_names[lang])[name_idx];
-    entry.lines.resize(1);
-    entry.lines[0] = EscapeHtml(name);
+        else if (entry.name_id == name_idx)
+        {
+            DPRINTF("%s: Error, name reference should have been removed from the idb first.\n", FUNCNAME);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static bool UpdateIdbDescs(IdbFile *idb, uint32_t desc_idx)
+{
+    for (IdbEntry &entry : *idb)
+    {
+        if (entry.desc_id > desc_idx)
+            entry.desc_id--;
+
+        else if (entry.desc_id == desc_idx)
+        {
+            DPRINTF("%s: Error, desc reference should have been removed from the idb first.\n", FUNCNAME);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static bool UpdateIdbHows(IdbFile *idb, uint32_t how_idx)
+{
+    for (IdbEntry &entry : *idb)
+    {
+        if (entry.how_id > how_idx)
+            entry.how_id--;
+
+        else if (entry.how_id == how_idx)
+        {
+            DPRINTF("%s: Error, how reference should have been removed from the idb first.\n", FUNCNAME);
+            return false;
+        }
+    }
 
     return true;
 }
@@ -2948,49 +2662,9 @@ bool Xenoverse2::AddCacCostumeName(const std::string &entry_name, const std::str
     return false; // should never be here
 }
 
-static bool UpdateIdbNames(IdbFile *idb, uint32_t name_idx)
-{
-    for (IdbEntry &entry : *idb)
-    {
-        if (entry.name_id > name_idx)
-            entry.name_id--;
-
-        else if (entry.name_id == name_idx)
-        {
-            DPRINTF("%s: Error, name reference should have been removed from the idb first.\n", FUNCNAME);
-            return false;
-        }
-    }
-
-    return true;
-}
-
-static bool UpdateIdbDescs(IdbFile *idb, uint32_t desc_idx)
-{
-    for (IdbEntry &entry : *idb)
-    {
-        if (entry.desc_id > desc_idx)
-            entry.desc_id--;
-
-        else if (entry.desc_id == desc_idx)
-        {
-            DPRINTF("%s: Error, desc reference should have been removed from the idb first.\n", FUNCNAME);
-            return false;
-        }
-    }
-
-    return true;
-}
-
 bool Xenoverse2::RemoveCacCostumeName(uint32_t name_idx, int lang, bool update_idb)
 {
-    if (!xv2fs || game_cac_costume_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    if (name_idx >= game_cac_costume_names[lang]->GetNumEntries())
-        return true; // Yes, true
-
-    if (!game_cac_costume_names[lang]->RemoveEntry(name_idx))
+    if (!RemoveMsgTextByIndex(game_cac_costume_names, name_idx, lang))
         return false;
 
     if (!update_idb)
@@ -3013,31 +2687,12 @@ bool Xenoverse2::RemoveCacCostumeName(uint32_t name_idx, int lang, bool update_i
 
 bool Xenoverse2::GetAccesoryName(uint32_t name_idx, std::string &name, int lang)
 {
-    if (!xv2fs || game_accesory_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    if (name_idx >= game_accesory_names[lang]->GetNumEntries())
-        return false;
-
-    const MsgEntry &entry = (*game_accesory_names[lang])[name_idx];
-
-    name = UnescapeHtml(entry.lines[0]);
-    return true;
+    return GetMsgTextByIndex(game_accesory_names, name_idx, name, lang);
 }
 
 bool Xenoverse2::SetAccesoryName(uint32_t name_idx, const std::string &name, int lang)
 {
-    if (!xv2fs || game_accesory_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    if (name_idx >= game_accesory_names[lang]->GetNumEntries())
-        return false;
-
-    MsgEntry &entry = (*game_accesory_names[lang])[name_idx];
-    entry.lines.resize(1);
-    entry.lines[0] = EscapeHtml(name);
-
-    return true;
+    return SetMsgTextByIndex(game_accesory_names, name_idx, name, lang);
 }
 
 bool Xenoverse2::AddAccesoryName(const std::string &name, int lang, uint16_t *ret_idx)
@@ -3072,13 +2727,7 @@ bool Xenoverse2::AddAccesoryName(const std::string &name, int lang, uint16_t *re
 
 bool Xenoverse2::RemoveAccesoryName(uint32_t name_idx, int lang, bool update_idb)
 {
-    if (!xv2fs || game_accesory_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    if (name_idx >= game_accesory_names[lang]->GetNumEntries())
-        return true; // Yes, true
-
-    if (!game_accesory_names[lang]->RemoveEntry(name_idx))
+    if (!RemoveMsgTextByIndex(game_accesory_names, name_idx, lang))
         return false;
 
     if (!update_idb)
@@ -3092,31 +2741,12 @@ bool Xenoverse2::RemoveAccesoryName(uint32_t name_idx, int lang, bool update_idb
 
 bool Xenoverse2::GetCacCostumeDesc(uint32_t desc_idx, std::string &desc, int lang)
 {
-    if (!xv2fs || game_cac_costume_descs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    if (desc_idx >= game_cac_costume_descs[lang]->GetNumEntries())
-        return false;
-
-    const MsgEntry &entry = (*game_cac_costume_descs[lang])[desc_idx];
-
-    desc = UnescapeHtml(entry.lines[0]);
-    return true;
+    return GetMsgTextByIndex(game_cac_costume_descs, desc_idx, desc, lang);
 }
 
 bool Xenoverse2::SetCacCostumeDesc(uint32_t desc_idx, const std::string &desc, int lang)
 {
-    if (!xv2fs || game_cac_costume_descs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    if (desc_idx >= game_cac_costume_descs[lang]->GetNumEntries())
-        return false;
-
-    MsgEntry &entry = (*game_cac_costume_descs[lang])[desc_idx];
-    entry.lines.resize(1);
-    entry.lines[0] = EscapeHtml(desc);
-
-    return true;
+    return SetMsgTextByIndex(game_cac_costume_descs, desc_idx, desc, lang);
 }
 
 bool Xenoverse2::AddCacCostumeDesc(const std::string &entry_name, const std::string &desc, int lang, uint16_t *ret_idx)
@@ -3154,13 +2784,7 @@ bool Xenoverse2::AddCacCostumeDesc(const std::string &entry_name, const std::str
 
 bool Xenoverse2::RemoveCacCostumeDesc(uint32_t desc_idx, int lang, bool update_idb)
 {
-    if (!xv2fs || game_cac_costume_descs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    if (desc_idx >= game_cac_costume_descs[lang]->GetNumEntries())
-        return true; // Yes, true
-
-    if (!game_cac_costume_descs[lang]->RemoveEntry(desc_idx))
+    if (!RemoveMsgTextByIndex(game_cac_costume_descs, desc_idx, lang))
         return false;
 
     if (!update_idb)
@@ -3183,31 +2807,12 @@ bool Xenoverse2::RemoveCacCostumeDesc(uint32_t desc_idx, int lang, bool update_i
 
 bool Xenoverse2::GetAccesoryDesc(uint32_t desc_idx, std::string &desc, int lang)
 {
-    if (!xv2fs || game_accesory_descs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    if (desc_idx >= game_accesory_descs[lang]->GetNumEntries())
-        return false;
-
-    const MsgEntry &entry = (*game_accesory_descs[lang])[desc_idx];
-
-    desc = UnescapeHtml(entry.lines[0]);
-    return true;
+    return GetMsgTextByIndex(game_accesory_descs, desc_idx, desc, lang);
 }
 
 bool Xenoverse2::SetAccesoryDesc(uint32_t desc_idx, const std::string &desc, int lang)
 {
-    if (!xv2fs || game_accesory_descs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    if (desc_idx >= game_accesory_descs[lang]->GetNumEntries())
-        return false;
-
-    MsgEntry &entry = (*game_accesory_descs[lang])[desc_idx];
-    entry.lines.resize(1);
-    entry.lines[0] = EscapeHtml(desc);
-
-    return true;
+    return SetMsgTextByIndex(game_accesory_descs, desc_idx, desc, lang);
 }
 
 bool Xenoverse2::AddAccesoryDesc(const std::string &desc, int lang, uint16_t *ret_idx)
@@ -3241,14 +2846,8 @@ bool Xenoverse2::AddAccesoryDesc(const std::string &desc, int lang, uint16_t *re
 }
 
 bool Xenoverse2::RemoveAccesoryDesc(uint32_t desc_idx, int lang, bool update_idb)
-{
-    if (!xv2fs || game_accesory_descs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    if (desc_idx >= game_accesory_descs[lang]->GetNumEntries())
-        return true; // Yes, true
-
-    if (!game_accesory_descs[lang]->RemoveEntry(desc_idx))
+{    
+    if (!RemoveMsgTextByIndex(game_accesory_descs, desc_idx, lang))
         return false;
 
     if (!update_idb)
@@ -3260,101 +2859,270 @@ bool Xenoverse2::RemoveAccesoryDesc(uint32_t desc_idx, int lang, bool update_idb
     return true;
 }
 
+static bool AddTalismanTextCommon(std::vector<MsgFile *> &msgs, const std::string &text, const std::string &prefix, int lang, uint16_t *ret_idx)
+{
+    if (!xv2fs || msgs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
+        return false;
+
+    size_t idx = msgs[lang]->GetNumEntries();
+    if (idx >= 0xFFFF)
+    {
+        DPRINTF("%s: Overflow of ids.\n", FUNCNAME);
+        return false;
+    }
+
+    if (ret_idx)
+        *ret_idx = (uint16_t)idx;
+
+    MsgEntry entry;
+
+    for (size_t i = idx; ; i++)
+    {
+        entry.name = prefix + Utils::ToStringAndPad((int)i, 3);
+        if (!msgs[lang]->FindEntryByName(entry.name))
+            break;
+    }
+
+    entry.lines.resize(1);
+    entry.lines[0] = Xenoverse2::EscapeHtml(text);
+
+    return msgs[lang]->AddEntry(entry, true);
+}
+
 bool Xenoverse2::GetTalismanName(uint32_t name_idx, std::string &name, int lang)
 {
-    if (!xv2fs || game_talisman_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
+    if (game_talisman_names.size() != XV2_LANG_NUM)
+    {
+        if (!Xenoverse2::InitTalismanNames())
+            return false;
+    }
+
+    return GetMsgTextByIndex(game_talisman_names, name_idx, name, lang);
+}
+
+bool Xenoverse2::SetTalismanName(uint32_t name_idx, const std::string &name, int lang)
+{
+    if (game_talisman_names.size() != XV2_LANG_NUM)
+    {
+        if (!Xenoverse2::InitTalismanNames())
+            return false;
+    }
+
+    return SetMsgTextByIndex(game_talisman_names, name_idx, name, lang);
+}
+
+bool Xenoverse2::AddTalismanName(const std::string &name, int lang, uint16_t *ret_idx)
+{
+    if (game_talisman_names.size() != XV2_LANG_NUM && !InitTalismanNames())
         return false;
 
-    if (name_idx >= game_talisman_names[lang]->GetNumEntries())
+    return AddTalismanTextCommon(game_talisman_names, name, "talisman_", lang, ret_idx);
+}
+
+bool Xenoverse2::RemoveTalismanName(uint32_t name_idx, int lang, bool update_idb)
+{
+    if (!game_talisman_idb && !InitIdb(false, false, true, false, false, false, false, false))
         return false;
 
-    const MsgEntry &entry = (*game_talisman_names[lang])[name_idx];
+    if (game_talisman_names.size() != XV2_LANG_NUM && !InitTalismanNames())
+        return false;
 
-    name = UnescapeHtml(entry.lines[0]);
+    if (!RemoveMsgTextByIndex(game_talisman_names, name_idx, lang))
+        return false;
+
+    if (!update_idb)
+        return true;
+
+    if (!UpdateIdbNames(game_talisman_idb, name_idx))
+        return false;
+
     return true;
 }
 
-uint32_t Xenoverse2::GetBlastFromTalisman(uint32_t talisman_id, bool id2)
+bool Xenoverse2::GetTalismanDesc(uint32_t desc_idx, std::string &desc, int lang)
 {
-    if (!xv2fs || !game_talisman_idb)
+    if (game_talisman_descs.size() != XV2_LANG_NUM)
+    {
+        if (!Xenoverse2::InitTalismanDescs())
+            return false;
+    }
+
+    return GetMsgTextByIndex(game_talisman_descs, desc_idx, desc, lang);
+}
+
+bool Xenoverse2::SetTalismanDesc(uint32_t desc_idx, const std::string &desc, int lang)
+{
+    if (game_talisman_descs.size() != XV2_LANG_NUM)
+    {
+        if (!Xenoverse2::InitTalismanDescs())
+            return false;
+    }
+
+    return SetMsgTextByIndex(game_talisman_descs, desc_idx, desc, lang);
+}
+
+bool Xenoverse2::AddTalismanDesc(const std::string &desc, int lang, uint16_t *ret_idx)
+{
+    if (game_talisman_descs.size() != XV2_LANG_NUM && !InitTalismanDescs())
+        return false;
+
+    return AddTalismanTextCommon(game_talisman_descs, desc, "talisman_eff_", lang, ret_idx);
+}
+
+bool Xenoverse2::RemoveTalismanDesc(uint32_t desc_idx, int lang, bool update_idb)
+{
+    if (!game_talisman_idb && !InitIdb(false, false, true, false, false, false, false, false))
+        return false;
+
+    if (game_talisman_descs.size() != XV2_LANG_NUM && !InitTalismanDescs())
+        return false;
+
+    if (!RemoveMsgTextByIndex(game_talisman_descs, desc_idx, lang))
+        return false;
+
+    if (!update_idb)
+        return true;
+
+    if (!UpdateIdbDescs(game_talisman_idb, desc_idx))
+        return false;
+
+    return true;
+}
+
+bool Xenoverse2::GetTalismanHow(uint32_t how_idx, std::string &how, int lang)
+{
+    if (game_talisman_hows.size() != XV2_LANG_NUM)
+    {
+        if (!Xenoverse2::InitTalismanHows())
+            return false;
+    }
+
+    return GetMsgTextByIndex(game_talisman_hows, how_idx, how, lang);
+}
+
+bool Xenoverse2::SetTalismanHow(uint32_t how_idx, const std::string &how, int lang)
+{
+    if (game_talisman_hows.size() != XV2_LANG_NUM)
+    {
+        if (!Xenoverse2::InitTalismanHows())
+            return false;
+    }
+
+    return SetMsgTextByIndex(game_talisman_hows, how_idx, how, lang);
+}
+
+bool Xenoverse2::AddTalismanHow(const std::string &how, int lang, uint16_t *ret_idx)
+{
+    if (game_talisman_hows.size() != XV2_LANG_NUM && !InitTalismanHows())
+        return false;
+
+    return AddTalismanTextCommon(game_talisman_hows, how, "talisman_how_", lang, ret_idx);
+}
+
+bool Xenoverse2::RemoveTalismanHow(uint32_t how_idx, int lang, bool update_idb)
+{
+    if (!game_talisman_idb && !InitIdb(false, false, true, false, false, false, false, false))
+        return false;
+
+    if (game_talisman_hows.size() != XV2_LANG_NUM && !InitTalismanHows())
+        return false;
+
+    if (!RemoveMsgTextByIndex(game_talisman_hows, how_idx, lang))
+        return false;
+
+    if (!update_idb)
+        return true;
+
+    if (!UpdateIdbHows(game_talisman_idb, how_idx))
+        return false;
+
+    return true;
+}
+
+uint32_t Xenoverse2::GetBlastFromTalisman(uint32_t talisman_id, bool request_id2)
+{
+    if (!xv2fs || !game_cus)
+        return (uint32_t)-1;
+
+    if (!game_talisman_idb && !InitIdb(false, false, true, false, false, false, false, false))
         return (uint32_t)-1;
 
     IdbEntry *entry  = game_talisman_idb->FindEntryByID(talisman_id);
     if (entry)
     {
-        if (entry->model == 1)
-            return (id2) ? 1080 : 21080; // POW
+        uint32_t id2 = 1081;
 
-        if (entry->model == 0 || entry->model == 2)
-            return (id2) ? 1081 : 21081; // RSH
+        if (entry->model > 0)
+        {
+            id2 = BLAST_SOUL_OFFSET + entry->model;
+            if (game_cus->FindBlastSkillByID(id2+CUS_BLAST_START) == nullptr)
+                 return (uint32_t)-1;
+        }
 
-        if (entry->model == 3)
-            return (id2) ? 1082 : 21082; // BOM
 
-        if (entry->model == 4)
-            return (id2) ? 1083 : 21083; // HOM
-
-        if (entry->model == 5)
-            return (id2) ? 1084 : 21084; // PAL
+        return (request_id2) ? id2 : id2+CUS_BLAST_START;
     }
 
     return (uint32_t)-1;
 }
 
+bool Xenoverse2::SetBlastToTalisman(uint32_t talisman_id, uint16_t skill_id, bool is_id2)
+{
+    if (!xv2fs)
+        return false;
+
+    if (!game_talisman_idb && !InitIdb(false, false, true, false, false, false, false, false))
+        return false;
+
+    IdbEntry *entry  = game_talisman_idb->FindEntryByID(talisman_id);
+    if (!entry)
+        return false;
+
+    if (!is_id2)
+        skill_id = skill_id - CUS_BLAST_START;
+
+    if (skill_id <= BLAST_SOUL_OFFSET)
+    {
+        DPRINTF("%s: Cannot set this skill id (out of rage, id2=%d)\n", FUNCNAME, skill_id);
+        return false;
+    }
+
+    entry->model = skill_id - BLAST_SOUL_OFFSET;
+    return true;
+}
+
+uint32_t Xenoverse2::GetModelForTalisman(uint16_t skill_id, bool is_id2)
+{
+    if (!is_id2)
+        skill_id = skill_id - CUS_BLAST_START;
+
+    if (skill_id <= BLAST_SOUL_OFFSET)
+    {
+        DPRINTF("%s: skill id out of rage, id2=%d\n", FUNCNAME, skill_id);
+        return 0;
+    }
+
+    return skill_id - BLAST_SOUL_OFFSET;
+}
+
 bool Xenoverse2::GetMaterialName(uint32_t name_idx, std::string &name, int lang)
 {
-    if (!xv2fs || game_material_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    if (name_idx >= game_material_names[lang]->GetNumEntries())
-        return false;
-
-    const MsgEntry &entry = (*game_material_names[lang])[name_idx];
-
-    name = UnescapeHtml(entry.lines[0]);
-    return true;
+    return GetMsgTextByIndex(game_material_names, name_idx, name, lang);
 }
 
 bool Xenoverse2::GetBattleName(uint32_t name_idx, std::string &name, int lang)
 {
-    if (!xv2fs || game_battle_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    if (name_idx >= game_battle_names[lang]->GetNumEntries())
-        return false;
-
-    const MsgEntry &entry = (*game_battle_names[lang])[name_idx];
-
-    name = UnescapeHtml(entry.lines[0]);
-    return true;
+    return GetMsgTextByIndex(game_battle_names, name_idx, name, lang);
 }
 
 bool Xenoverse2::GetExtraName(uint32_t name_idx, std::string &name, int lang)
 {
-    if (!xv2fs || game_extra_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    if (name_idx >= game_extra_names[lang]->GetNumEntries())
-        return false;
-
-    const MsgEntry &entry = (*game_extra_names[lang])[name_idx];
-
-    name = UnescapeHtml(entry.lines[0]);
-    return true;
+    return GetMsgTextByIndex(game_extra_names, name_idx, name, lang);
 }
 
 bool Xenoverse2::GetPetName(uint32_t name_idx, std::string &name, int lang)
 {
-    if (!xv2fs || game_pet_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    if (name_idx >= game_pet_names[lang]->GetNumEntries())
-        return false;
-
-    const MsgEntry &entry = (*game_pet_names[lang])[name_idx];
-
-    name = UnescapeHtml(entry.lines[0]);
-    return true;
+    return GetMsgTextByIndex(game_pet_names, name_idx, name, lang);
 }
 
 HcaFile *Xenoverse2::GetCssSound(uint32_t cue_id, bool english)
@@ -3845,6 +3613,15 @@ uint32_t Xenoverse2::CusAuraToAurAura(uint32_t id)
 			
 		case 30:
 			return 36;
+			
+		case 31:
+			return 56;
+			
+		case 32:
+			return 58;
+		
+		case 33:
+			return 59;
     }
 
     return 0xFFFFFFFF;
@@ -3892,6 +3669,10 @@ void Xenoverse2::GetAuraExtra(int32_t id, AuraExtraData &extra)
         case 53:
             extra.bpe_id = 302;
         break;
+		
+		case 57: case 58: case 59:
+			extra.bpe_id = 320;
+		break;
     }
 
     if (id == 36 || id == 39 || id == 52 || id == 53)
@@ -4426,13 +4207,7 @@ bool Xenoverse2::GetStageName(const std::string &id, std::string &name, int lang
     }
 
     std::string entry_name = "stage_" + id;
-    MsgEntry *entry = game_stage_names[lang]->FindEntryByName(entry_name);
-
-    if (!entry)
-        return false;
-
-    name = UnescapeHtml(entry->lines[0]);
-    return true;
+    return GetMsgTextByName(game_stage_names, entry_name, name, lang);
 }
 
 bool Xenoverse2::SetStageName(const std::string &id, const std::string &name, int lang)
@@ -4458,25 +4233,7 @@ bool Xenoverse2::SetStageName(const std::string &id, const std::string &name, in
     }
 
     std::string entry_name = "stage_" + id;
-    MsgEntry *entry = game_stage_names[lang]->FindEntryByName(entry_name);
-
-    if (entry)
-    {
-        entry->lines.resize(1);
-        entry->lines[0] = EscapeHtml(name);
-    }
-    else
-    {
-        MsgEntry entry;
-
-        entry.name = entry_name;
-        entry.lines.push_back(EscapeHtml(name));
-
-        if (!game_stage_names[lang]->AddEntry(entry, true))
-            return false;
-    }
-
-    return true;
+    return SetMsgTextByName(game_stage_names, entry_name, name, lang);
 }
 
 bool Xenoverse2::RemoveStageName(const std::string &id, int lang)
@@ -4494,7 +4251,7 @@ bool Xenoverse2::RemoveStageName(const std::string &id, int lang)
     }
 
     std::string entry_name = "stage_" + id;
-    return game_stage_names[lang]->RemoveEntry(entry_name);
+    return RemoveMsgTextByName(game_stage_names, entry_name, lang);
 }
 
 bool Xenoverse2::InitStageEmb()
@@ -4876,4 +4633,84 @@ bool Xenoverse2::CommitVfx()
 bool Xenoverse2::IsModCms(uint32_t cms_id)
 {
     return (cms_id > XV2_LAST_KNOWN_CMS || (cms_id >= 0x9F && cms_id <= 0xC7));
+}
+
+bool Xenoverse2::InitShopText(int only_this_lang)
+{
+    return LoadMsgs(GAME_SHOP_TEXT_PATH, game_shop_texts, only_this_lang);
+}
+
+bool Xenoverse2::CommitShopText()
+{
+    return SaveMsgs(GAME_SHOP_TEXT_PATH, game_shop_texts, false);
+}
+
+bool Xenoverse2::GetShopText(const std::string &entry_name, std::string &name, int lang)
+{
+    if (game_shop_texts.size() != XV2_LANG_NUM && !InitShopText())
+        return false;
+
+    return GetMsgTextByName(game_shop_texts, entry_name, name, lang);
+}
+
+bool Xenoverse2::SetShopText(const std::string &entry_name, const std::string &name, int lang)
+{
+    if (game_shop_texts.size() != XV2_LANG_NUM && !InitShopText())
+        return false;
+
+    return SetMsgTextByName(game_shop_texts, entry_name, name, lang);
+}
+
+bool Xenoverse2::RemoveShopText(const std::string &entry_name, int lang)
+{
+    if (game_shop_texts.size() != XV2_LANG_NUM && !InitShopText())
+        return false;
+
+    return RemoveMsgTextByName(game_shop_texts, entry_name, lang);
+}
+
+bool Xenoverse2::SetModBlastSkillType(uint16_t id2, const std::string &type, int lang)
+{
+    if (id2 <= BLAST_SOUL_OFFSET)
+    {
+        DPRINTF("%s: Error, id2=%d is <= than %d\n", FUNCNAME, id2, BLAST_SOUL_OFFSET);
+        return false;
+    }
+
+    return SetShopText("ITM_MODBLT_" + Utils::ToString(id2-BLAST_SOUL_OFFSET), type, lang);
+}
+
+bool Xenoverse2::RemoveModBlastSkillType(uint16_t id2, int lang)
+{
+    if (id2 <= BLAST_SOUL_OFFSET)
+        return true; // Yes, true
+
+    return RemoveShopText("ITM_MODBLT_" + Utils::ToString(id2-BLAST_SOUL_OFFSET), lang);
+}
+
+bool Xenoverse2::GetBlastType(uint32_t type, std::string &name, int lang)
+{
+    if (type == 0)
+        return false;
+
+    if ((type-1) < SoulSpritBulletTypeString.size())
+        return GetShopText(SoulSpritBulletTypeString[type-1], name, lang);
+
+    return GetShopText("ITM_MODBLT_" + Utils::ToString(type), name, lang);
+}
+
+bool Xenoverse2::GetAllDefaultBlastTypes(std::vector<std::string> &out, int lang)
+{
+    out.clear();
+
+    for (uint32_t i = 1; i <= SoulSpritBulletTypeString.size(); i++)
+    {
+        std::string type;
+        if (!GetBlastType(i, type, lang))
+            return false;
+
+        out.push_back(type);
+    }
+
+    return true;
 }

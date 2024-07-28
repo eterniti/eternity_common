@@ -53,6 +53,7 @@ enum
     XV2_LANG_CHINESE1,
     XV2_LANG_CHINESE2,
     XV2_LANG_KOREAN,
+    XV2_LANG_JAPANESE,
 
     XV2_LANG_NUM
 };
@@ -182,7 +183,16 @@ extern ErsFile *game_ers;
 namespace Xenoverse2
 {
     void InitFs(const std::string &game_path);
-    //bool InitCharaList(const std::string &chasel_path, const std::string &list_path);
+
+    bool LoadMsgs(const std::string &base_path, std::vector<MsgFile *> &msgs, int only_this_lang);
+    bool SaveMsgs(const std::string &base_path, const std::vector<MsgFile *> &msgs, bool mandatory_load);
+    bool GetMsgTextByIndex(const std::vector<MsgFile *> &msgs, uint32_t idx, std::string &text, int lang);
+    bool SetMsgTextByIndex(std::vector<MsgFile *> &msgs, uint32_t idx, const std::string &text, int lang);
+    bool GetMsgTextByName(const std::vector<MsgFile *> &msgs, const std::string &entry_name, std::string &text, int lang);
+    bool SetMsgTextByName(std::vector<MsgFile *> &msgs, const std::string &entry_name, const std::string &text, int lang);
+    bool RemoveMsgTextByIndex(std::vector<MsgFile *> &msgs, uint32_t idx, int lang);
+    bool RemoveMsgTextByName(std::vector<MsgFile *> &msgs, const std::string &entry_name, int lang);
+
     bool InitCharaList();
     bool InitSystemFiles(bool only_cms=false, bool multiple_hci=false);
     bool InitCharaNames(int only_this_lang=-1);
@@ -197,10 +207,13 @@ namespace Xenoverse2
     bool InitCacCostumeNames(int only_this_lang=-1);
     bool InitCacCostumeDescs(int only_this_lang=-1);
     bool InitTalismanNames(int only_this_lang=-1);
+    bool InitTalismanDescs(int only_this_lang=-1);
+    bool InitTalismanHows(int only_this_lang=-1);
     bool InitMaterialNames(int only_this_lang=-1);
     bool InitBattleNames(int only_this_lang=-1);
     bool InitExtraNames(int only_this_lang=-1);
     bool InitPetNames(int only_this_lang=-1);
+    // TODO (also for CommitIdb): change infinite params to a single param flags
     bool InitIdb(bool costumes=true, bool accesories=true, bool talisman=true, bool skills=true, bool material=false, bool battle=false, bool extra=false, bool pet=false);
     bool InitLobby(bool tnl=false);
     bool InitSound(bool load_sev_cmn=false);
@@ -213,6 +226,7 @@ namespace Xenoverse2
     bool InitCommonDialogue();
     bool InitDualSkill(bool init_cnc, bool init_cns);
     bool InitVfx();
+    bool InitShopText(int only_this_lang=-1);
 
     bool CommitCharaList(bool commit_slots, bool commit_iggy);
     bool CommitSystemFiles(bool pup);
@@ -227,6 +241,9 @@ namespace Xenoverse2
     bool CommitLobbyText();
     bool CommitCacCostumeNames();
     bool CommitCacCostumeDescs();
+    bool CommitTalismanNames();
+    bool CommitTalismanDescs();
+    bool CommitTalismanHows();
     bool CommitLobby(bool tnl=false);
     bool CommitIdb(bool costumes, bool accesories, bool talisman, bool skills);
     bool CommitSound(bool css, bool sev, bool sev1, bool sev2);
@@ -239,6 +256,7 @@ namespace Xenoverse2
     bool CommitCommonDialogue();
     bool CommitDualSkill(bool commit_cnc, bool commit_cns);
     bool CommitVfx();
+    bool CommitShopText();
 
     bool GetCharaCodeFromId(uint32_t id, std::string &code);
 
@@ -334,12 +352,36 @@ namespace Xenoverse2
     bool RemoveAccesoryDesc(uint32_t desc_idx, int lang, bool update_idb);
 
     bool GetTalismanName(uint32_t name_idx, std::string &name, int lang=XV2_LANG_ENGLISH);
-    uint32_t GetBlastFromTalisman(uint32_t talisman_id, bool id2);
+    bool SetTalismanName(uint32_t name_idx, const std::string &name, int lang);
+    bool AddTalismanName(const std::string &name, int lang, uint16_t *ret_idx);
+    bool RemoveTalismanName(uint32_t name_idx, int lang, bool update_idb);
+
+    bool GetTalismanDesc(uint32_t desc_idx, std::string &desc, int lang=XV2_LANG_ENGLISH);
+    bool SetTalismanDesc(uint32_t desc_idx, const std::string &desc, int lang);
+    bool AddTalismanDesc(const std::string &desc, int lang, uint16_t *ret_idx);
+    bool RemoveTalismanDesc(uint32_t desc_idx, int lang, bool update_idb);
+
+    bool GetTalismanHow(uint32_t how_idx, std::string &how, int lang=XV2_LANG_ENGLISH);
+    bool SetTalismanHow(uint32_t how_idx, const std::string &how, int lang);
+    bool AddTalismanHow(const std::string &how, int lang, uint16_t *ret_idx);
+    bool RemoveTalismanHow(uint32_t how_idx, int lang, bool update_idb);
+
+    uint32_t GetBlastFromTalisman(uint32_t talisman_id, bool request_id2);
+    bool SetBlastToTalisman(uint32_t talisman_id, uint16_t skill_id, bool is_id2);
+    uint32_t GetModelForTalisman(uint16_t skill_id, bool is_id2);
 
     bool GetMaterialName(uint32_t name_idx, std::string &name, int lang=XV2_LANG_ENGLISH);
     bool GetBattleName(uint32_t name_idx, std::string &name, int lang=XV2_LANG_ENGLISH);
     bool GetExtraName(uint32_t name_idx, std::string &name, int lang=XV2_LANG_ENGLISH);
     bool GetPetName(uint32_t name_idx, std::string &name, int lang=XV2_LANG_ENGLISH);
+
+    bool GetShopText(const std::string &entry_name, std::string &name, int lang=XV2_LANG_ENGLISH);
+    bool SetShopText(const std::string &entry_name, const std::string &name, int lang);
+    bool RemoveShopText(const std::string &entry_name, int lang);
+    bool SetModBlastSkillType(uint16_t id2, const std::string &type, int lang);
+    bool RemoveModBlastSkillType(uint16_t id2, int lang);
+    bool GetBlastType(uint32_t type, std::string &name, int lang=XV2_LANG_ENGLISH);
+    bool GetAllDefaultBlastTypes(std::vector<std::string> &out, int lang=XV2_LANG_ENGLISH);
 
     /* Generic audio functions */
     bool SetAcbAwbData(AcbFile *acb, AwbFile *awb);

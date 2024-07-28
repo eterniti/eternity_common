@@ -46,6 +46,7 @@ TiXmlElement *IdbEffect::Decompile(TiXmlNode *root) const
     Utils::WriteParamFloat(entry_root, "BLA_DAMAGE", bla_damage);
     Utils::WriteParamMultipleFloats(entry_root, "F_AC", std::vector<float>(unk_AC, unk_AC+13));
     Utils::WriteParamMultipleUnsigned(entry_root, "NU_48", std::vector<uint32_t>(new_unk_48, new_unk_48+2), true);
+    Utils::WriteParamUnsigned(entry_root, "NU_0C", new_unk_0C, true);
 
     root->LinkEndChild(entry_root);
     return entry_root;
@@ -143,6 +144,9 @@ bool IdbEffect::Compile(const TiXmlElement *root)
     if (!Utils::ReadParamMultipleUnsigned(root, "NU_48", new_unk_48, 2))
         new_unk_48[0] = new_unk_48[1] = 0;
 
+    if (!Utils::ReadParamUnsigned(root, "NU_0C", &new_unk_0C))
+        new_unk_0C = 0;
+
     return true;
 }
 
@@ -222,6 +226,7 @@ TiXmlElement *IdbEntry::Decompile(TiXmlNode *root, IdbCommentType comm_type) con
     Utils::WriteParamUnsigned(entry_root, "STARS", stars);
     Utils::WriteParamUnsigned(entry_root, "NAME_ID", name_id, true);
     Utils::WriteParamUnsigned(entry_root, "DESC_ID", desc_id, true);
+    Utils::WriteParamUnsigned(entry_root, "HOW_ID", how_id, true);
     Utils::WriteParamUnsigned(entry_root, "DLC_FLAG", dlc_flag, true);
     Utils::WriteParamUnsigned(entry_root, "AVAILABILITY", availability, true);
     Utils::WriteParamUnsigned(entry_root, "U_0E", unk_0E, true);
@@ -229,9 +234,12 @@ TiXmlElement *IdbEntry::Decompile(TiXmlNode *root, IdbCommentType comm_type) con
     Utils::WriteParamUnsigned(entry_root, "SELL", sell);
     Utils::WriteParamUnsigned(entry_root, "RACELOCK", racelock, true);
     Utils::WriteParamUnsigned(entry_root, "TP", tp);
+    Utils::WriteParamUnsigned(entry_root, "STP", stp);
     Utils::WriteParamUnsigned(entry_root, "MODEL", model);
     Utils::WriteParamMultipleUnsigned(entry_root, "U_24", std::vector<uint32_t>(unk_24, unk_24+3), true);
     Utils::WriteParamUnsigned(entry_root, "NU_0C", new_unk_0C, true);
+    Utils::WriteParamUnsigned(entry_root, "NU_0A", new_unk_0A, true);
+    Utils::WriteParamUnsigned(entry_root, "NU_2C", new_unk_2C);
 
     for (int i = 0; i < 3; i++)
         effects[i].Decompile(entry_root);
@@ -240,8 +248,11 @@ TiXmlElement *IdbEntry::Decompile(TiXmlNode *root, IdbCommentType comm_type) con
     return entry_root;
 }
 
-bool IdbEntry::Compile(const TiXmlElement *root, bool *is_new_format)
+bool IdbEntry::Compile(const TiXmlElement *root, int *version)
 {
+    if (version != nullptr)
+        *version = 0;
+
     if (!Utils::ReadAttrUnsigned(root, "id", &id))
     {
         DPRINTF("%s: Cannot get id attribute.\n", FUNCNAME);
@@ -292,12 +303,34 @@ bool IdbEntry::Compile(const TiXmlElement *root, bool *is_new_format)
 
     if (Utils::ReadParamUnsigned(root, "NU_0C", &new_unk_0C))
     {
-        if (is_new_format != nullptr)
-            *is_new_format = true;
+        if (version != nullptr)
+            *version = 118;
     }
     else
     {
         new_unk_0C = 0xFFFFFFFF;
+    }
+
+    if (Utils::ReadParamUnsigned(root, "HOW_ID", &how_id))
+    {
+        if (version != nullptr)
+            *version = 122;
+
+        if (!Utils::GetParamUnsigned(root, "NU_0A", &new_unk_0A))
+            return false;
+
+        if (!Utils::GetParamUnsigned(root, "STP", &stp))
+            return false;
+
+        if (!Utils::GetParamUnsigned(root, "NU_2C", &new_unk_2C))
+            return false;
+    }
+    else
+    {
+        how_id = 0;
+        new_unk_0A = 0;
+        stp = 0;
+        new_unk_2C = 0;
     }
 
     int idx = 0;
@@ -328,7 +361,7 @@ IdbFile::IdbFile()
 {
     this->big_endian = false;
     this->comm_type = IdbCommentType::NONE;
-    this->is_new_format =false;
+    this->version = 122;
 }
 
 IdbFile::~IdbFile()
@@ -340,7 +373,7 @@ void IdbFile::Reset()
 {
     entries.clear();
     this->comm_type = IdbCommentType::NONE;
-    this->is_new_format =false;
+    this->version = 122;
 }
 
 bool IdbFile::Load(const uint8_t *buf, size_t size)
@@ -356,34 +389,68 @@ bool IdbFile::Load(const uint8_t *buf, size_t size)
     /*if (hdr->signature != IDB_SIGNATURE)
         return false;*/
 
-    if (((size - 0x10) % sizeof(IDBEntryNew)) == 0)
-        is_new_format = true;
+    if ((size - 0x10) == hdr->num_entries*sizeof(IDBEntry122))
+        version = 122;
+    else if ((size - 0x10) == hdr->num_entries*sizeof(IDBEntry118))
+        version = 118;
+    else if ((size - 0x10) == hdr->num_entries*sizeof(IDBEntry))
+        version = 0;
+    else
+    {
+        DPRINTF("%s: Possibly new IDB format.\n", FUNCNAME);
+        return false;
+    }
 
     const IDBEntry *file_entries = (const IDBEntry *)(buf + hdr->data_start);
-    const IDBEntryNew *file_entries_new = (const IDBEntryNew *)(buf + hdr->data_start);
+    const IDBEntry118 *file_entries_118 = (const IDBEntry118 *)(buf + hdr->data_start);
+    const IDBEntry122 *file_entries_122 = (const IDBEntry122 *)(buf + hdr->data_start);
     entries.resize(hdr->num_entries);
 
     for (size_t i = 0; i < entries.size(); i++)
     {
         IdbEntry &entry = entries[i];
 
-        if (is_new_format)
+        if (version == 122)
         {
-            entry.id = file_entries_new[i].id;
-            entry.stars = file_entries_new[i].stars;
-            entry.name_id = file_entries_new[i].name_id;
-            entry.desc_id = file_entries_new[i].desc_id;
-            entry.type = file_entries_new[i].type;
-            entry.dlc_flag = file_entries_new[i].unk_0A;
-            entry.availability = file_entries_new[i].old_unk_0C;
-            entry.unk_0E = file_entries_new[i].old_unk_0E;
-            entry.buy = file_entries_new[i].buy;
-            entry.sell = file_entries_new[i].sell;
-            entry.racelock = file_entries_new[i].racelock;
-            entry.tp = file_entries_new[i].tp;
-            entry.model = file_entries_new[i].model;
-            memcpy(entry.unk_24, file_entries_new[i].old_unk_24, sizeof(entry.unk_24));
-            entry.new_unk_0C = file_entries_new[i].new_unk_0C;
+            entry.id = file_entries_122[i].id;
+            entry.stars = file_entries_122[i].stars;
+            entry.name_id = file_entries_122[i].name_id;
+            entry.desc_id = file_entries_122[i].desc_id;
+            entry.type = file_entries_122[i].type;
+            entry.dlc_flag = file_entries_122[i].unk_0A;
+            entry.availability = file_entries_122[i].old_unk_0C;
+            entry.unk_0E = file_entries_122[i].old_unk_0E;
+            entry.buy = file_entries_122[i].buy;
+            entry.sell = file_entries_122[i].sell;
+            entry.racelock = file_entries_122[i].racelock;
+            entry.tp = file_entries_122[i].tp;
+            entry.model = file_entries_122[i].model;
+            memcpy(entry.unk_24, file_entries_122[i].old_unk_24, sizeof(entry.unk_24));
+            entry.new_unk_0C = file_entries_122[i].new_unk_0C;
+            // New
+            entry.how_id = file_entries_122[i].how_id;
+            entry.new_unk_0A = file_entries_122[i].new_unk_0A;
+            entry.stp = file_entries_122[i].stp;
+            entry.new_unk_2C = file_entries_122[i].new_unk_2C;
+        }
+        else if (version == 118)
+        {
+            entry.id = file_entries_118[i].id;
+            entry.stars = file_entries_118[i].stars;
+            entry.name_id = file_entries_118[i].name_id;
+            entry.desc_id = file_entries_118[i].desc_id;
+            entry.type = file_entries_118[i].type;
+            entry.dlc_flag = file_entries_118[i].unk_0A;
+            entry.availability = file_entries_118[i].old_unk_0C;
+            entry.unk_0E = file_entries_118[i].old_unk_0E;
+            entry.buy = file_entries_118[i].buy;
+            entry.sell = file_entries_118[i].sell;
+            entry.racelock = file_entries_118[i].racelock;
+            entry.tp = file_entries_118[i].tp;
+            entry.model = file_entries_118[i].model;
+            memcpy(entry.unk_24, file_entries_118[i].old_unk_24, sizeof(entry.unk_24));
+            // New
+            entry.new_unk_0C = file_entries_118[i].new_unk_0C;
         }
         else
         {
@@ -407,9 +474,9 @@ bool IdbFile::Load(const uint8_t *buf, size_t size)
         {
             IdbEffect &effect = entry.effects[j];
 
-            if (is_new_format)
+            if (version == 122)
             {
-                const IDBEffectNew *file_effect_new = &file_entries_new[i].effects[j];
+                const IDBEffect122 *file_effect_new = &file_entries_122[i].effects[j];
 
                 COPY_EIN(type);
                 COPY_EIN(activation_type);
@@ -440,6 +507,45 @@ bool IdbFile::Load(const uint8_t *buf, size_t size)
                 COPY_EIN(str_damage);
                 COPY_EIN(bla_damage);
                 memcpy(effect.unk_AC, file_effect_new->old_unk_AC, sizeof(effect.unk_AC));
+                memcpy(effect.new_unk_48, file_effect_new->new_unk_48, sizeof(effect.new_unk_48));
+                // New
+                COPY_EIN(new_unk_0C);
+
+            }
+            else if (version == 118)
+            {
+                const IDBEffect118 *file_effect_new = &file_entries_118[i].effects[j];
+
+                COPY_EIN(type);
+                COPY_EIN(activation_type);
+                COPY_EIN(num_act_times);
+                COPY_EIN(timer);
+                memcpy(effect.ability_values, file_effect_new->ability_values, sizeof(effect.ability_values));
+                COPY_EIN(unk_28);
+                COPY_EIN(activation_chance);
+                memcpy(effect.multipliers, file_effect_new->multipliers, sizeof(effect.multipliers));
+                memcpy(effect.unk_48, file_effect_new->old_unk_48, sizeof(effect.unk_48));
+                COPY_EIN(hea);
+                COPY_EIN(ki);
+                COPY_EIN(ki_recovery);
+                COPY_EIN(stm);
+                COPY_EIN(stamina_recovery);
+                COPY_EIN(enemy_stamina_eraser);
+                effect.unk_78 = file_effect_new->old_unk_78;
+                COPY_EIN(ground_speed);
+                COPY_EIN(air_speed);
+                COPY_EIN(boosting_speed);
+                COPY_EIN(dash_speed);
+                COPY_EIN(atk);
+                COPY_EIN(basic_ki_attack);
+                COPY_EIN(str);
+                COPY_EIN(bla);
+                COPY_EIN(atk_damage);
+                COPY_EIN(ki_damage);
+                COPY_EIN(str_damage);
+                COPY_EIN(bla_damage);
+                memcpy(effect.unk_AC, file_effect_new->old_unk_AC, sizeof(effect.unk_AC));
+                // New
                 memcpy(effect.new_unk_48, file_effect_new->new_unk_48, sizeof(effect.new_unk_48));
             }
             else
@@ -486,8 +592,10 @@ uint8_t *IdbFile::Save(size_t *psize)
 {
     size_t size;
 
-    if (is_new_format)
-        size = sizeof(IDBHeader) + entries.size() * sizeof(IDBEntryNew);
+    if (version == 122)
+        size = sizeof(IDBHeader) + entries.size() * sizeof(IDBEntry122);
+    else if (version == 118)
+        size = sizeof(IDBHeader) + entries.size() * sizeof(IDBEntry118);
     else
         size = sizeof(IDBHeader) + entries.size() * sizeof(IDBEntry);
 
@@ -502,29 +610,54 @@ uint8_t *IdbFile::Save(size_t *psize)
     hdr->data_start = sizeof(IDBHeader);
 
     IDBEntry *file_entries = (IDBEntry *)(hdr+1);
-    IDBEntryNew *file_entries_new = (IDBEntryNew *)(hdr + 1);
+    IDBEntry118 *file_entries_118 = (IDBEntry118 *)(hdr + 1);
+    IDBEntry122 *file_entries_122 = (IDBEntry122 *)(hdr + 1);
 
     for (size_t i = 0; i < entries.size(); i++)
     {
         const IdbEntry &entry = entries[i];
 
-        if (is_new_format)
+        if (version == 122)
         {
-            file_entries_new[i].id = entry.id;
-            file_entries_new[i].stars = entry.stars;
-            file_entries_new[i].name_id = entry.name_id;
-            file_entries_new[i].desc_id = entry.desc_id;
-            file_entries_new[i].type = entry.type;
-            file_entries_new[i].unk_0A = entry.dlc_flag;
-            file_entries_new[i].old_unk_0C = entry.availability;
-            file_entries_new[i].old_unk_0E = entry.unk_0E;
-            file_entries_new[i].buy = entry.buy;
-            file_entries_new[i].sell = entry.sell;
-            file_entries_new[i].racelock = entry.racelock;
-            file_entries_new[i].tp = entry.tp;
-            file_entries_new[i].model = entry.model;
-            memcpy(file_entries_new[i].old_unk_24, entry.unk_24, sizeof(entry.unk_24));
-            file_entries_new[i].new_unk_0C = entry.new_unk_0C;
+            file_entries_122[i].id = entry.id;
+            file_entries_122[i].stars = entry.stars;
+            file_entries_122[i].name_id = entry.name_id;
+            file_entries_122[i].desc_id = entry.desc_id;
+            file_entries_122[i].type = entry.type;
+            file_entries_122[i].unk_0A = entry.dlc_flag;
+            file_entries_122[i].old_unk_0C = entry.availability;
+            file_entries_122[i].old_unk_0E = entry.unk_0E;
+            file_entries_122[i].buy = entry.buy;
+            file_entries_122[i].sell = entry.sell;
+            file_entries_122[i].racelock = entry.racelock;
+            file_entries_122[i].tp = entry.tp;
+            file_entries_122[i].model = entry.model;
+            memcpy(file_entries_122[i].old_unk_24, entry.unk_24, sizeof(entry.unk_24));
+            file_entries_122[i].new_unk_0C = entry.new_unk_0C;
+            // New
+            file_entries_122[i].how_id = entry.how_id;
+            file_entries_122[i].new_unk_0A = entry.new_unk_0A;
+            file_entries_122[i].stp = entry.stp;
+            file_entries_122[i].new_unk_2C = entry.new_unk_2C;
+        }
+        else if (version == 118)
+        {
+            file_entries_118[i].id = entry.id;
+            file_entries_118[i].stars = entry.stars;
+            file_entries_118[i].name_id = entry.name_id;
+            file_entries_118[i].desc_id = entry.desc_id;
+            file_entries_118[i].type = entry.type;
+            file_entries_118[i].unk_0A = entry.dlc_flag;
+            file_entries_118[i].old_unk_0C = entry.availability;
+            file_entries_118[i].old_unk_0E = entry.unk_0E;
+            file_entries_118[i].buy = entry.buy;
+            file_entries_118[i].sell = entry.sell;
+            file_entries_118[i].racelock = entry.racelock;
+            file_entries_118[i].tp = entry.tp;
+            file_entries_118[i].model = entry.model;
+            memcpy(file_entries_118[i].old_unk_24, entry.unk_24, sizeof(entry.unk_24));
+            // New
+            file_entries_118[i].new_unk_0C = entry.new_unk_0C;
         }
         else
         {
@@ -548,9 +681,9 @@ uint8_t *IdbFile::Save(size_t *psize)
         {
             const IdbEffect &effect = entry.effects[j];
 
-            if (is_new_format)
+            if (version == 122)
             {
-                IDBEffectNew *file_effect_new = &file_entries_new[i].effects[j];
+                IDBEffect122 *file_effect_new = &file_entries_122[i].effects[j];
 
                 COPY_EON(type);
                 COPY_EON(activation_type);
@@ -581,6 +714,44 @@ uint8_t *IdbFile::Save(size_t *psize)
                 COPY_EON(str_damage);
                 COPY_EON(bla_damage);
                 memcpy(file_effect_new->old_unk_AC, effect.unk_AC, sizeof(effect.unk_AC));
+                memcpy(file_effect_new->new_unk_48, effect.new_unk_48, sizeof(effect.new_unk_48));
+                // New
+                COPY_EON(new_unk_0C);
+            }
+            else if (version == 118)
+            {
+                IDBEffect118 *file_effect_new = &file_entries_118[i].effects[j];
+
+                COPY_EON(type);
+                COPY_EON(activation_type);
+                COPY_EON(num_act_times);
+                COPY_EON(timer);
+                memcpy(file_effect_new->ability_values, effect.ability_values, sizeof(effect.ability_values));
+                COPY_EON(unk_28);
+                COPY_EON(activation_chance);
+                memcpy(file_effect_new->multipliers, effect.multipliers, sizeof(effect.multipliers));
+                memcpy(file_effect_new->old_unk_48, effect.unk_48, sizeof(effect.unk_48));
+                COPY_EON(hea);
+                COPY_EON(ki);
+                COPY_EON(ki_recovery);
+                COPY_EON(stm);
+                COPY_EON(stamina_recovery);
+                COPY_EON(enemy_stamina_eraser);
+                file_effect_new->old_unk_78 = effect.unk_78;
+                COPY_EON(ground_speed);
+                COPY_EON(air_speed);
+                COPY_EON(boosting_speed);
+                COPY_EON(dash_speed);
+                COPY_EON(atk);
+                COPY_EON(basic_ki_attack);
+                COPY_EON(str);
+                COPY_EON(bla);
+                COPY_EON(atk_damage);
+                COPY_EON(ki_damage);
+                COPY_EON(str_damage);
+                COPY_EON(bla_damage);
+                memcpy(file_effect_new->old_unk_AC, effect.unk_AC, sizeof(effect.unk_AC));
+                // New
                 memcpy(file_effect_new->new_unk_48, effect.new_unk_48, sizeof(effect.new_unk_48));
             }
             else
@@ -661,7 +832,7 @@ bool IdbFile::Compile(TiXmlDocument *doc, bool)
         {
             IdbEntry entry;
 
-            if (!entry.Compile(elem, &is_new_format))
+            if (!entry.Compile(elem, &version))
                 return false;
 
             entries.push_back(entry);

@@ -5,7 +5,7 @@
 #include <map>
 #include "BaseFile.h"
 
-#define BEHAVIOUR_MAX	0x1E
+#define BEHAVIOUR_MAX	0x21
 
 struct BodyShape
 {

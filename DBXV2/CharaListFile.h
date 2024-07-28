@@ -16,10 +16,11 @@ struct CharaListSlotEntry
     bool flag_gk2;
     int voices_id_list[2];
     std::string dlc;
+    bool flag_cgk2;
 
     CharaListSlotEntry()
     {
-        with_undefined = flag_gk2 = false;
+        with_undefined = flag_gk2 = flag_cgk2 = false;
         costume_index = model_preset = unlock_index = 0;
         voices_id_list[0] = voices_id_list[1] = -1;
         dlc = "Dlc_Def";
@@ -49,6 +50,9 @@ struct CharaListSlotEntry
             return false;
 
         if (dlc != rhs.dlc)
+            return false;
+
+        if (flag_cgk2 != rhs.flag_cgk2)
             return false;
 
         return true;

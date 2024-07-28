@@ -663,6 +663,25 @@ PscSpecEntry *PscFile::FindSpec(uint32_t char_id, uint32_t costume_id, size_t cf
     return nullptr;
 }
 
+size_t PscFile::FindAllSpecs(uint32_t char_id, std::vector<PscSpecEntry *> &specs)
+{
+    specs.clear();
+    std::vector<PscEntry *> entries;
+
+     if (FindEntries(char_id, entries) == 0)
+        return 0;
+
+     for (PscEntry *entry : entries)
+     {
+         for (PscSpecEntry &spec : entry->specs)
+         {
+             specs.push_back(&spec);
+         }
+     }
+
+    return specs.size();
+}
+
 bool PscFile::AddEntry(const PscEntry &entry, int cfg)
 {
     if (cfg >= 0)
@@ -699,6 +718,21 @@ void PscFile::RemoveEntry(uint32_t char_id)
     }
 }
 
+size_t PscFile::RemoveTalismanReferences(uint32_t talisman_id)
+{
+    size_t count = 0;
 
+    for (auto &entries : configurations)
+    {
+        for (PscEntry &entry : entries)
+        {
+            for (PscSpecEntry &spec : entry.specs)
+            {
+                if (spec.talisman == talisman_id)
+                    spec.talisman = 0xFFFFFFFF;
+            }
+        }
+    }
 
-
+    return count;
+}

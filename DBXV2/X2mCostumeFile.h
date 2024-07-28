@@ -50,12 +50,28 @@ struct X2mBody
     bool Compile(const TiXmlElement *root);
 };
 
+struct X2mSuperSoul
+{
+    uint8_t guid[16]; // Super soul x2m
+    uint16_t idb_id;
+
+    X2mSuperSoul()
+    {
+        memset(guid, 0, sizeof(guid));
+        idb_id = 0xFFFF;
+    }
+
+    TiXmlElement *Decompile(TiXmlNode *root) const;
+    bool Compile(const TiXmlElement *root);
+};
+
 class X2mCostumeFile : public BaseFile
 {
 private:
 
     std::vector<X2mCostumeEntry> costumes;
     std::vector<X2mBody> bodies;
+    std::vector<X2mSuperSoul> super_souls;
 
 protected:
 
@@ -90,6 +106,20 @@ public:
 
     bool AddBody(const X2mBody &body);
     size_t RemoveBodiesFromMod(const uint8_t *guid);
+
+    X2mSuperSoul *FindSuperSoul(const uint8_t *guid);
+    inline X2mSuperSoul *FindSuperSoul(const std::string &guid)
+    {
+        uint8_t buf[16];
+
+        if (!Utils::String2GUID(buf, guid))
+            return nullptr;
+
+        return FindSuperSoul(buf);
+    }
+
+    void AddSuperSoul(const X2mSuperSoul &ss);
+    void RemoveSuperSoul(const uint8_t *guid);
 
 };
 

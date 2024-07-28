@@ -122,6 +122,28 @@ bool X2mBody::Compile(const TiXmlElement *root)
     return true;
 }
 
+TiXmlElement *X2mSuperSoul::Decompile(TiXmlNode *root) const
+{
+    TiXmlElement *entry_root = new TiXmlElement("X2mSuperSoul");
+
+    entry_root->SetAttribute("id", idb_id);
+    Utils::WriteParamGUID(entry_root, "GUID", guid);
+
+    root->LinkEndChild(entry_root);
+    return entry_root;
+}
+
+bool X2mSuperSoul::Compile(const TiXmlElement *root)
+{
+    if (!Utils::ReadAttrUnsigned(root, "id", &idb_id))
+        return false;
+
+    if (!Utils::GetParamGUID(root, "GUID", guid))
+        return false;
+
+    return true;
+}
+
 X2mCostumeFile::X2mCostumeFile()
 {
     this->big_endian = false;
@@ -136,6 +158,7 @@ void X2mCostumeFile::Reset()
 {
     costumes.clear();
     bodies.clear();
+    super_souls.clear();
 }
 
 TiXmlDocument *X2mCostumeFile::Decompile() const
@@ -146,7 +169,7 @@ TiXmlDocument *X2mCostumeFile::Decompile() const
     doc->LinkEndChild(decl);
 
     TiXmlElement *root = new TiXmlElement("X2mCostumeFile");
-    Utils::WriteComment(root, "This file is used by XV2 Mods Installer to track installed costumes. DON'T DELETE THIS FILE OR Xv2 Mods Installer won't be able to update/uninstall costumes properly.");
+    Utils::WriteComment(root, "This file is used by XV2 Mods Installer to track installed costumes and super soul. DON'T DELETE THIS FILE OR Xv2 Mods Installer won't be able to update/uninstall costumes/supersouls properly.");
 
     for (const X2mCostumeEntry &costume : costumes)
     {
@@ -156,6 +179,11 @@ TiXmlDocument *X2mCostumeFile::Decompile() const
     for (const X2mBody &body : bodies)
     {
         body.Decompile(root);
+    }
+
+    for (const X2mSuperSoul &ss : super_souls)
+    {
+        ss.Decompile(root);
     }
 
     doc->LinkEndChild(root);
@@ -202,6 +230,18 @@ bool X2mCostumeFile::Compile(TiXmlDocument *doc, bool)
             }
 
             bodies.push_back(body);
+        }
+        else if (name == "X2mSuperSoul")
+        {
+            X2mSuperSoul ss;
+
+            if (!ss.Compile(elem))
+            {
+                Reset();
+                return false;
+            }
+
+            super_souls.push_back(ss);
         }
     }
 
@@ -332,4 +372,41 @@ size_t X2mCostumeFile::RemoveBodiesFromMod(const uint8_t *guid)
     return count;
 }
 
+X2mSuperSoul *X2mCostumeFile::FindSuperSoul(const uint8_t *guid)
+{
+    for (X2mSuperSoul &ss : super_souls)
+    {
+        if (memcmp(ss.guid, guid, sizeof(ss.guid)) == 0)
+            return &ss;
+    }
 
+    return nullptr;
+}
+
+void X2mCostumeFile::AddSuperSoul(const X2mSuperSoul &ss)
+{
+    X2mSuperSoul *existing = FindSuperSoul(ss.guid);
+
+    if (existing)
+    {
+        *existing = ss;
+    }
+    else
+    {
+        super_souls.push_back(ss);
+    }
+}
+
+void X2mCostumeFile::RemoveSuperSoul(const uint8_t *guid)
+{
+    for (size_t i = 0; i < super_souls.size(); i++)
+    {
+        X2mSuperSoul &ss = super_souls[i];
+
+        if (memcmp(ss.guid, guid, sizeof(ss.guid)) == 0)
+        {
+            super_souls.erase(super_souls.begin()+i);
+            i--;
+        }
+    }
+}

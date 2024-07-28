@@ -19,7 +19,7 @@ type 10 - camera
 
 // Xenoverse 2 bac files only.
 #define BAC_SIGNATURE   0x43414223
-#define MAX_BAC_TYPE    30
+#define MAX_BAC_TYPE    31
 
 #pragma pack(push,1)
 
@@ -639,6 +639,24 @@ struct BACType30
 };
 CHECK_STRUCT_SIZE(BACType30, 0x30);
 
+struct BACType31
+{
+    uint16_t start_time;
+    uint16_t duration;
+    uint16_t unk_04;
+    uint16_t flags;
+    uint32_t unk_08;
+    uint32_t unk_0C;
+    uint16_t unk_10[4];
+    float unk_18;
+    float unk_1C;
+    uint32_t unk_20[8];
+
+    TiXmlElement *Decompile(TiXmlNode *root) const;
+    bool Compile(const TiXmlElement *root);
+};
+CHECK_STRUCT_SIZE(BACType31, 0x40);
+
 #pragma pack(pop)
 
 struct BacEntry
@@ -678,6 +696,7 @@ struct BacEntry
     std::vector<BACType28> type28;
     std::vector<BACType29> type29;
     std::vector<BACType30> type30;
+    std::vector<BACType31> type31;
 
     BacEntry() : valid(false) { memset(has_type, 0, sizeof(has_type)); }
 

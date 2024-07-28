@@ -241,6 +241,9 @@ uint8_t *EPatch::Find()
 
     address_lowest = (search_start < search_down) ? 0 : search_start-search_down;
     address_highest = search_start+search_up;
+	
+	if (address_lowest < 0x1000)
+		address_lowest = 0x1000; // Possible fix for possible crash
 
     address_down=search_start;
     address_up=search_start+1;

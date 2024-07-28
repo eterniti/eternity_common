@@ -1826,6 +1826,41 @@ bool BACType30::Compile(const TiXmlElement *root)
     return true;
 }
 
+TiXmlElement *BACType31::Decompile(TiXmlNode *root) const
+{
+    TiXmlElement *entry_root = new TiXmlElement("BACType31");
+
+    Utils::WriteParamUnsigned(entry_root, "START_TIME", start_time);
+    Utils::WriteParamUnsigned(entry_root, "DURATION", duration);
+    Utils::WriteParamUnsigned(entry_root, "U_04", unk_04);
+    Utils::WriteParamUnsigned(entry_root, "FLAGS", flags);
+    Utils::WriteParamUnsigned(entry_root, "U_08", unk_08);
+    Utils::WriteParamUnsigned(entry_root, "U_0C", unk_0C);
+    Utils::WriteParamMultipleUnsigned(entry_root, "U_10", std::vector<uint16_t>(unk_10, unk_10+4));
+    Utils::WriteParamFloat(entry_root, "F_18", unk_18);
+    Utils::WriteParamFloat(entry_root, "F_1C", unk_1C);
+    Utils::WriteParamMultipleUnsigned(entry_root, "U_20", std::vector<uint32_t>(unk_20, unk_20+8));
+
+    root->LinkEndChild(entry_root);
+    return entry_root;
+}
+
+bool BACType31::Compile(const TiXmlElement *root)
+{
+    if (!Utils::GetParamUnsigned(root, "START_TIME", &start_time)) return false;
+    if (!Utils::GetParamUnsigned(root, "DURATION", &duration)) return false;
+    if (!Utils::GetParamUnsigned(root, "U_04", &unk_04)) return false;
+    if (!Utils::GetParamUnsigned(root, "FLAGS", &flags)) return false;
+    if (!Utils::GetParamUnsigned(root, "U_08", &unk_08)) return false;
+    if (!Utils::GetParamUnsigned(root, "U_0C", &unk_0C)) return false;
+    if (!Utils::GetParamMultipleUnsigned(root, "U_10", unk_10, 4)) return false;
+    if (!Utils::GetParamFloat(root, "F_18", &unk_18)) return false;
+    if (!Utils::GetParamFloat(root, "F_1C", &unk_1C)) return false;
+    if (!Utils::GetParamMultipleUnsigned(root, "U_20", unk_20, 8)) return false;
+
+    return true;
+}
+
 TiXmlElement *BacEntry::Decompile(TiXmlNode *root, bool small_17, int idx) const
 {
     TiXmlElement *entry_root = new TiXmlElement("BacEntry");
@@ -2236,6 +2271,19 @@ TiXmlElement *BacEntry::Decompile(TiXmlNode *root, bool small_17, int idx) const
                 Utils::WriteParamUnsigned(entry_root, "HAS_DUMMY30", 1);
             }
         }
+
+        if (has_type[31])
+        {
+            if (type31.size() != 0)
+            {
+                for (const BACType31 &t31: type31)
+                    t31.Decompile(entry_root);
+            }
+            else
+            {
+                Utils::WriteParamUnsigned(entry_root, "HAS_DUMMY31", 1);
+            }
+        }
     }
     else
     {
@@ -2568,6 +2616,16 @@ bool BacEntry::Compile(const TiXmlElement *root, bool small_17)
 
             has_type[30] = true;
             type30.push_back(t30);
+        }
+        else if (elem->ValueStr() == "BACType31")
+        {
+            BACType31 t31;
+
+            if (!t31.Compile(elem))
+                return false;
+
+            has_type[31] = true;
+            type31.push_back(t31);
         }
     }
 
@@ -3088,6 +3146,19 @@ bool BacFile::Load(const uint8_t *buf, size_t size)
                         }
                     }
                 }
+                else if (type == 31)
+                {
+                    if (num > 0)
+                    {
+                        const BACType31 *file_types31 = (const BACType31 *)(buf+file_subentries[j].offset);
+                        entry.type31.resize(num);
+
+                        for (size_t k = 0; k < entry.type31.size(); k++)
+                        {
+                            entry.type31[k] = file_types31[k];
+                        }
+                    }
+                }
                 else
                 {
                     DPRINTF("%s: Unrecognized bac type: %d (offset=0x%x, subentry=0x%x)\n", FUNCNAME, type, file_subentries[j].offset, Utils::DifPointer(&file_subentries[j], buf));
@@ -3153,6 +3224,7 @@ size_t BacFile::CalculateFileSize() const
         size += entry.type28.size() * sizeof(BACType28);
         size += entry.type29.size() * sizeof(BACType29);
         size += entry.type30.size() * sizeof(BACType30);
+        size += entry.type31.size() * sizeof(BACType31);
     }
 
     return size;
@@ -3692,6 +3764,21 @@ uint8_t *BacFile::Save(size_t *psize)
                             *file_type30 = entry.type30[k];
                             file_type30++;
                             ptr = (uint8_t *)file_type30;
+                        }
+                    }
+                    else if (j == 31)
+                    {
+                        BACType31 *file_type31 = (BACType31 *)ptr;
+                        file_subentry->num = (uint16_t) entry.type31.size();
+
+                        if (file_subentry->num != 0)
+                            file_subentry->offset = Utils::DifPointer(ptr, buf);
+
+                        for (size_t k = 0; k < entry.type31.size(); k++)
+                        {
+                            *file_type31 = entry.type31[k];
+                            file_type31++;
+                            ptr = (uint8_t *)file_type31;
                         }
                     }
                     else if (j == 13)

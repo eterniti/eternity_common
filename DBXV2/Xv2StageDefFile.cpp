@@ -104,6 +104,9 @@ std::string Xv2Stage::GetName(int lang) const
 
         case XV2_LANG_KOREAN:
             return name[XV2_NATIVE_LANG_KOREAN];
+
+        case XV2_LANG_JAPANESE:
+            return name[XV2_NATIVE_LANG_JAPANESE];
     }
 
     return "";
@@ -162,6 +165,10 @@ void Xv2Stage::SetName(const std::string &stage_name, int lang)
 
         case XV2_LANG_KOREAN:
             name[XV2_NATIVE_LANG_KOREAN] = stage_name;
+        break;
+
+        case XV2_LANG_JAPANESE:
+            name[XV2_NATIVE_LANG_JAPANESE] = stage_name;
         break;
     }
 }

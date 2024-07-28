@@ -428,6 +428,10 @@ TiXmlElement *X2mDepends::Decompile(TiXmlNode *root) const
     {
         Utils::WriteParamString(entry_root, "TYPE", "COSTUME");
     }
+    else if (type == X2mDependsType::SUPERSOUL)
+    {
+        Utils::WriteParamString(entry_root, "TYPE", "SUPERSOUL");
+    }
     else
     {
         delete entry_root;
@@ -467,6 +471,10 @@ bool X2mDepends::Compile(const TiXmlElement *root)
     else if (type_str == "COSTUME")
     {
         type = X2mDependsType::COSTUME;
+    }
+    else if (type_str == "SUPERSOUL")
+    {
+        type = X2mDependsType::SUPERSOUL;
     }
     else
     {
@@ -544,6 +552,7 @@ TiXmlElement *X2mItem::Decompile(TiXmlNode *root) const
     {
         const std::string &name = item_name[i];
         const std::string &desc = item_desc[i];
+        const std::string &how = item_how[i];
 
         if (name.length() == 0)
         {
@@ -572,6 +581,12 @@ TiXmlElement *X2mItem::Decompile(TiXmlNode *root) const
 
         temp_str = "ITEM_DESC_" + Utils::ToUpperCase(xv2_lang_codes[i]);
         Utils::WriteParamString(entry_root, temp_str.c_str(), desc);
+
+        if (has_how)
+        {
+            temp_str = "ITEM_HOW_" + Utils::ToUpperCase(xv2_lang_codes[i]);
+            Utils::WriteParamString(entry_root, temp_str.c_str(), how);
+        }
     }    
 
     if (item_type == X2mItemType::TOP)
@@ -594,9 +609,13 @@ TiXmlElement *X2mItem::Decompile(TiXmlNode *root) const
     {
         temp_str = "ACCESSORY";
     }
+    else if (item_type == X2mItemType::SUPER_SOUL)
+    {
+        temp_str = "SUPER_SOUL";
+    }
     else
     {
-        DPRINTF("%s: Internal error, costume item type.\n", FUNCNAME);
+        DPRINTF("%s: Internal error, item type.\n", FUNCNAME);
         return nullptr;
     }
 
@@ -636,6 +655,16 @@ bool X2mItem::Compile(const TiXmlElement *root)
             DPRINTF("%s: Desc for language english is not optional.\n", FUNCNAME);
             return false;
         }
+
+        item_how[i].clear();
+        temp_str = "ITEM_HOW_" + Utils::ToUpperCase(xv2_lang_codes[i]);
+
+        Utils::ReadParamString(root, temp_str.c_str(), item_how[i]);
+
+        if (i == XV2_LANG_ENGLISH)
+        {
+            has_how = (item_how[i].length() > 0);
+        }
     }    
 
     if (!Utils::GetParamString(root, "ITEM_TYPE", temp_str))
@@ -661,9 +690,13 @@ bool X2mItem::Compile(const TiXmlElement *root)
     {
         item_type = X2mItemType::ACCESSORY;
     }
+    else if (temp_str == "SUPER_SOUL")
+    {
+        item_type = X2mItemType::SUPER_SOUL;
+    }
     else
     {
-        DPRINTF("%s: Unrecognized item type for COSTUME_ITEM_TYPE\n", FUNCNAME);
+        DPRINTF("%s: Unrecognized item type for ITEM_TYPE\n", FUNCNAME);
         return false;
     }
 
@@ -677,7 +710,12 @@ bool X2mItem::Compile(const TiXmlElement *root)
     if (!idb.Compile(elem))
         return false;
 
-    idb.id = idb.name_id = idb.desc_id = X2M_DUMMY_ID16;
+    idb.id = idb.name_id = idb.desc_id = X2M_DUMMY_ID16;    
+    if (has_how)
+        idb.how_id = X2M_DUMMY_ID16;
+    else
+        idb.how_id = 0;
+
     return true;
 }
 
@@ -1472,6 +1510,8 @@ void X2mFile::Reset()
     cnc_entries.clear();    
     char_eepk.clear();
 
+    chara_ss_depends.clear();
+
     skill_name.clear();
     skill_name.resize(XV2_LANG_NUM);
     skill_desc.clear();
@@ -1486,6 +1526,7 @@ void X2mFile::Reset()
     skill_aura_entries.clear();
     skill_costume_depend.id = X2M_INVALID_ID;
     skill_bodies.clear();
+    blast_ss_intended = false;
 
     costume_items.clear();
     costume_partsets.clear();
@@ -1497,6 +1538,9 @@ void X2mFile::Reset()
     bg_eepk.clear();
     stage_eepk.clear();
 
+    ss_item = X2mItem();
+    ss_blast_depend.id = X2M_INVALID_ID;
+
     // Temp variables
     temp_pup_in.clear();
     temp_pup_out.clear();
@@ -1506,6 +1550,7 @@ void X2mFile::Reset()
     temp_aur_out.clear();
     update_costume_entry = X2mCostumeEntry();
     bodies_map.clear();
+    update_ss_entry = X2mSuperSoul();
 }
 
 bool X2mFile::Validate(bool write)
@@ -2052,10 +2097,48 @@ check_myself:
                 }
             }
         }
+
+        if (HasCharaSsDepends())
+        {
+            std::unordered_set<std::string> dep_guids;
+            std::unordered_set<uint32_t> dep_ids;
+
+            for (const X2mDepends &dep : chara_ss_depends)
+            {
+                const std::string guid_str = Utils::GUID2String(dep.guid);
+
+                if (dep_guids.find(guid_str) != dep_guids.end())
+                {
+                    DPRINTF("%s: Chara Supersoul Depends with guid %s was previously defined.\n", FUNCNAME, guid_str.c_str());
+                    return false;
+                }
+
+                if (dep_ids.find(dep.id) != dep_ids.end())
+                {
+                    DPRINTF("%s: Chara Supersoul Depends with id 0x%x was previously defined.\n", FUNCNAME, dep.id);
+                    return false;
+                }
+
+                if (dep.id < X2M_SS_DEPENDS_BEGIN || dep.id >= X2M_SS_DEPENDS_END)
+                {
+                    DPRINTF("%s: id 0x%x is outside of the valid range for Chara Supersoul Depends.\n", FUNCNAME, dep.id);
+                    return false;
+                }
+
+                if (!IsCharaSsDependsReferenced(dep))
+                {
+                    DPRINTF("%s: Chara Skill Depends with id 0x%x is not referenced in any psc entry.\n", FUNCNAME, dep.id);
+                    return false;
+                }
+
+                dep_guids.insert(guid_str);
+                dep_ids.insert(dep.id);
+            }
+        }
     }
     else if (type == X2mType::NEW_SKILL)
     {
-        if (skill_type != X2mSkillType::BLAST)
+        if (skill_type != X2mSkillType::BLAST || blast_ss_intended)
         {
             if (skill_name[XV2_LANG_ENGLISH].length() == 0)
             {
@@ -2063,32 +2146,35 @@ check_myself:
                 return false;
             }
 
-            if (skill_desc[XV2_LANG_ENGLISH].length() == 0)
+            if (skill_type != X2mSkillType::BLAST)
             {
-                for (int i = 0; i < XV2_LANG_NUM; i++)
+                if (skill_desc[XV2_LANG_ENGLISH].length() == 0)
                 {
-                    if (i == XV2_LANG_ENGLISH)
-                        continue;
-
-                    if (skill_desc[XV2_LANG_ENGLISH].length() != 0)
+                    for (int i = 0; i < XV2_LANG_NUM; i++)
                     {
-                        DPRINTF("%s: skill description in language %d, but not in english.\n", FUNCNAME, i);
-                        return false;
+                        if (i == XV2_LANG_ENGLISH)
+                            continue;
+
+                        if (skill_desc[XV2_LANG_ENGLISH].length() != 0)
+                        {
+                            DPRINTF("%s: skill description in language %d, but not in english.\n", FUNCNAME, i);
+                            return false;
+                        }
                     }
                 }
-            }
 
-            if (format_version >= X2M_MIN_VERSION_SKILL_HOW && skill_how[XV2_LANG_ENGLISH].length() == 0)
-            {
-                for (int i = 0; i < XV2_LANG_NUM; i++)
+                if (format_version >= X2M_MIN_VERSION_SKILL_HOW && skill_how[XV2_LANG_ENGLISH].length() == 0)
                 {
-                    if (i == XV2_LANG_ENGLISH)
-                        continue;
-
-                    if (skill_how[XV2_LANG_ENGLISH].length() != 0)
+                    for (int i = 0; i < XV2_LANG_NUM; i++)
                     {
-                        DPRINTF("%s: skill how in language %d, but not in english.\n", FUNCNAME, i);
-                        return false;
+                        if (i == XV2_LANG_ENGLISH)
+                            continue;
+
+                        if (skill_how[XV2_LANG_ENGLISH].length() != 0)
+                        {
+                            DPRINTF("%s: skill how in language %d, but not in english.\n", FUNCNAME, i);
+                            return false;
+                        }
                     }
                 }
             }
@@ -2203,6 +2289,12 @@ check_myself:
                 DPRINTF("%s: idb model cannot be >= than number of partsets.\n", FUNCNAME);
                 return false;
             }
+
+            if (item.item_type == X2mItemType::SUPER_SOUL)
+            {
+                DPRINTF("%s: Invalid type for X2mItem of a costume.\n", FUNCNAME);
+                return false;
+            }
         }
     }
     else if (type == X2mType::NEW_STAGE)
@@ -2288,6 +2380,45 @@ check_myself:
             return false;
         }
     }
+    else if (type == X2mType::NEW_SUPERSOUL)
+    {
+        if (ss_item.item_name[XV2_LANG_ENGLISH].length() == 0)
+        {
+            DPRINTF("%s: Name cannot be empty.\n", FUNCNAME);
+            return false;
+        }
+
+        if (ss_item.item_desc[XV2_LANG_ENGLISH].length() == 0)
+        {
+            for (int i = 0; i < XV2_LANG_NUM; i++)
+            {
+                if (i == XV2_LANG_ENGLISH)
+                    continue;
+
+                if (ss_item.item_desc[XV2_LANG_ENGLISH].length() != 0)
+                {
+                    DPRINTF("%s: description in language %d, but not in english.\n", FUNCNAME, i);
+                    return false;
+                }
+            }
+        }
+
+        if (ss_item.item_how[XV2_LANG_ENGLISH].length() == 0)
+        {
+            for (int i = 0; i < XV2_LANG_NUM; i++)
+            {
+                if (i == XV2_LANG_ENGLISH)
+                    continue;
+
+                if (ss_item.item_how[XV2_LANG_ENGLISH].length() != 0)
+                {
+                    DPRINTF("%s: how in language %d, but not in english.\n", FUNCNAME, i);
+                    return false;
+                }
+            }
+        }
+
+    }
     else if (type == X2mType::REPLACER)
     {
         if (!JungleExists())
@@ -2329,6 +2460,8 @@ bool X2mFile::Decompile()
         temp_str = "NEW_STAGE";
     else if (type == X2mType::NEW_QUEST)
         temp_str = "NEW_QUEST";
+    else if (type == X2mType::NEW_SUPERSOUL)
+        temp_str = "NEW_SUPERSOUL";
     else
         temp_str = "NEW_CHARACTER";
 
@@ -2548,6 +2681,12 @@ bool X2mFile::Decompile()
 
         if (char_eepk.length() > 0)
             Utils::WriteParamString(root, "CHAR_EEPK", char_eepk);
+
+        for (const X2mDepends &dep : chara_ss_depends)
+        {
+            if (!dep.Decompile(root))
+                return false;
+        }
     }
     else if (type == X2mType::NEW_SKILL)
     {
@@ -2564,7 +2703,7 @@ bool X2mFile::Decompile()
 
         Utils::WriteParamString(root, "SKILL_TYPE", temp_str);
 
-        if (skill_type != X2mSkillType::BLAST)
+        if (skill_type != X2mSkillType::BLAST || blast_ss_intended)
         {
             for (size_t i = 0; i < XV2_LANG_NUM; i++)
             {
@@ -2577,26 +2716,29 @@ bool X2mFile::Decompile()
                 Utils::WriteParamString(root, temp_str.c_str(), name);
             }
 
-            for (size_t i = 0; i < XV2_LANG_NUM; i++)
+            if (skill_type != X2mSkillType::BLAST)
             {
-                const std::string &desc = skill_desc[i];
+                for (size_t i = 0; i < XV2_LANG_NUM; i++)
+                {
+                    const std::string &desc = skill_desc[i];
 
-                if (desc.length() == 0)
-                    continue;
+                    if (desc.length() == 0)
+                        continue;
 
-                temp_str = "SKILL_DESC_" + Utils::ToUpperCase(xv2_lang_codes[i]);
-                Utils::WriteParamString(root, temp_str.c_str(), desc);
-            }
+                    temp_str = "SKILL_DESC_" + Utils::ToUpperCase(xv2_lang_codes[i]);
+                    Utils::WriteParamString(root, temp_str.c_str(), desc);
+                }
 
-            for (size_t i = 0; i < XV2_LANG_NUM; i++)
-            {
-                const std::string &how = skill_how[i];
+                for (size_t i = 0; i < XV2_LANG_NUM; i++)
+                {
+                    const std::string &how = skill_how[i];
 
-                if (how.length() == 0)
-                    continue;
+                    if (how.length() == 0)
+                        continue;
 
-                temp_str = "SKILL_HOW_" + Utils::ToUpperCase(xv2_lang_codes[i]);
-                Utils::WriteParamString(root, temp_str.c_str(), how);
+                    temp_str = "SKILL_HOW_" + Utils::ToUpperCase(xv2_lang_codes[i]);
+                    Utils::WriteParamString(root, temp_str.c_str(), how);
+                }
             }
         }
 
@@ -2664,6 +2806,9 @@ bool X2mFile::Decompile()
                     return false;
             }
         }
+
+        if (skill_type == X2mSkillType::BLAST)
+            Utils::WriteParamBoolean(root, "BLAST_SS_INTENDED", blast_ss_intended);
     }
     else if (type == X2mType::NEW_COSTUME)
     {
@@ -2709,6 +2854,16 @@ bool X2mFile::Decompile()
 
         if (stage_eepk.length() > 0)
             Utils::WriteParamString(root, "STAGE_EEPK", stage_eepk);
+    }
+    else if (type == X2mType::NEW_SUPERSOUL)
+    {
+        ss_item.has_how = true;
+
+        if (!ss_item.Decompile(root))
+            return false;
+
+        if (HasSSSkillDepend() && !ss_blast_depend.Decompile(root))
+            return false;
     }
 
     doc.LinkEndChild(root);
@@ -2788,9 +2943,13 @@ bool X2mFile::Compile()
         {
             type = X2mType::NEW_QUEST;
         }
+        else if (format_version >= X2M_MIN_VERSION_SUPERSOUL && temp_str == "NEW_SUPERSOUL")
+        {
+            type = X2mType::NEW_SUPERSOUL;
+        }
         else
         {
-            if (temp_str == "NEW_SKILL" || temp_str == "NEW_COSTUME" || temp_str == "NEW_STAGE" || temp_str == "NEW_QUEST")
+            if (temp_str == "NEW_SKILL" || temp_str == "NEW_COSTUME" || temp_str == "NEW_STAGE" || temp_str == "NEW_QUEST" || temp_str == "NEW_SUPERSOUL")
             {
                 DPRINTF("This mod type requires a newer version of the installer.\n");
             }
@@ -2911,20 +3070,27 @@ bool X2mFile::Compile()
             return false;
         }
 
-        if (skill_type != X2mSkillType::BLAST)
+        if (skill_type == X2mSkillType::BLAST)
+            if (!Utils::ReadParamBoolean(root, "BLAST_SS_INTENDED", &blast_ss_intended))
+                blast_ss_intended = false;
+
+        if (skill_type != X2mSkillType::BLAST || blast_ss_intended)
         {
             for (int i = 0; i < XV2_LANG_NUM; i++)
             {
                 temp_str = "SKILL_NAME_" + Utils::ToUpperCase(xv2_lang_codes[i]);
                 Utils::ReadParamString(root, temp_str.c_str(), skill_name[i]);
 
-                temp_str = "SKILL_DESC_" + Utils::ToUpperCase(xv2_lang_codes[i]);
-                Utils::ReadParamString(root, temp_str.c_str(), skill_desc[i]);
-
-                if (format_version >= X2M_MIN_VERSION_SKILL_HOW)
+                if (skill_type != X2mSkillType::BLAST)
                 {
-                    temp_str = "SKILL_HOW_" + Utils::ToUpperCase(xv2_lang_codes[i]);
-                    Utils::ReadParamString(root, temp_str.c_str(), skill_how[i]);
+                    temp_str = "SKILL_DESC_" + Utils::ToUpperCase(xv2_lang_codes[i]);
+                    Utils::ReadParamString(root, temp_str.c_str(), skill_desc[i]);
+
+                    if (format_version >= X2M_MIN_VERSION_SKILL_HOW)
+                    {
+                        temp_str = "SKILL_HOW_" + Utils::ToUpperCase(xv2_lang_codes[i]);
+                        Utils::ReadParamString(root, temp_str.c_str(), skill_how[i]);
+                    }
                 }
             }
         }
@@ -3075,6 +3241,10 @@ bool X2mFile::Compile()
                 {
                     chara_skill_depends.push_back(entry);
                 }
+                else if (entry.type == X2mDependsType::SUPERSOUL)
+                {
+                    chara_ss_depends.push_back(entry);
+                }
             }
             else if (param_name == "Aura" && format_version >= X2M_MIN_VERSION_AURAS)
             {
@@ -3173,7 +3343,7 @@ bool X2mFile::Compile()
                     return false;
 
                 cnc_entries.push_back(entry);
-            }
+            }            
 
         } // End NEW_CHARACTER
         else if (type == X2mType::NEW_SKILL)
@@ -3278,6 +3448,22 @@ bool X2mFile::Compile()
             }
 
         } // END NEW_STAGE
+        else if (type == X2mType::NEW_SUPERSOUL)
+        {
+            if (param_name == "X2mItem")
+            {
+                if (!ss_item.Compile(elem))
+                    return false;
+            }
+            else if (param_name == "X2mDepends")
+            {
+                if (!ss_blast_depend.Compile(elem) || ss_blast_depend.type != X2mDependsType::SKILL)
+                {
+                    ss_blast_depend.id = X2M_INVALID_ID;
+                    return false;
+                }
+            }
+        } // END NEW SUPERSOUL
     }
 
     return Validate(false);
@@ -3396,6 +3582,8 @@ X2mFile *X2mFile::CreateDummyPackage()
     dummy->cnc_entries = cnc_entries;
     dummy->char_eepk = char_eepk;
 
+    dummy->chara_ss_depends = chara_ss_depends;
+
     dummy->skill_name = skill_name;
     dummy->skill_desc = skill_desc;
     dummy->skill_how = skill_how;
@@ -3407,6 +3595,7 @@ X2mFile *X2mFile::CreateDummyPackage()
     dummy->skill_aura_entries = skill_aura_entries;
     dummy->skill_costume_depend = skill_costume_depend;
     dummy->skill_bodies = skill_bodies;
+    dummy->blast_ss_intended = blast_ss_intended;
 
     dummy->costume_items = costume_items;
     dummy->costume_partsets = costume_partsets;
@@ -3417,6 +3606,9 @@ X2mFile *X2mFile::CreateDummyPackage()
     dummy->add_stage_slot_local = add_stage_slot_local;
     dummy->bg_eepk = bg_eepk;
     dummy->stage_eepk = stage_eepk;
+
+    dummy->ss_item = ss_item;
+    dummy->ss_blast_depend = ss_blast_depend;
 
     size_t num_entries = GetNumEntries();
     const std::string dummy_content = "DUMMY";
@@ -4496,6 +4688,308 @@ size_t X2mFile::RemoveAllCustomTtbAudio(bool full_remove)
     return count;
 }
 
+bool X2mFile::CharaSsDependsExist(const uint8_t *guid) const
+{
+    for (const X2mDepends &dep : chara_ss_depends)
+    {
+        if (memcmp(dep.guid, guid, 16) == 0)
+            return true;
+    }
+
+    return false;
+}
+
+bool X2mFile::CharaSsDependsExist(const std::string &guid) const
+{
+    uint8_t guid_bin[16];
+
+    if (!Utils::String2GUID(guid_bin, guid))
+        return false;
+
+    return CharaSsDependsExist(guid_bin);
+}
+
+bool X2mFile::CharaSsDependsExist(uint16_t id) const
+{
+    for (const X2mDepends &dep : chara_ss_depends)
+    {
+        if (dep.id == id)
+            return true;
+    }
+
+    return false;
+}
+
+X2mDepends *X2mFile::FindCharaSsDepends(const uint8_t *guid)
+{
+    for (X2mDepends &dep : chara_ss_depends)
+    {
+        if (memcmp(dep.guid, guid, 16) == 0)
+            return &dep;
+    }
+
+    return nullptr;
+}
+
+X2mDepends *X2mFile::FindCharaSsDepends(const std::string &guid)
+{
+    uint8_t guid_bin[16];
+
+    if (!Utils::String2GUID(guid_bin, guid))
+        return nullptr;
+
+    return FindCharaSsDepends(guid_bin);
+}
+
+X2mDepends *X2mFile::FindCharaSsDepends(uint16_t id)
+{
+    for (X2mDepends &dep : chara_ss_depends)
+    {
+        if (dep.id == id)
+            return &dep;
+    }
+
+    return nullptr;
+}
+
+bool X2mFile::AddCharaSsDepends(const X2mDepends &depends)
+{
+    if (CharaSsDependsExist(depends.guid) || CharaSsDependsExist(depends.id))
+        return false;
+
+    chara_ss_depends.push_back(depends);
+    return true;
+}
+
+bool X2mFile::AddCharaSsDepends(X2mFile *ss_x2m, bool update)
+{
+    if (ss_x2m->GetType() != X2mType::NEW_SUPERSOUL)
+        return false;
+
+    X2mDepends *existing = FindCharaSsDepends(ss_x2m->mod_guid);
+    if (existing)
+    {
+        if (!update)
+            return false;
+
+        existing->name = ss_x2m->GetModName();
+        return true;
+    }
+
+    X2mDepends new_dep;
+
+    new_dep.type = X2mDependsType::SUPERSOUL;
+    memcpy(new_dep.guid, ss_x2m->mod_guid, 16);
+    new_dep.name = ss_x2m->GetModName();
+
+    for (uint16_t id = X2M_SS_DEPENDS_BEGIN; id < X2M_SS_DEPENDS_END; id++)
+    {
+        if (!CharaSsDependsExist(id))
+        {
+            new_dep.id = id;
+            chara_ss_depends.push_back(new_dep);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+X2mDepends *X2mFile::AddCharaSsDepends(const uint8_t *guid, const std::string &name)
+{
+    if (CharaSsDependsExist(guid))
+        return nullptr;
+
+    X2mDepends new_dep;
+
+    new_dep.type = X2mDependsType::SUPERSOUL;
+    memcpy(new_dep.guid, guid, 16);
+    new_dep.name = name;
+
+    for (uint16_t id = X2M_SS_DEPENDS_BEGIN; id < X2M_SS_DEPENDS_END; id++)
+    {
+        if (!CharaSsDependsExist(id))
+        {
+            new_dep.id = id;
+            chara_ss_depends.push_back(new_dep);
+            return &chara_ss_depends.back();
+        }
+    }
+
+    return nullptr;
+}
+
+bool X2mFile::RemoveCharaSsDepends(const uint8_t *guid)
+{
+    for (size_t i = 0; i < chara_ss_depends.size(); i++)
+    {
+        if (memcmp(chara_ss_depends[i].guid, guid, 16) == 0)
+        {
+            chara_ss_depends.erase(chara_ss_depends.begin()+i);
+            return true;
+        }
+    }
+
+    return true; // Yes true
+}
+
+bool X2mFile::RemoveCharaSsDepends(const std::string &guid)
+{
+    uint8_t guid_bin[16];
+
+    if (!Utils::String2GUID(guid_bin, guid))
+        return false;
+
+    return RemoveCharaSsDepends(guid_bin);
+}
+
+bool X2mFile::CharaSsDependsHasAttachment(size_t idx) const
+{
+    if (idx >= chara_ss_depends.size())
+        return false;
+
+    if (IsDummyMode())
+        return false;
+
+    const std::string att_path = X2M_CHARA_SS_ATTACHMENTS + Utils::GUID2String(chara_ss_depends[idx].guid) + ".x2m";
+    return FileExists(att_path);
+}
+
+bool X2mFile::CharaSsDependsHasAttachment(const uint8_t *guid) const
+{
+    for (size_t i = 0; i < chara_ss_depends.size(); i++)
+    {
+        if (memcmp(chara_ss_depends[i].guid, guid, 16) == 0)
+        {
+            return CharaSsDependsHasAttachment(i);
+        }
+    }
+
+    return false;
+}
+
+bool X2mFile::CharasDependsHasAttachment(const std::string &guid) const
+{
+    uint8_t guid_bin[16];
+
+    if (!Utils::String2GUID(guid_bin, guid))
+        return false;
+
+    return CharaSsDependsHasAttachment(guid_bin);
+}
+
+bool X2mFile::SetCharaSsDependsAttachment(size_t idx, X2mFile *attachment)
+{
+    if (idx >= chara_ss_depends.size())
+        return false;
+
+    if (attachment->GetType() != X2mType::NEW_SUPERSOUL)
+        return false;
+
+    X2mDepends &dep = chara_ss_depends[idx];
+
+    if (memcmp(dep.guid, attachment->mod_guid, 16) != 0)
+        return false;
+
+    size_t size;
+    uint8_t *buf = attachment->Save(&size);
+
+    if (!buf)
+        return false;
+
+    const std::string att_path = X2M_CHARA_SS_ATTACHMENTS + Utils::GUID2String(dep.guid) + ".x2m";
+    bool ret = WriteFile(att_path, buf, size);
+    delete[] buf;
+
+    return ret;
+}
+
+bool X2mFile::SetCharaSsDependsAttachment(X2mFile *attachment)
+{
+    for (size_t i = 0; i < chara_ss_depends.size(); i++)
+    {
+        if (memcmp(chara_ss_depends[i].guid, attachment->mod_guid, 16) == 0)
+        {
+            return SetCharaSsDependsAttachment(i, attachment);
+        }
+    }
+
+    return false;
+}
+
+bool X2mFile::RemoveCharaSsDependsAttachment(const uint8_t *guid)
+{
+    for (const X2mDepends &dep : chara_ss_depends)
+    {
+        if (memcmp(dep.guid, guid, 16) == 0)
+        {
+            const std::string att_path = X2M_CHARA_SS_ATTACHMENTS + Utils::GUID2String(dep.guid) + ".x2m";
+            return RemoveFile(att_path);
+        }
+    }
+
+    return false;
+}
+
+bool X2mFile::RemoveCharaSsDependsAttachment(const std::string &guid)
+{
+    uint8_t guid_bin[16];
+
+    if (!Utils::String2GUID(guid_bin, guid))
+        return false;
+
+    return RemoveCharaSsDependsAttachment(guid_bin);
+}
+
+X2mFile *X2mFile::LoadCharaSsDependsAttachment(const uint8_t *guid)
+{
+    if (!CharaSsDependsHasAttachment(guid))
+        return nullptr;
+
+    const std::string att_path = X2M_CHARA_SS_ATTACHMENTS + Utils::GUID2String(guid) + ".x2m";
+    size_t size;
+    uint8_t *buf = ReadFile(att_path, &size);
+    if (!buf)
+        return nullptr;
+
+    X2mFile *ret = new X2mFile();
+    if (!ret->Load(buf, size))
+    {
+        delete[] buf;
+        delete ret;
+        return nullptr;
+    }
+
+    if (ret->type != X2mType::NEW_SUPERSOUL)
+    {
+        DPRINTF("%s: Not a supersoul attachment!.\n", FUNCNAME);
+        return nullptr;
+    }
+
+    return ret;
+}
+
+X2mFile *X2mFile::LoadCharaSsDependsAttachment(const std::string &guid)
+{
+    uint8_t guid_bin[16];
+
+    if (!Utils::String2GUID(guid_bin, guid))
+        return nullptr;
+
+    return LoadCharaSsDependsAttachment(guid_bin);
+}
+
+bool X2mFile::IsCharaSsDependsReferenced(const X2mDepends &depends) const
+{
+    for (const PscSpecEntry &entry : psc_entries)
+    {
+        if (entry.talisman == depends.id)
+            return true;
+    }
+
+    return false;
+}
+
 size_t X2mFile::GetNumSkillCustomAuras() const
 {
     if (!HasSkillAura())
@@ -4661,14 +5155,12 @@ bool X2mFile::SetSkillCostumeDepend(X2mFile *costume_x2m)
     return true;
 }
 
-X2mDepends *X2mFile::SetSkillCostumeDepend(const uint8_t *guid, const std::string &name)
+void X2mFile::SetSkillCostumeDepend(const uint8_t *guid, const std::string &name)
 {
     skill_costume_depend.type = X2mDependsType::COSTUME;
     memcpy(skill_costume_depend.guid, guid, 16);
     skill_costume_depend.name = name;
     skill_costume_depend.id = X2M_COSTUME_DEPENDS_ID;
-
-    return nullptr;
 }
 
 bool X2mFile::SkillCostumeDependHasAttachment() const
@@ -5000,6 +5492,115 @@ size_t X2mFile::GetQuestAttachments(std::vector<X2mFile *> &x2ms)
 
     VisitDirectory(X2M_QUEST_ATTACHMENTS, GetQuestAttachmentsVisitor, this);
     return x2ms.size();
+}
+
+bool X2mFile::SetSSSkillDepend(const X2mDepends &depends)
+{
+    ss_blast_depend = depends;
+    return true;
+}
+
+bool X2mFile::SetSSSkillDepend(X2mFile *skill_x2m)
+{
+    if (skill_x2m->GetType() != X2mType::NEW_SKILL || skill_x2m->GetSkillType() != X2mSkillType::BLAST || !skill_x2m->BlastSkillSsIntended())
+        return false;
+
+    ss_blast_depend.type = X2mDependsType::SKILL;
+    memcpy(ss_blast_depend.guid, skill_x2m->mod_guid, 16);
+    ss_blast_depend.name = skill_x2m->GetModName();
+    ss_blast_depend.id = X2M_SKILL_DEPENDS_BEGIN;
+
+    return true;
+}
+
+void X2mFile::SetSSSkillDepend(const uint8_t *guid, const std::string &name)
+{
+    ss_blast_depend.type = X2mDependsType::SKILL;
+    memcpy(ss_blast_depend.guid, guid, 16);
+    ss_blast_depend.name = name;
+    ss_blast_depend.id = X2M_SKILL_DEPENDS_BEGIN;
+}
+
+bool X2mFile::SSSkillDependHasAttachment() const
+{
+    if (IsDummyMode())
+        return false;
+
+    const std::string att_path = X2M_SS_BLAST_ATTACHMENT + Utils::GUID2String(ss_blast_depend.guid) + ".x2m";
+    return FileExists(att_path);
+}
+
+bool X2mFile::SetSSSkillDependAttachment(X2mFile *attachment)
+{
+    if (attachment->type != X2mType::NEW_SKILL || attachment->GetSkillType() != X2mSkillType::BLAST || !attachment->BlastSkillSsIntended())
+        return false;
+
+    if (memcmp(ss_blast_depend.guid, attachment->mod_guid, 16) != 0)
+        return false;
+
+    size_t size;
+    uint8_t *buf = attachment->Save(&size);
+
+    if (!buf)
+        return false;
+
+    const std::string att_path = X2M_SS_BLAST_ATTACHMENT + Utils::GUID2String(ss_blast_depend.guid) + ".x2m";
+    bool ret = WriteFile(att_path, buf, size);
+    delete[] buf;
+
+    return ret;
+}
+
+bool X2mFile::RemoveSSSkillDependAttachment()
+{
+    const std::string att_path = X2M_SS_BLAST_ATTACHMENT + Utils::GUID2String(ss_blast_depend.guid) + ".x2m";
+    return RemoveFile(att_path);
+}
+
+X2mFile *X2mFile::LoadSSSkillDependAttachment()
+{
+    if (!HasSSSkillDepend())
+        return nullptr;
+
+    const std::string att_path = X2M_SS_BLAST_ATTACHMENT + Utils::GUID2String(ss_blast_depend.guid) + ".x2m";
+    size_t size;
+    uint8_t *buf = ReadFile(att_path, &size);
+    if (!buf)
+        return nullptr;
+
+    X2mFile *ret = new X2mFile();
+    if (!ret->Load(buf, size))
+    {
+        delete[] buf;
+        delete ret;
+        return nullptr;
+    }
+
+    if (ret->type != X2mType::NEW_SKILL || ret->GetSkillType() != X2mSkillType::BLAST || !ret->BlastSkillSsIntended())
+    {
+        DPRINTF("%s: this type of attachment is not valid for this x2m.\n", FUNCNAME);
+        return nullptr;
+    }
+
+    return ret;
+}
+
+X2mSuperSoul *X2mFile::FindInstalledSS()
+{
+    X2mSuperSoul *ss = game_costume_file->FindSuperSoul(mod_guid);
+    if (ss)
+    {
+        update_ss_entry = *ss; // Copy
+        return &update_ss_entry;
+    }
+
+    update_ss_entry = X2mSuperSoul(); // Reset
+    return nullptr;
+}
+
+X2mSuperSoul *X2mFile::FindInstalledSS(const uint8_t *guid)
+{
+    return game_costume_file->FindSuperSoul(guid);
 }
 
 bool X2mFile::InstallCharaName()
@@ -5361,11 +5962,17 @@ bool X2mFile::AssignSkillIds()
         return false;
     }
 
+    uint16_t desired_lower_limit = 0;
+    if (type == CUS_SKILL_TYPE_BLAST && blast_ss_intended)
+    {
+        desired_lower_limit = 2000;
+    }
+
     for (CmsEntryXV2 *entry : entries)
     {
         for (int i = 0; i < 10; i++)
         {
-            if (!game_cus->IsSkillInUse(entry->id, i, type))
+            if (!game_cus->IsSkillInUse(entry->id, i, type) && ((uint16_t)entry->id*10) <= desired_lower_limit)
             {
                 skill_entry.id2 = (entry->id*10)+i;
                 skill_entry.id = IdFromId2(skill_entry.id2);
@@ -5567,7 +6174,7 @@ void X2mFile::AssignSkillIdbIds()
     if (skill_entry.id2 == X2M_DUMMY_ID16 || skill_entry.id2 == X2M_INVALID_ID16)
         return;
 
-    skill_idb_entry.id = skill_idb_entry.name_id = skill_idb_entry.desc_id = skill_entry.id2;
+    skill_idb_entry.id = skill_idb_entry.name_id = skill_idb_entry.desc_id = skill_idb_entry.how_id = skill_entry.id2;
     skill_idb_entry.type = GetCusSkillType();
 }
 
@@ -5744,6 +6351,32 @@ void X2mFile::AssignCharaCustomSkills(CusSkillSet &x_set)
             }
 
             x_set.char_skills[i] = 0xFFFF; // If not found, unassign skill
+        }
+    }
+}
+
+void X2mFile::AssignCharaCustomSs()
+{
+    if (!HasCharaSsDepends())
+        return;
+
+    for (PscSpecEntry &entry : psc_entries)
+    {
+        uint32_t ss_id = entry.talisman;
+
+        if (ss_id >= X2M_SS_DEPENDS_BEGIN && ss_id < X2M_SS_DEPENDS_END)
+        {
+            entry.talisman = 0xFFFFFFFF; // Assign default none in case it's not found
+
+            X2mDepends *dep = FindCharaSsDepends(ss_id);
+            if (dep)
+            {
+                X2mSuperSoul *ss = FindInstalledSS(dep->guid);
+                if (ss)
+                {
+                    entry.talisman = ss->idb_id;
+                }
+            }
         }
     }
 }
@@ -5958,6 +6591,8 @@ bool X2mFile::InstallPsc()
         DPRINTF("%s: FillPscEntries failed.\n", FUNCNAME);
         return false;
     }
+
+    AssignCharaCustomSs();
 
     if (existing_entries.size() == 0)
     {
@@ -8917,6 +9552,11 @@ bool X2mFile::InstallCusSkill()
         }
     }
 
+    if (skill_type == X2mSkillType::BLAST && blast_ss_intended)
+    {
+        skill_entry.race_lock = 0xFF; // required or won't work
+    }
+
     if (skill_entry.id == X2M_DUMMY_ID16)
     {
         // New install
@@ -8959,7 +9599,28 @@ bool X2mFile::InstallSkillName()
     }
 
     if (skill_type == X2mSkillType::BLAST)
+    {
+        if (blast_ss_intended)
+        {
+            if (skill_name[XV2_LANG_ENGLISH].length() == 0)
+                return false;
+
+            for (int i = 0; i < XV2_LANG_NUM; i++)
+            {
+                const std::string *name;
+
+                if (skill_name[i].length() != 0)
+                    name = &skill_name[i];
+                else
+                    name = &skill_name[XV2_LANG_ENGLISH];
+
+                if (!Xenoverse2::SetModBlastSkillType(skill_entry.id2, *name, i))
+                    return false;
+            }
+        }
+
         return true;
+    }
 
     if (skill_name[XV2_LANG_ENGLISH].length() == 0)
         return false;
@@ -9560,7 +10221,18 @@ bool X2mFile::UninstallSkillName()
         return true; // Yes, true
 
     if (skill_type == X2mSkillType::BLAST)
+    {
+        if (blast_ss_intended)
+        {
+            for (int i = 0; i < XV2_LANG_NUM; i++)
+            {
+                if (!Xenoverse2::RemoveModBlastSkillType(skill_entry.id2, i))
+                    return false;
+            }
+        }
+
         return true;
+    }
 
     for (int i = 0; i < XV2_LANG_NUM; i++)
     {
@@ -11757,6 +12429,406 @@ bool X2mFile::UninstallStageLighting()
     std::string emb_path = std::string("data/lighting/environment/") + stage_def.code + ".emb";
     xv2fs->RemoveFile(emb_path); // Ignore error
 
+    return true;
+}
+
+static void RemoveSSNameReferences(uint16_t name_id)
+{
+    for (IdbEntry &entry : *game_talisman_idb)
+    {
+        if (entry.name_id == name_id)
+            entry.name_id = 0xFFFF;
+    }
+}
+
+static void RemoveSSDescReferences(uint16_t desc_id)
+{
+    for (IdbEntry &entry : *game_talisman_idb)
+    {
+        if (entry.desc_id == desc_id)
+            entry.desc_id = 0xFFFF;
+    }
+}
+
+static void RemoveSSHowReferences(uint16_t how_id)
+{
+    for (IdbEntry &entry : *game_talisman_idb)
+    {
+        if (entry.how_id == how_id)
+            entry.how_id = 0xFFFF;
+    }
+}
+
+bool X2mFile::InstallSSName()
+{
+    if (type != X2mType::NEW_SUPERSOUL)
+        return false;
+
+    if (update_ss_entry.idb_id == 0xFFFF)
+        FindInstalledSS(); // Update update_ss_entry
+
+    if (game_talisman_idb == nullptr && !Xenoverse2::InitIdb(false, false, true, false, false, false, false, false))
+        return false;
+
+    // Delete existing name (if any)
+    if (update_ss_entry.idb_id != 0xFFFF)
+    {
+        IdbEntry *entry = game_talisman_idb->FindEntryByID(update_ss_entry.idb_id);
+        if (!entry)
+        {
+            DPRINTF("%s: Internal error, cannot find installed idb entry for update.\n", FUNCNAME);
+            return false;
+        }
+
+        if (entry->name_id != 0xFFFF)
+        {
+            uint16_t name_id = entry->name_id;
+            RemoveSSNameReferences(name_id);
+
+            for (int l = 0; l < XV2_LANG_NUM; l++)
+            {
+                if (!Xenoverse2::RemoveTalismanName(name_id, l, (l==0)))
+                {
+                    DPRINTF("%s: Internal error, fail in RemoveTalismanName.\n", FUNCNAME);
+                    return false;
+                }
+            }
+        }
+    }
+
+    // Now add new name
+    for (int l = 0; l < XV2_LANG_NUM; l++)
+    {
+        const std::string *name;
+
+        if (ss_item.item_name[l].length() != 0)
+            name = &ss_item.item_name[l];
+        else
+            name = &ss_item.item_name[XV2_LANG_ENGLISH];
+
+        if (!Xenoverse2::AddTalismanName(*name, l, &ss_item.idb.name_id))
+        {
+            DPRINTF("%s: AddTalismanName failed.\n", FUNCNAME);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool X2mFile::InstallSSDesc()
+{
+    if (type != X2mType::NEW_SUPERSOUL)
+        return false;
+
+    if (update_ss_entry.idb_id == 0xFFFF)
+        FindInstalledSS(); // Update update_ss_entry
+
+    if (game_talisman_idb == nullptr && !Xenoverse2::InitIdb(false, false, true, false, false, false, false, false))
+        return false;
+
+    // Delete existing desc (if any)
+    if (update_ss_entry.idb_id != 0xFFFF)
+    {
+        IdbEntry *entry = game_talisman_idb->FindEntryByID(update_ss_entry.idb_id);
+        if (!entry)
+        {
+            DPRINTF("%s: Internal error, cannot find installed idb entry for update.\n", FUNCNAME);
+            return false;
+        }
+
+        if (entry->desc_id != 0xFFFF)
+        {
+            uint16_t desc_id = entry->desc_id;
+            RemoveSSDescReferences(desc_id);
+
+            for (int l = 0; l < XV2_LANG_NUM; l++)
+            {
+                if (!Xenoverse2::RemoveTalismanDesc(desc_id, l, (l==0)))
+                {
+                    DPRINTF("%s: Internal error, fail in RemoveTalismanDesc.\n", FUNCNAME);
+                    return false;
+                }
+            }
+        }
+    }
+
+    // Now add new desc
+    for (int l = 0; l < XV2_LANG_NUM; l++)
+    {
+        const std::string *desc;
+
+        if (ss_item.item_desc[l].length() != 0)
+            desc = &ss_item.item_desc[l];
+        else
+            desc = &ss_item.item_desc[XV2_LANG_ENGLISH];
+
+        if (!Xenoverse2::AddTalismanDesc(*desc, l, &ss_item.idb.desc_id))
+        {
+            DPRINTF("%s: AddTalismanDesc failed.\n", FUNCNAME);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool X2mFile::InstallSSHow()
+{
+    if (type != X2mType::NEW_SUPERSOUL)
+        return false;
+
+    if (update_ss_entry.idb_id == 0xFFFF)
+        FindInstalledSS(); // Update update_ss_entry
+
+    if (game_talisman_idb == nullptr && !Xenoverse2::InitIdb(false, false, true, false, false, false, false, false))
+        return false;
+
+    // Delete existing desc (if any)
+    if (update_ss_entry.idb_id != 0xFFFF)
+    {
+        IdbEntry *entry = game_talisman_idb->FindEntryByID(update_ss_entry.idb_id);
+        if (!entry)
+        {
+            DPRINTF("%s: Internal error, cannot find installed idb entry for update.\n", FUNCNAME);
+            return false;
+        }
+
+        if (entry->how_id != 0xFFFF)
+        {
+            uint16_t how_id = entry->how_id;
+            RemoveSSHowReferences(how_id);
+
+            for (int l = 0; l < XV2_LANG_NUM; l++)
+            {
+                if (!Xenoverse2::RemoveTalismanHow(how_id, l, (l==0)))
+                {
+                    DPRINTF("%s: Internal error, fail in RemoveTalismanHow.\n", FUNCNAME);
+                    return false;
+                }
+            }
+        }
+    }
+
+    // Now add new desc
+    for (int l = 0; l < XV2_LANG_NUM; l++)
+    {
+        const std::string *how;
+
+        if (ss_item.item_how[l].length() != 0)
+            how = &ss_item.item_how[l];
+        else
+            how = &ss_item.item_how[XV2_LANG_ENGLISH];
+
+        if (!Xenoverse2::AddTalismanHow(*how, l, &ss_item.idb.how_id))
+        {
+            DPRINTF("%s: AddTalismanHow failed.\n", FUNCNAME);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool X2mFile::InstallSSIdb()
+{
+    if (type != X2mType::NEW_SUPERSOUL)
+        return false;
+
+    static const uint16_t idb_start = 1000;
+
+    if (ss_item.idb.name_id == 0xFFFF || ss_item.idb.name_id == X2M_INVALID_ID16 || ss_item.idb.name_id == X2M_DUMMY_ID16)
+    {
+        DPRINTF("%s: Name should have been assigned before.\n", FUNCNAME);
+        return false;
+    }
+
+    if (ss_item.idb.desc_id == 0xFFFF || ss_item.idb.desc_id == X2M_INVALID_ID16 || ss_item.idb.desc_id == X2M_DUMMY_ID16)
+    {
+        DPRINTF("%s: Desc should have been assigned before.\n", FUNCNAME);
+        return false;
+    }
+
+    if (ss_item.idb.how_id == 0xFFFF || ss_item.idb.how_id == X2M_INVALID_ID16 || ss_item.idb.how_id == X2M_DUMMY_ID16)
+    {
+        DPRINTF("%s: How should have been assigned before.\n", FUNCNAME);
+        return false;
+    }
+
+    if (!game_talisman_idb && !Xenoverse2::InitIdb(false, false, true, false, false, false, false, false))
+        return false;
+
+    if (HasSSSkillDepend())
+    {
+        ss_item.idb.model = 0; // Default value if not installed yet
+
+        CusSkill *skill = FindInstalledSkill(ss_blast_depend.guid, X2mSkillType::BLAST);
+        if (skill)
+        {
+            ss_item.idb.model = Xenoverse2::GetModelForTalisman(skill->id2, true);
+            if (ss_item.idb.model == 0)
+            {
+                DPRINTF("%s: GetModelForTalisman failed.\n", FUNCNAME);
+                return false;
+            }
+        }
+    }
+
+    if (update_ss_entry.idb_id == 0xFFFF) // New install
+    {
+        if (!game_talisman_idb->AddEntryAuto(ss_item.idb, idb_start))
+        {
+            DPRINTF("%s: AddEntryAuto failed.\n", FUNCNAME);
+            return false;
+        }
+
+        update_ss_entry.idb_id = ss_item.idb.id;
+    }
+    else // Update
+    {
+        ss_item.idb.id = update_ss_entry.idb_id;
+        IdbEntry *entry = game_talisman_idb->FindEntryByID(ss_item.idb.id);
+        if (!entry)
+        {
+            DPRINTF("%s: Failed to get existing idb entry, this should have been caught before.\n", FUNCNAME);
+            return false;
+        }
+
+        *entry = ss_item.idb; // Update
+    }
+
+    return true;
+}
+
+bool X2mFile::InstallSSFile()
+{
+    if (type != X2mType::NEW_SUPERSOUL)
+        return false;
+
+    if (update_ss_entry.idb_id == 0xFFFF)
+    {
+        DPRINTF("%s: This function should have been called after InstallSSIdb.\n", FUNCNAME);
+        return false;
+    }
+
+    memcpy(update_ss_entry.guid, mod_guid, sizeof(mod_guid));
+    game_costume_file->AddSuperSoul(update_ss_entry);
+
+    return true;
+}
+
+bool X2mFile::UninstallSSName()
+{
+    if (type != X2mType::NEW_SUPERSOUL)
+        return false;
+
+    if (update_ss_entry.idb_id == 0xFFFF)
+        FindInstalledSS(); // Update update_ss_entry
+
+    if (game_talisman_idb == nullptr && !Xenoverse2::InitIdb(false, false, true, false, false, false, false, false))
+        return false;
+
+    IdbEntry *entry = game_talisman_idb->FindEntryByID(update_ss_entry.idb_id);
+    if (entry && entry->name_id != 0xFFFF)
+    {
+        uint16_t name_id = entry->name_id;
+        RemoveSSNameReferences(name_id);
+
+        for (int l = 0; l < XV2_LANG_NUM; l++)
+        {
+            if (!Xenoverse2::RemoveTalismanName(name_id, l, (l==0)))
+            {
+                DPRINTF("%s: RemoveTalismanName failed.\n", FUNCNAME);
+                return false;
+            }
+        }
+
+    }
+
+    return true;
+}
+
+bool X2mFile::UninstallSSDesc()
+{
+    if (type != X2mType::NEW_SUPERSOUL)
+        return false;
+
+    if (update_ss_entry.idb_id == 0xFFFF)
+        FindInstalledSS(); // Update update_ss_entry
+
+    if (game_talisman_idb == nullptr && !Xenoverse2::InitIdb(false, false, true, false, false, false, false, false))
+        return false;
+
+    IdbEntry *entry = game_talisman_idb->FindEntryByID(update_ss_entry.idb_id);
+    if (entry && entry->desc_id != 0xFFFF)
+    {
+        uint16_t desc_id = entry->desc_id;
+        RemoveSSDescReferences(desc_id);
+
+        for (int l = 0; l < XV2_LANG_NUM; l++)
+        {
+            if (!Xenoverse2::RemoveTalismanDesc(desc_id, l, (l==0)))
+            {
+                DPRINTF("%s: RemoveTalismanDesc failed.\n", FUNCNAME);
+                return false;
+            }
+        }
+
+    }
+
+    return true;
+}
+
+bool X2mFile::UninstallSSHow()
+{
+    if (type != X2mType::NEW_SUPERSOUL)
+        return false;
+
+    if (update_ss_entry.idb_id == 0xFFFF)
+        FindInstalledSS(); // Update update_ss_entry
+
+    if (game_talisman_idb == nullptr && !Xenoverse2::InitIdb(false, false, true, false, false, false, false, false))
+        return false;
+
+    IdbEntry *entry = game_talisman_idb->FindEntryByID(update_ss_entry.idb_id);
+    if (entry && entry->how_id != 0xFFFF)
+    {
+        uint16_t how_id = entry->how_id;
+        RemoveSSHowReferences(how_id);
+
+        for (int l = 0; l < XV2_LANG_NUM; l++)
+        {
+            if (!Xenoverse2::RemoveTalismanHow(how_id, l, (l==0)))
+            {
+                DPRINTF("%s: RemoveTalismanHow failed.\n", FUNCNAME);
+                return false;
+            }
+        }
+
+    }
+
+    return true;
+}
+
+bool X2mFile::UninstallSSIdb()
+{
+    if (type != X2mType::NEW_SUPERSOUL)
+        return false;
+
+    if (!game_talisman_idb && !Xenoverse2::InitIdb(false, false, true, false, false, false, false, false))
+        return false;
+
+    game_talisman_idb->RemoveEntry(update_ss_entry.idb_id);
+    game_psc->RemoveTalismanReferences(update_ss_entry.idb_id);
+    return true;
+}
+
+bool X2mFile::UninstallSSFile()
+{
+    if (type != X2mType::NEW_SUPERSOUL)
+        return false;
+
+    game_costume_file->RemoveSuperSoul(mod_guid);
     return true;
 }
 

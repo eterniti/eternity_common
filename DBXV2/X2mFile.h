@@ -23,8 +23,10 @@
 #define X2M_CHARA_INI   "X2M_CHARA.ini"
 
 #define X2M_CHARA_SKILLS_ATTACHMENTS    "SKILL_ATACHMENT/"
+#define X2M_CHARA_SS_ATTACHMENTS    "SUPERSOUL_ATACHMENT/"
 #define X2M_SKILLS_COSTUME_ATTACHMENTS  "COSTUME_ATACHMENT/"
 #define X2M_QUEST_ATTACHMENTS   "ATTACHMENT/"
+#define X2M_SS_BLAST_ATTACHMENT    "SKILL_ATACHMENT/"
 
 #define X2M_STAGE                   "STAGE"
 #define X2M_STAGE_LIGHTING          "LIGHTING.EMB"
@@ -45,6 +47,9 @@
 #define X2M_SKILL_DEPENDS_BEGIN 0xC000
 #define X2M_SKILL_DEPENDS_END   0xD000
 
+#define X2M_SS_DEPENDS_BEGIN 0xD000
+#define X2M_SS_DEPENDS_END   0xE000
+
 #define X2M_COSTUME_DEPENDS_ID   0xC000
 
 #define X2M_CUSTOM_AUDIO_BEGIN  0xC0000000
@@ -59,7 +64,8 @@ enum class X2mType
     NEW_SKILL,
     NEW_COSTUME,
     NEW_STAGE,
-    NEW_QUEST
+    NEW_QUEST,
+    NEW_SUPERSOUL
 };
 
 enum class X2mSkillType
@@ -74,7 +80,8 @@ enum class X2mSkillType
 enum class X2mDependsType
 {
     SKILL,
-    COSTUME
+    COSTUME,
+    SUPERSOUL
 };
 
 enum
@@ -94,7 +101,8 @@ enum class X2mItemType
     BOTTOM,
     GLOVES,
     SHOES,
-    ACCESSORY
+    ACCESSORY,
+    SUPER_SOUL
 };
 
 extern const std::vector<std::string> x2m_cr_code;
@@ -255,16 +263,22 @@ struct X2mItem
 {
     std::vector<std::string> item_name;
     std::vector<std::string> item_desc;
+    std::vector<std::string> item_how;
 
     X2mItemType item_type;
     IdbEntry idb;
+
+    bool has_how;
 
     X2mItem()
     {
         item_name.resize(XV2_LANG_NUM);
         item_desc.resize(XV2_LANG_NUM);
+        item_how.resize(XV2_LANG_NUM);
         item_type = X2mItemType::TOP;
         idb.id = idb.name_id = idb.desc_id = X2M_INVALID_ID16;
+        has_how = false;
+        idb.how_id = 0;
     }
 
     TiXmlElement *Decompile(TiXmlNode *root) const;
@@ -490,6 +504,8 @@ private:
     std::vector<CncEntry> cnc_entries;    
     std::string char_eepk;
 
+    std::vector<X2mDepends> chara_ss_depends;
+
     // For skill
     std::vector<std::string> skill_name;
     std::vector<std::string> skill_desc;
@@ -502,6 +518,7 @@ private:
     std::vector<X2mSkillAura> skill_aura_entries;
     X2mDepends skill_costume_depend;
     std::vector<X2mBody> skill_bodies;
+    bool blast_ss_intended;
 
     // For costumes
     std::vector<X2mItem> costume_items;
@@ -514,6 +531,10 @@ private:
     bool add_stage_slot_local;
     std::string bg_eepk, stage_eepk;
 
+    // For new supersoul
+    X2mItem ss_item;
+    X2mDepends ss_blast_depend;
+
     // ///////////////////////////////
     // temp variables, do not copy to DUMMY x2d
     std::vector<std::string> installed_css_audio;
@@ -525,6 +546,7 @@ private:
     std::unordered_map<int, int> bodies_map; // Map for bac file change, from fake body id to real body id
     size_t temp_quest_attachments_num;
     std::vector<X2mFile *> *temp_attachments;
+    X2mSuperSoul update_ss_entry;
 
     // Dummy mode vars
     std::string restore_skill_path;
@@ -573,6 +595,7 @@ private:
 
     void AssignSkillIdbIds();    
     void AssignCharaCustomSkills(CusSkillSet &x_set);
+    void AssignCharaCustomSs();
 
     bool InstallCustomAuraSkill();
     bool InstallCustomAuraChara();
@@ -625,7 +648,7 @@ protected:
 
 public:
 
-    const float X2M_CURRENT_VERSION = 21.0f;
+    const float X2M_CURRENT_VERSION = 22.0f;
 
     const float X2M_MIN_VERSION_CSO = 2.0f;
     const float X2M_MIN_VERSION_PSC = 3.0f;
@@ -667,6 +690,9 @@ public:
     const float X2M_MIN_VERSION_BH64 = 21.0f;
     const float X2M_MIN_VERSION_SKILL_HOW = 21.0f;
     const float X2M_MIN_VERSION_BLT_SKILL = 21.0f;
+    const float X2M_MIN_VERSION_IDB122 = 22.0f;
+    const float X2M_MIN_VERSION_BLT_TEXT = 22.0f;
+    const float X2M_MIN_VERSION_SUPERSOUL = 22.0f;
 
     X2mFile();
     virtual ~X2mFile() override;
@@ -797,6 +823,9 @@ public:
     inline size_t GetNumPscEntries() const { return psc_entries.size(); }
     inline const PscSpecEntry &GetPscEntry(size_t idx) const { return psc_entries[idx]; }
     inline PscSpecEntry &GetPscEntry(size_t idx) { return psc_entries[idx]; }
+
+    inline const std::vector<PscSpecEntry> &GetAllPscEntries() const { return psc_entries; }
+    inline std::vector<PscSpecEntry> &GetAllPscEntries() { return psc_entries; }
 
     inline size_t AddPscEntry(const PscSpecEntry &entry) { psc_entries.push_back(entry); return (psc_entries.size()-1); }
     inline void RemovePscEntry(size_t idx) { psc_entries.erase(psc_entries.begin()+idx); }
@@ -990,6 +1019,44 @@ public:
     inline const std::string &GetCharEepk() const { return char_eepk; }
     inline void SetCharEepk(const std::string &value) { char_eepk = value; }
 
+    inline size_t GetNumCharaSsDepends() const { return chara_ss_depends.size(); }
+    inline bool HasCharaSsDepends() const { return (format_version >= X2M_MIN_VERSION_SUPERSOUL && chara_ss_depends.size() > 0); }
+    inline const X2mDepends &GetCharaSsDepends(size_t idx) const { return chara_ss_depends[idx]; }
+    inline X2mDepends &GetCharaSsDepends(size_t idx) { return chara_ss_depends[idx]; }
+    inline const std::vector<X2mDepends> &GetAllCharaSsDepends() const { return chara_ss_depends; }
+    inline std::vector<X2mDepends> &GetAllCharaSsDepends() { return chara_ss_depends; }
+
+    bool CharaSsDependsExist(const uint8_t *guid) const;
+    bool CharaSsDependsExist(const std::string &guid) const;
+    bool CharaSsDependsExist(uint16_t id) const;
+
+    X2mDepends *FindCharaSsDepends(const uint8_t *guid);
+    X2mDepends *FindCharaSsDepends(const std::string &guid);
+    X2mDepends *FindCharaSsDepends(uint16_t id);
+
+    bool AddCharaSsDepends(const X2mDepends &depends);
+    bool AddCharaSsDepends(X2mFile *ss_x2m, bool update);
+    X2mDepends *AddCharaSsDepends(const uint8_t *guid, const std::string &name);
+
+    inline void RemoveCharaSsDepends(size_t idx) { chara_ss_depends.erase(chara_ss_depends.begin()+idx); }
+    bool RemoveCharaSsDepends(const uint8_t *guid);
+    bool RemoveCharaSsDepends(const std::string &guid);
+
+    bool CharaSsDependsHasAttachment(size_t idx) const;
+    bool CharaSsDependsHasAttachment(const uint8_t *guid) const;
+    bool CharasDependsHasAttachment(const std::string &guid) const;
+
+    bool SetCharaSsDependsAttachment(size_t idx, X2mFile *attachment);
+    bool SetCharaSsDependsAttachment(X2mFile *attachment);
+
+    bool RemoveCharaSsDependsAttachment(const uint8_t *guid);
+    bool RemoveCharaSsDependsAttachment(const std::string &guid);
+
+    X2mFile *LoadCharaSsDependsAttachment(const uint8_t *guid);
+    X2mFile *LoadCharaSsDependsAttachment(const std::string &guid);
+
+    bool IsCharaSsDependsReferenced(const X2mDepends &depends) const;
+
     // Skill
     inline std::string GetSkillName(int lang) const
     {
@@ -1097,7 +1164,7 @@ public:
 
     bool SetSkillCostumeDepend(const X2mDepends &depends);
     bool SetSkillCostumeDepend(X2mFile *costume_x2m);
-    X2mDepends *SetSkillCostumeDepend(const uint8_t *guid, const std::string &name);
+    void SetSkillCostumeDepend(const uint8_t *guid, const std::string &name);
 
     inline void RemoveSkillCostumeDepend() { skill_costume_depend.id = X2M_INVALID_ID; }
 
@@ -1119,6 +1186,9 @@ public:
     inline void RemoveSkillBody(size_t idx) { skill_bodies.erase(skill_bodies.begin()+idx); }
 
     int GetFreeSkillBodyId() const;
+
+    inline bool BlastSkillSsIntended() { return blast_ss_intended; }
+    inline void SetBlastSkillSsIntended(bool intended) { blast_ss_intended = intended; }
 
     // Costume
     inline bool CostumeDirectoryExists(uint8_t race) const { return (race < X2M_CR_NUM && DirExists(x2m_cr_code[race])); }
@@ -1201,6 +1271,30 @@ public:
 
     size_t SetQuestAttachments(const std::string &dir);
     size_t GetQuestAttachments(std::vector<X2mFile *> &x2ms);
+
+    // Super Soul
+    inline const X2mItem &GetSSItem() const { return ss_item; }
+    inline X2mItem &GetSSItem() { return ss_item; }
+    inline void SetSSItem(const X2mItem &item) { ss_item = item; ss_item.item_type = X2mItemType::SUPER_SOUL; }
+
+    inline bool HasSSSkillDepend() const { return (ss_blast_depend.id != X2M_INVALID_ID); }
+    inline const X2mDepends &GetSSSkillDepend() const { return ss_blast_depend; }
+    inline X2mDepends &GetSSSkillDepend() { return ss_blast_depend; }
+
+    bool SetSSSkillDepend(const X2mDepends &depends);
+    bool SetSSSkillDepend(X2mFile *skill_x2m);
+    void SetSSSkillDepend(const uint8_t *guid, const std::string &name);
+
+    inline void RemoveSSSkillDepend() { ss_blast_depend.id = X2M_INVALID_ID; }
+
+    bool SSSkillDependHasAttachment() const;
+    bool SetSSSkillDependAttachment(X2mFile *attachment);
+    bool RemoveSSSkillDependAttachment();
+
+    X2mFile *LoadSSSkillDependAttachment();
+
+    X2mSuperSoul *FindInstalledSS();
+    static X2mSuperSoul *FindInstalledSS(const uint8_t *guid);
 
     // Ram installs
     bool InstallCharaName();
@@ -1332,6 +1426,20 @@ public:
     // Stage file uninstalls
     bool UninstallStageFiles();
     bool UninstallStageLighting();
+
+    // Super Soul ram installs
+    bool InstallSSName();
+    bool InstallSSDesc();
+    bool InstallSSHow();
+    bool InstallSSIdb();
+    bool InstallSSFile();
+
+    // Super Soul ram uninstalls
+    bool UninstallSSName();
+    bool UninstallSSDesc();
+    bool UninstallSSHow();
+    bool UninstallSSIdb();
+    bool UninstallSSFile();
 
     // Static members
     static std::string GetSkillDirectory(const CusSkill &skill_entry, X2mSkillType skill_type);

@@ -796,6 +796,7 @@ static const std::unordered_map<int, std::string> update_to_constant =
     { QXD_UPDATE_CELL_MAX, "CELL_MAX" },
     { QXD_UPDATE_DLC16, "DLC16" },
     { QXD_UPDATE_GBB, "GBB" },
+    { QXD_UPDATE_DLC17, "DLC17" },
     { QXD_UPDATE_DEVELOPER, "DEVELOPER" }
 };
 
@@ -824,6 +825,7 @@ static const std::unordered_map<ci_string, int, CIStrHash> constant_to_update =
     { "CELL_MAX", QXD_UPDATE_CELL_MAX },
     { "DLC16", QXD_UPDATE_DLC16 },
     { "GBB", QXD_UPDATE_GBB },
+    { "DLC17", QXD_UPDATE_DLC17 },
     { "DEVELOPER", QXD_UPDATE_DEVELOPER }
 };
 
@@ -846,6 +848,7 @@ static const std::unordered_map<int, std::string> dlc_to_constant =
     { QXD_DLC_DLC14, "DLC14" },
     { QXD_DLC_DLC15, "DLC15" },
     { QXD_DLC_DLC16, "DLC16" },
+    { QXD_DLC_DLC17, "DLC17" },
 };
 
 static const std::unordered_map<ci_string, int, CIStrHash> constant_to_dlc =
@@ -867,6 +870,7 @@ static const std::unordered_map<ci_string, int, CIStrHash> constant_to_dlc =
     { "DLC14", QXD_DLC_DLC14 },
     { "DLC15", QXD_DLC_DLC15 },
     { "DLC16", QXD_DLC_DLC16 },
+    { "DLC17", QXD_DLC_DLC17 },
 };
 
 static const std::unordered_map<int, std::string> ai_to_constant =
@@ -8837,6 +8841,18 @@ bool Xv2QuestCompiler::CompileQuestStruct()
 
             if (SupportsAudio())
             {
+                /* Some exception code becuse of dummys acb
+                 * In the future, re-check if this workaround is still needed
+                   May as well give the acb parser support for these */
+                if (compiled_quest.name == "EVT_0200" || compiled_quest.name == "EVT_0201")
+                {
+                    const std::string apath = Utils::MakePathString("data/sound/VOX/Quest", GetAudioFile(compiled_quest.name, compiled_quest.episode, compiled_quest.flags, false));
+                    size_t size = xv2fs->GetFileSize(apath + ".acb");
+                    //DPRINTF("%d %d\n", (uint32_t)size, xv2fs->FileExists(apath + ".awb"));
+                    if (size < 5000 && !xv2fs->FileExists(apath + ".awb")) // a bit arbitrary...
+                        return true;
+                }
+
                 if (!LoadDialogueAudio(compiled_quest.name, compiled_quest.episode, compiled_quest.flags))
                     return false;
             }

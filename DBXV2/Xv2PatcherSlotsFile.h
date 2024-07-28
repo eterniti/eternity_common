@@ -35,8 +35,9 @@ struct PACKED CSTEntry
     uint32_t var_type_after_TU9_order; // 0x24 - Added in game 1.14. It is -1 until character TE0. Then, beginning from TE0, it's an index that increases in one? (but there is jump from 3->5...)
     uint32_t unk_28; // Added in 1.21. Doesnt't seem it is used by charasele.iggy
     uint32_t unk_2C; // Added in 1.21. Only 0 & 1 values found, probably boolean. Doesnt't seem it is used by charasele.iggy
+    uint32_t flag_cgk2; // Added in 1.22, "Chou gokuaku"
 };
-CHECK_STRUCT_SIZE(CSTEntry, 0x30);
+CHECK_STRUCT_SIZE(CSTEntry, 0x34);
 
 //#ifdef _MSC_VER
 #pragma pack(pop)

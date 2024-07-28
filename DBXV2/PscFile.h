@@ -255,12 +255,15 @@ public:
     size_t FindEntries(uint32_t char_id, std::vector<PscEntry *> &ret);
 
     PscSpecEntry *FindSpec(uint32_t char_id, uint32_t costume_id, size_t cfg);
+    size_t FindAllSpecs(uint32_t char_id, std::vector<PscSpecEntry *> &specs);
 
     bool AddEntry(const PscEntry &entry, int cfg=-1);
     void RemoveEntry(uint32_t char_id);
 
     const std::vector<PscEntry> &GetEntries(size_t cfg) const { return configurations[cfg]; }
     std::vector<PscEntry> &GetEntries(size_t cfg) { return configurations[cfg]; }
+
+    size_t RemoveTalismanReferences(uint32_t talisman_id);
 
     /*inline const PscEntry &operator[](size_t n) const { return entries[n]; }
     inline const PscEntry &operator[](size_t n) { return entries[n]; }

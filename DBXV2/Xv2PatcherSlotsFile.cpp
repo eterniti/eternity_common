@@ -110,6 +110,10 @@ static std::string DlcToString(uint64_t dlc)
             ret = "Dlc_16";
         break;
 
+        case 0x20000000000ULL:
+            ret = "Dlc_17";
+         break;
+
         default:
             DPRINTF("%s: Unknown dlc 0x%016I64X.\n", FUNCNAME, dlc);
     }
@@ -163,6 +167,8 @@ static uint64_t StringToDlc(const std::string &dlc)
         return 0x1000000000ULL;
     else if (dlc == "Dlc_16")
         return 0x4000000000ULL;
+    else if (dlc == "Dlc_17")
+        return 0x20000000000ULL;
     else
     {
         DPRINTF("%s: Unknown DLC: %s\n", FUNCNAME, dlc.c_str());
@@ -214,7 +220,7 @@ bool Xv2PatcherSlotsFile::Load(const uint8_t *buf, size_t size)
             std::vector<std::string> fields;
 
             Utils::GetMultipleStrings(costume, fields);
-            if (fields.size() != 8 && fields.size() != 9)
+            if (fields.size() != 8 && fields.size() != 9 && fields.size() != 10)
             {
                 DPRINTF("Invalid number of elements: %Id\n", fields.size());
                 return false;
@@ -240,10 +246,12 @@ bool Xv2PatcherSlotsFile::Load(const uint8_t *buf, size_t size)
             uint32_t dlc_low = Utils::GetSigned(fields[7]);
             uint32_t dlc_high = 0;
 
-            if (fields.size() == 9)
+            if (fields.size() >= 9)
             {
                 dlc_high = Utils::GetSigned(fields[8]);
             }
+
+            entry.flag_cgk2 = (fields.size() >= 10) ? (Utils::GetSigned(fields[9]) != 0) : false;
 
             uint64_t dlc = dlc_low | ((uint64_t)dlc_high << 32);
             entry.dlc = DlcToString(dlc);
@@ -318,6 +326,9 @@ uint8_t *Xv2PatcherSlotsFile::Save(size_t *psize)
             raw_string += Utils::ToString(dlc&0xFFFFFFFF);
             raw_string.push_back(',');
             raw_string += Utils::ToString(dlc >> 32);
+
+            raw_string.push_back(',');
+            raw_string += ((entry.flag_cgk2) ? "1" : "0");
             raw_string.push_back(']');
         }
 
@@ -361,6 +372,11 @@ bool Xv2PatcherSlotsFile::LoadFromCst(const uint8_t *buf, size_t size, const uin
         if (entry->is_custom_costume)
             continue;
 
+        /*if (entry->unk_30 != 0)
+        {
+            DPRINTF("%s:%d\n", entry->code, entry->unk_30);
+        }*/
+
         // Some GOK entries at end of 1.10, but before the "HUM" for the other cacs
         // Update 1.14: the dummy GOK don't longer exit, so now we actually leave when detecting ZMD
         // Update 1.17, comment this now, as dlc 12 (or 13, whatever) uses this.
@@ -392,6 +408,8 @@ bool Xv2PatcherSlotsFile::LoadFromCst(const uint8_t *buf, size_t size, const uin
             return false;
         }
 
+        s_entry.flag_cgk2 = (entry->flag_cgk2 != 0);
+
         chara_slots[pos].entries.push_back(s_entry);
     }
 
@@ -420,7 +438,7 @@ bool Xv2PatcherSlotsFile::LoadFromCst(const uint8_t *buf, size_t size, const uin
         {
             DPRINTF("%s: Out of bounds.\n", FUNCNAME);
             return false;
-        }
+        }       
 
         if (entry->is_custom_costume)
             continue;
