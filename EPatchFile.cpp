@@ -53,6 +53,7 @@ CHECK_STRUCT_SIZE(VCStdString, 0x20);
 // TODO: VCStdString size for 32 bits
 
 typedef void (* SETUP_FUNCTION)(void *);
+typedef void (* NOTIFY_FUNCTION)(void *, size_t);
 
 static bool build_pattern(const std::string &c_code, std::vector<uint16_t> &pattern)
 {
@@ -1521,11 +1522,11 @@ bool EPatch::Apply()
 			if (!mod)
 				return false;
 
-			SETUP_FUNCTION setup = (SETUP_FUNCTION)GetProcAddress(mod, function.c_str());
+			NOTIFY_FUNCTION setup = (NOTIFY_FUNCTION)GetProcAddress(mod, function.c_str());
 			if (!setup)
 				return false;
 
-			setup(ptr);
+			setup(ptr, search_pattern.size());
 		}
 
 		current_matches++;

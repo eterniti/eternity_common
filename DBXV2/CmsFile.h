@@ -15,7 +15,7 @@
 #endif
 
 #define XV2_FREE_ID_SEARCH_START 0x9F
-#define XV2_LAST_KNOWN_CMS  0xD0
+//#define XV2_LAST_KNOWN_CMS  0xD0
 //#define XV2_FREE_ID_SEARCH_START 0x6D
 
 // Low-level objects

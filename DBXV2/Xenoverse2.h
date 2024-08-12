@@ -17,6 +17,8 @@
 #include "IdbFile.h"
 #include "PalFile.h"
 #include "TnlFile.h"
+#include "IkdFile.h"
+#include "VlcFile.h"
 #include "Xv2SavFile.h"
 
 #include "PsaFile.h"
@@ -180,6 +182,10 @@ extern CnsFile *game_cns;
 
 extern ErsFile *game_ers;
 
+extern IkdFile *game_ikd_battle, *game_ikd_lobby;
+
+extern VlcFile *game_vlc;
+
 namespace Xenoverse2
 {
     void InitFs(const std::string &game_path);
@@ -229,7 +235,7 @@ namespace Xenoverse2
     bool InitShopText(int only_this_lang=-1);
 
     bool CommitCharaList(bool commit_slots, bool commit_iggy);
-    bool CommitSystemFiles(bool pup);
+    bool CommitSystemFiles(bool pup, bool ikd, bool vlc);
     bool CommitSelPort();
     bool CommitCharaNames();
     bool CommitCharaCostumeNames();

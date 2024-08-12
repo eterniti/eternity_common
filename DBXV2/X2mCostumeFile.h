@@ -118,6 +118,8 @@ public:
         return FindSuperSoul(buf);
     }
 
+    X2mSuperSoul *FindSuperSoulByIdb(uint16_t idb);
+
     void AddSuperSoul(const X2mSuperSoul &ss);
     void RemoveSuperSoul(const uint8_t *guid);
 

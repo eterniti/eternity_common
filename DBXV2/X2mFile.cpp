@@ -1512,6 +1512,12 @@ void X2mFile::Reset()
 
     chara_ss_depends.clear();
 
+    ikd_entries.clear();
+    vlc_entry = VlcEntry();
+    vlc_entry.cms_id = X2M_INVALID_ID;
+
+    invisible = false;
+
     skill_name.clear();
     skill_name.resize(XV2_LANG_NUM);
     skill_desc.clear();
@@ -2135,6 +2141,15 @@ check_myself:
                 dep_ids.insert(dep.id);
             }
         }
+
+        if (HasIkd())
+        {
+            if (ikd_entries.size() != num_costumes && ikd_entries.size() != num_costumes*2)
+            {
+                DPRINTF("%s: Number of IKD entries must be either 0, equal to number of costumes, or double of number of costumes (to enable lobby).\n", FUNCNAME);
+                return false;
+            }
+        }
     }
     else if (type == X2mType::NEW_SKILL)
     {
@@ -2499,6 +2514,11 @@ bool X2mFile::Decompile()
             Utils::WriteParamBoolean(root, "CAN_USE_ANY_DUAL_SKILL", true);
         }
 
+        if (invisible)
+        {
+            Utils::WriteParamBoolean(root, "INVISIBLE", true);
+        }
+
         for (size_t i = 0; i < XV2_LANG_NUM; i++)
         {
             const std::string &name = chara_name[i];
@@ -2685,6 +2705,22 @@ bool X2mFile::Decompile()
         for (const X2mDepends &dep : chara_ss_depends)
         {
             if (!dep.Decompile(root))
+                return false;
+        }
+
+        for (IkdEntry &entry : ikd_entries)
+        {
+            entry.cms_id = X2M_DUMMY_ID16;
+
+            if (!entry.Decompile(root))
+                return false;
+        }
+
+        if (vlc_entry.cms_id != X2M_INVALID_ID)
+        {
+            vlc_entry.cms_id = X2M_DUMMY_ID;
+
+            if (!vlc_entry.Decompile(root))
                 return false;
         }
     }
@@ -3043,6 +3079,15 @@ bool X2mFile::Compile()
             can_use_any_dual_skill = false;
         }
 
+        if (format_version >= X2M_MIN_VERSION_INVISIBLE && Utils::ReadParamBoolean(root, "INVISIBLE", &invisible))
+        {
+            // Nothing, already read
+        }
+        else
+        {
+            invisible = false;
+        }
+
         if (format_version >= X2M_MIN_VERSION_VFX_CHAR)
         {
             if (!Utils::ReadParamString(root, "CHAR_EEPK", char_eepk))
@@ -3343,7 +3388,23 @@ bool X2mFile::Compile()
                     return false;
 
                 cnc_entries.push_back(entry);
-            }            
+            }
+            else if (param_name == "IkdEntry" && format_version >= X2M_MIN_VERSION_IKD)
+            {
+                IkdEntry entry;
+
+                if (!entry.Compile(elem))
+                    return false;
+
+                ikd_entries.push_back(entry);
+            }
+            else if (param_name == "VlcEntry" && format_version >= X2M_MIN_VERSION_VLC)
+            {
+                if (!vlc_entry.Compile(elem))
+                    return false;
+
+                vlc_entry.cms_id = X2M_DUMMY_ID;
+            }
 
         } // End NEW_CHARACTER
         else if (type == X2mType::NEW_SKILL)
@@ -3582,7 +3643,12 @@ X2mFile *X2mFile::CreateDummyPackage()
     dummy->cnc_entries = cnc_entries;
     dummy->char_eepk = char_eepk;
 
+    dummy->ikd_entries = ikd_entries;
+    dummy->vlc_entry = vlc_entry;
+
     dummy->chara_ss_depends = chara_ss_depends;
+
+    dummy->invisible = invisible;
 
     dummy->skill_name = skill_name;
     dummy->skill_desc = skill_desc;
@@ -6183,6 +6249,9 @@ bool X2mFile::InstallSlots(bool update)
     if (type != X2mType::NEW_CHARACTER)
         return false;
 
+    if (invisible)
+        return true; // Yes, true
+
     UninstallCssAudio();
     installed_css_audio.clear();
     installed_css_cue.clear();
@@ -6240,6 +6309,9 @@ bool X2mFile::InstallSlots(const std::vector<size_t> &positions)
 {
     if (type != X2mType::NEW_CHARACTER)
         return false;
+
+    if (invisible)
+        return true; // Yes, true
 
     UninstallCssAudio();
     installed_css_audio.clear();
@@ -8366,6 +8438,141 @@ bool X2mFile::InstallCharVfx()
     return true;
 }
 
+bool X2mFile::FillIkdEntries()
+{
+    std::unordered_set<int32_t> costumes;
+    size_t i = 0;
+    size_t count = GetNumIkdEntries(false);
+
+    for (const X2mSlotEntry &slot : slot_entries)
+    {
+        if (costumes.find(slot.costume_index) == costumes.end())
+        {
+            costumes.insert(slot.costume_index);
+
+            if (i >= count)
+                return false;
+
+            ikd_entries[i].cms_id = cms_entry.id;
+            ikd_entries[i].costume_id = slot.costume_index;
+            i++;
+        }
+    }
+
+    if (!HasIkdLobby())
+        return (costumes.size() == count);
+
+    costumes.clear();
+    for (const X2mSlotEntry &slot : slot_entries)
+    {
+        if (costumes.find(slot.costume_index) == costumes.end())
+        {
+            costumes.insert(slot.costume_index);
+
+            if (i >= ikd_entries.size())
+                return false;
+
+            ikd_entries[i].cms_id = cms_entry.id;
+            ikd_entries[i].costume_id = slot.costume_index;
+            i++;
+        }
+    }
+
+    return (costumes.size() == count);
+}
+
+bool X2mFile::InstallIkd()
+{
+    if (type != X2mType::NEW_CHARACTER)
+        return false;
+
+    if (cms_entry.id == X2M_DUMMY_ID || cms_entry.id == X2M_INVALID_ID)
+    {
+        DPRINTF("%s: Internal error. InstallCms must be called before this!!!\n", FUNCNAME);
+        return false;
+    }
+
+    if (!HasIkd())
+    {
+        game_ikd_battle->RemoveAllReferencesToChar(cms_entry.id);
+        game_ikd_lobby->RemoveAllReferencesToChar(cms_entry.id);
+        return true;
+    }
+
+    if (!FillIkdEntries())
+    {
+        DPRINTF("%s: Fill ikd entries failed.\n", FUNCNAME);
+        return false;
+    }
+
+    size_t count = GetNumIkdEntries(false);
+    std::vector<IkdEntry *> existing;
+
+    if (game_ikd_battle->FindEntries(cms_entry.id, existing) == count)
+    {
+        for (size_t i = 0; i < count; i++)
+        {
+            *(existing)[i] = ikd_entries[i];
+        }
+    }
+    else
+    {
+        game_ikd_battle->RemoveAllReferencesToChar(cms_entry.id);
+
+        for (size_t i = 0; i < count; i++)
+        {
+            game_ikd_battle->AddEntry(ikd_entries[i]);
+        }
+    }
+
+    if (!HasIkdLobby())
+    {
+        game_ikd_lobby->RemoveAllReferencesToChar(cms_entry.id);
+        return true;
+    }
+
+    if (game_ikd_lobby->FindEntries(cms_entry.id, existing) == count)
+    {
+        for (size_t i = 0; i < count; i++)
+        {
+            *(existing)[i] = ikd_entries[count+i];
+        }
+    }
+    else
+    {
+        game_ikd_lobby->RemoveAllReferencesToChar(cms_entry.id);
+
+        for (size_t i = 0; i < count; i++)
+        {
+            game_ikd_lobby->AddEntry(ikd_entries[count+i]);
+        }
+    }
+
+    return true;
+}
+
+bool X2mFile::InstallVlc()
+{
+    if (type != X2mType::NEW_CHARACTER)
+        return false;
+
+    if (cms_entry.id == X2M_DUMMY_ID || cms_entry.id == X2M_INVALID_ID)
+    {
+        DPRINTF("%s: Internal error. InstallCms must be called before this!!!\n", FUNCNAME);
+        return false;
+    }
+
+    if (!HasVlc())
+    {
+        game_vlc->RemoveEntry(cms_entry.id);
+        return true;
+    }
+
+    vlc_entry.cms_id = cms_entry.id;
+    game_vlc->SetEntry(vlc_entry);
+    return true;
+}
+
 bool X2mFile::InstallSelPortrait()
 {
     if (type != X2mType::NEW_CHARACTER)
@@ -8736,6 +8943,9 @@ bool X2mFile::UninstallSlots()
 {
     if (type != X2mType::NEW_CHARACTER)
         return false;
+
+    if (invisible)
+        return true; // Yes, true
 
     if (slot_entries.size() == 0)
         return false;
@@ -9161,6 +9371,37 @@ bool X2mFile::UninstallCharVfx()
     return true;
 }
 
+bool X2mFile::UninstallIkd()
+{
+    if (type != X2mType::NEW_CHARACTER)
+        return false;
+
+    if (cms_entry.id == X2M_INVALID_ID)
+        return false;
+
+    if (cms_entry.id == X2M_DUMMY_ID)
+        return true; // Yes, true
+
+    game_ikd_battle->RemoveAllReferencesToChar(cms_entry.id);
+    game_ikd_lobby->RemoveAllReferencesToChar(cms_entry.id);
+    return true;
+}
+
+bool X2mFile::UninstallVlc()
+{
+    if (type != X2mType::NEW_CHARACTER)
+        return false;
+
+    if (cms_entry.id == X2M_INVALID_ID)
+        return false;
+
+    if (cms_entry.id == X2M_DUMMY_ID)
+        return true; // Yes, true
+
+    game_vlc->RemoveEntry(cms_entry.id);
+    return true;
+}
+
 bool X2mFile::UninstallSelPortrait()
 {
     if (type != X2mType::NEW_CHARACTER)
@@ -9342,7 +9583,7 @@ bool X2mFile::InstallAuraExtraSkill()
 
     for (X2mSkillAura &aura : skill_aura_entries)
     {
-        if ((int16_t)aura.data.aur_aura_id >= 0 && aura.extra.aur_id == X2M_INVALID_ID)
+        if ((int16_t)aura.data.aur_aura_id >= 0 && (uint32_t)aura.extra.aur_id == X2M_INVALID_ID)
         {
             aura.extra.aur_id = aura.data.aur_aura_id;
             game_prebaked->SetAuraExtra(aura.extra);

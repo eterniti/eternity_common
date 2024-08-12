@@ -506,6 +506,11 @@ private:
 
     std::vector<X2mDepends> chara_ss_depends;
 
+    std::vector<IkdEntry> ikd_entries;
+    VlcEntry vlc_entry;
+
+    bool invisible; // No slots
+
     // For skill
     std::vector<std::string> skill_name;
     std::vector<std::string> skill_desc;
@@ -569,6 +574,7 @@ private:
     bool FillPscEntries();
     bool FillAurEntries();
     bool FillCmlEntries();
+    bool FillIkdEntries();
 
     bool InstallDir(const std::string &in_path, const std::string &out_path);
     bool UninstallDir(const std::string &in_path, const std::string &out_path);
@@ -693,6 +699,9 @@ public:
     const float X2M_MIN_VERSION_IDB122 = 22.0f;
     const float X2M_MIN_VERSION_BLT_TEXT = 22.0f;
     const float X2M_MIN_VERSION_SUPERSOUL = 22.0f;
+    const float X2M_MIN_VERSION_INVISIBLE = 22.0f;
+    const float X2M_MIN_VERSION_IKD = 22.0f;
+    const float X2M_MIN_VERSION_VLC = 22.0f;
 
     X2mFile();
     virtual ~X2mFile() override;
@@ -1057,6 +1066,91 @@ public:
 
     bool IsCharaSsDependsReferenced(const X2mDepends &depends) const;
 
+    inline bool HasIkd() const { return (format_version >= X2M_MIN_VERSION_IKD && ikd_entries.size() > 0); }
+    inline bool HasIkdLobby() const { return HasIkd() && (ikd_entries.size() == 2*GetNumCostumes()); }
+
+    inline size_t GetNumIkdEntries(bool total) const
+    {
+        if (total || !HasIkdLobby())
+            return ikd_entries.size();
+
+        return (ikd_entries.size() / 2);
+    }
+
+    inline size_t GetNumIkdEntries() const { return ikd_entries.size(); }
+
+    inline const IkdEntry &GetIkdEntry(size_t idx, bool lobby) const
+    {
+        if (lobby)
+            idx += GetNumCostumes();
+
+        return ikd_entries[idx];
+    }
+    inline IkdEntry &GetIkdEntry(size_t idx, bool lobby)
+    {
+        if (lobby)
+            idx += GetNumCostumes();
+
+        return ikd_entries[idx];
+    }
+
+    inline size_t AddIkdEntry(const IkdEntry &entry, bool lobby)
+    {
+        if (lobby || !HasIkdLobby())
+        {
+            ikd_entries.push_back(entry);
+            return (ikd_entries.size()-1);
+        }
+
+        size_t pos = ikd_entries.size()/2;
+        ikd_entries.insert(ikd_entries.begin() + pos, entry);
+        return pos;
+    }
+
+    inline size_t AddIkdEntry(const IkdEntry &entry) { ikd_entries.push_back(entry); return (ikd_entries.size()-1); }
+
+    inline void RemoveIkdEntry(size_t idx, bool lobby)
+    {
+        if (lobby)
+            idx += GetNumCostumes();
+
+        ikd_entries.erase(ikd_entries.begin()+idx);
+    }
+
+    inline void EnableIkdLobby(bool enable)
+    {
+        if (enable)
+        {
+            if (HasIkdLobby())
+                return;
+
+            // Just duplicate
+            size_t num = ikd_entries.size();
+            for (size_t i = 0; i < num; i++)
+            {
+                ikd_entries.push_back(ikd_entries[i]);
+            }
+        }
+        else
+        {
+            if (!HasIkdLobby())
+                return;
+
+            size_t num = ikd_entries.size()/2;
+            for (size_t i = 0; i < num; i++)
+                ikd_entries.pop_back();
+        }
+    }
+
+    inline bool HasVlc() const { return format_version >= X2M_MIN_VERSION_VLC && vlc_entry.cms_id != X2M_INVALID_ID; }
+    inline void EnableVlc(bool enable) { vlc_entry.cms_id = (enable) ? X2M_DUMMY_ID : X2M_INVALID_ID; }
+
+    inline const VlcEntry &GetVlcEntry() const { return vlc_entry; }
+    inline VlcEntry &GetVlcEntry() { return vlc_entry; }
+
+    inline bool IsInvisible() const { return invisible; }
+    inline void SetInvisible(bool invisible) { this->invisible = invisible; }
+
     // Skill
     inline std::string GetSkillName(int lang) const
     {
@@ -1316,6 +1410,8 @@ public:
     bool InstallTtc();
     bool InstallCnc();
     bool InstallCharVfx();
+    bool InstallIkd();
+    bool InstallVlc();
     bool InstallSelPortrait();
     bool InstallPreBaked();    
 
@@ -1343,6 +1439,8 @@ public:
     bool UninstallTtc();
     bool UninstallCnc();
     bool UninstallCharVfx();
+    bool UninstallIkd();
+    bool UninstallVlc();
     bool UninstallSelPortrait();
     bool UninstallPreBaked();
 

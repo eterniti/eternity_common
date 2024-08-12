@@ -3795,7 +3795,7 @@ uint8_t *BacFile::Save(size_t *psize)
                 }
             }
         }
-    }
+    }    
 
     *psize = size;
     return buf;
@@ -3936,6 +3936,14 @@ size_t BacFile::ChangeReferencesToSkill(uint16_t old_skill, uint16_t new_skill)
                 if (t15.unk_10[1] == old_skill_float)
                 {
                     t15.unk_10[1] = new_skill_float;
+                    count++;
+                }
+            }
+            else if (t15.type == 0x4E)
+            {
+                if (t15.parameter == old_skill_float)
+                {
+                    t15.parameter = new_skill_float;
                     count++;
                 }
             }

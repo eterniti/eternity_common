@@ -58,6 +58,9 @@ TiXmlElement *CusAuraData::Decompile(TiXmlNode *root) const
 
     Utils::WriteParamUnsigned(entry_root, "BEHAVIOUR_64", behaviour_64, true);
 
+    if (golden_freezer_skin_bh)
+        Utils::WriteParamBoolean(entry_root, "GOLDEN_FREEZER_SKIN_BH", golden_freezer_skin_bh);
+
     root->LinkEndChild(entry_root);
     return entry_root;
 }
@@ -165,6 +168,9 @@ bool CusAuraData::Compile(const TiXmlElement *root)
 
     if (!Utils::ReadParamString(root, "BCS_ADDITIONAL_COLORS", bcs_additional_colors))
         bcs_additional_colors = "";
+
+    if (!Utils::ReadParamBoolean(root, "GOLDEN_FREEZER_SKIN_BH", &golden_freezer_skin_bh))
+        golden_freezer_skin_bh = false;
 
     return true;
 }

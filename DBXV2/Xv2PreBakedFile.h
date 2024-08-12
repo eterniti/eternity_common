@@ -38,6 +38,8 @@ struct CusAuraData
 
     uint8_t behaviour_64 = 0xFF;
 
+    bool golden_freezer_skin_bh;
+
     CusAuraData()
     {
         cus_aura_id = 0xFFFF;
@@ -52,6 +54,7 @@ struct CusAuraData
         remove_hair_accessories = 0xFF;
         bcs_hair_color = bcs_eyes_color = 0xFFFFFFFF;
         behaviour_64 = 0xFF;
+        golden_freezer_skin_bh = false;
     }
 
     TiXmlElement *Decompile(TiXmlNode *root) const;

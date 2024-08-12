@@ -45,6 +45,10 @@
 #define GAME_HCI_PATH   "data/ui/CharaImage/chara_image.hci"
 #define GAME_PSA_PATH   "data/system/parameter_spec_avater.psa"
 #define GAME_PUP_PATH   "data/system/powerup_parameter.pup"
+#define GAME_VLC_PATH   "data/system/vs_load_cam.vlc"
+
+#define GAME_IKD_BATTLE_PATH    "data/battle/chara_ik_data.ikd"
+#define GAME_IKD_LOBBY_PATH    "data/lobby/chara_ik_data.ikd"
 
 #define GAME_PREBAKED_PATH  "data/pre-baked.xml"
 
@@ -257,6 +261,9 @@ CncFile *game_cnc;
 CnsFile *game_cns;
 
 ErsFile *game_ers;
+
+IkdFile *game_ikd_battle, *game_ikd_lobby;
+VlcFile *game_vlc;
 
 //static std::string chasel_path, chalist_path;
 static bool multiple_hci_loaded = false;
@@ -802,15 +809,51 @@ bool Xenoverse2::InitSystemFiles(bool only_cms, bool multiple_hci)
         xv2fs->DecompileFile(game_stage_def, GAME_STAGE_DEF_PATH);
     }
 
+    if (game_ikd_battle)
+        delete game_ikd_battle;
+
+    game_ikd_battle = new IkdFile();
+    if (!xv2fs->LoadFile(game_ikd_battle, GAME_IKD_BATTLE_PATH))
+    {
+        DPRINTF("%s: cannot load battle ikd.\n", FUNCNAME);
+        delete game_ikd_battle; game_ikd_battle = nullptr;
+        return false;
+    }
+
+    if (game_ikd_lobby)
+        delete game_ikd_lobby;
+
+    game_ikd_lobby = new IkdFile();
+    if (!xv2fs->LoadFile(game_ikd_lobby, GAME_IKD_LOBBY_PATH))
+    {
+        DPRINTF("%s: cannot load lobby ikd.\n", FUNCNAME);
+        delete game_ikd_lobby; game_ikd_lobby = nullptr;
+        return false;
+    }
+
+    if (game_vlc)
+        delete game_vlc;
+
+    game_vlc = new VlcFile();
+    if (!xv2fs->LoadFile(game_vlc, GAME_VLC_PATH))
+    {
+        DPRINTF("%s: cannot load vlc.\n", FUNCNAME);
+        delete game_vlc; game_vlc = nullptr;
+        return false;
+    }
+
     return true;
 }
 
-bool Xenoverse2::CommitSystemFiles(bool pup)
+bool Xenoverse2::CommitSystemFiles(bool pup, bool ikd, bool vlc)
 {
     if (!xv2fs || !game_cms || !game_cus || !game_cso || !game_psc || !game_aur || !game_sev || !game_cml || !game_hci || !game_stage_def)
         return false;
 
     if (pup && !game_pup)
+        return false;
+
+    if (ikd && (!game_ikd_battle || !game_ikd_lobby))
         return false;
 
     if (multiple_hci_loaded)
@@ -867,16 +910,43 @@ bool Xenoverse2::CommitSystemFiles(bool pup)
         return false;
     }
 
-    if (!xv2fs->SaveFile(game_pup, GAME_PUP_PATH))
-    {
-        DPRINTF("Save of pup failed.\n");
-        return false;
-    }
-
     if (!xv2fs->DecompileFile(game_stage_def, GAME_STAGE_DEF_PATH))
     {
         DPRINTF("Save of stage_def failed.\n");
         return false;
+    }
+
+    if (pup)
+    {
+        if (!xv2fs->SaveFile(game_pup, GAME_PUP_PATH))
+        {
+            DPRINTF("Save of pup failed.\n");
+            return false;
+        }
+    }
+
+    if (ikd)
+    {
+        if (!xv2fs->SaveFile(game_ikd_battle, GAME_IKD_BATTLE_PATH))
+        {
+            DPRINTF("Save of battle ikd failed.\n");
+            return false;
+        }
+
+        if (!xv2fs->SaveFile(game_ikd_lobby, GAME_IKD_LOBBY_PATH))
+        {
+            DPRINTF("Save of lobby ikd failed.\n");
+            return false;
+        }
+    }
+
+    if (vlc)
+    {
+        if (!xv2fs->SaveFile(game_vlc, GAME_VLC_PATH))
+        {
+            DPRINTF("Save of vlc failed.\n");
+            return false;
+        }
     }
 
     return true;
@@ -4632,7 +4702,20 @@ bool Xenoverse2::CommitVfx()
 
 bool Xenoverse2::IsModCms(uint32_t cms_id)
 {
-    return (cms_id > XV2_LAST_KNOWN_CMS || (cms_id >= 0x9F && cms_id <= 0xC7));
+    //return (cms_id > XV2_LAST_KNOWN_CMS || (cms_id >= 0x9F && cms_id <= 0xC7));
+    // New implementation, better for the future (it may fail if someone mods the cpk, though)
+    static CmsFile *orig_cms = nullptr;
+    if (!orig_cms)
+    {
+        orig_cms = new CmsFile();
+        if (!xv2fs->LoadFile(orig_cms, GAME_CMS_PATH, true)) // Load cpk one
+        {
+            delete orig_cms; orig_cms = nullptr;
+            return false;
+        }
+    }
+
+    return (orig_cms->FindEntryByID(cms_id) == nullptr);
 }
 
 bool Xenoverse2::InitShopText(int only_this_lang)

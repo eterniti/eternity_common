@@ -383,6 +383,17 @@ X2mSuperSoul *X2mCostumeFile::FindSuperSoul(const uint8_t *guid)
     return nullptr;
 }
 
+X2mSuperSoul *X2mCostumeFile::FindSuperSoulByIdb(uint16_t idb)
+{
+    for (X2mSuperSoul &ss : super_souls)
+    {
+        if (ss.idb_id == idb)
+            return &ss;
+    }
+
+    return nullptr;
+}
+
 void X2mCostumeFile::AddSuperSoul(const X2mSuperSoul &ss)
 {
     X2mSuperSoul *existing = FindSuperSoul(ss.guid);

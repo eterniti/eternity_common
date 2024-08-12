@@ -266,7 +266,7 @@ bool PupFile::Compile(TiXmlDocument *doc, bool)
 
     if (!root)
     {
-        DPRINTF("Cannot find\"PUP\" in xml.\n");
+        DPRINTF("%s: Cannot find\"PUP\" in xml.\n", FUNCNAME);
         return false;
     }
 
