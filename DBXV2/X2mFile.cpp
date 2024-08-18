@@ -6028,7 +6028,7 @@ bool X2mFile::AssignSkillIds()
         return false;
     }
 
-    uint16_t desired_lower_limit = 0;
+    uint16_t desired_lower_limit = 0xFFFF;
     if (type == CUS_SKILL_TYPE_BLAST && blast_ss_intended)
     {
         desired_lower_limit = 2000;
