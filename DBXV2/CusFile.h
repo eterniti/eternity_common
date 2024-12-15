@@ -76,10 +76,10 @@ STATIC_ASSERT_STRUCT(CUSSkillSet, 0x20);
 struct CUSSkill
 {
     char name[4];
-    uint32_t unk_04; // Check for 0
+    uint32_t unk_04; // Check for 0 - It seems this is actually part of the name, e.g. char name[8]; even if no vanilla skill uses more than 3 chars + '\0'
     uint16_t id; // 8
     uint16_t id2; // 0xA
-    uint8_t race_lock; // 0xC
+    uint8_t race_lock; // 0xC - Race lock, type and unk_0E is the same uint32_t for the game.
     uint8_t type; // 0xD
     uint16_t unk_0E;
     uint16_t partset; // 0x10

@@ -66,6 +66,7 @@ namespace PatchUtils
 #endif
 
 	bool HookResolveTarget(void *call_addr, void **orig, void *new_addr, bool expect_call=true);
+	void HookVirtual(void *obj, size_t ofs, void **orig, void *new_addr);
 
 #ifdef CPU_X86_64
 
@@ -76,12 +77,16 @@ namespace PatchUtils
     bool SetMemoryBreakpoint(void *addr, size_t len, MemoryBreakpointHandler handler);
 	bool UnsetMemoryBreakpoint(void *addr, size_t len);
 	
+	bool SetGenericDebugMemoryBreakPoint(void *addr, size_t len, const std::string &name, bool only_once_per_pc);
+	
 #ifdef CPU_X86_64 
 
 	uintptr_t InvokeRegisterFunction(uintptr_t address, uintptr_t rcx=0, uintptr_t rdx=0, uintptr_t r8=0, uintptr_t r9=0, const char *mod=nullptr);
 	uintptr_t InvokeVirtualRegisterFunction(void *obj, size_t ofs, uintptr_t rdx=0, uintptr_t r8=0, uintptr_t r9=0);
 
 #endif
+
+	void *GetVirtualFunction(void *obj, size_t ofs);
 }
 
 #endif

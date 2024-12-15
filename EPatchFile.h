@@ -50,7 +50,8 @@ enum LogParamType
     LOG_PARAM_TYPE_CSTR,
     LOG_PARAM_TYPE_WSTR,    
 	LOG_PARAM_TYPE_VCSTR,
-	LOG_PARAM_TYPE_PTR,
+	LOG_PARAM_TYPE_VCVECTORU32,
+	LOG_PARAM_TYPE_PTR,	
     LOG_PARAM_TYPE_MAX
 };
 
@@ -139,7 +140,7 @@ private:
     void AddLogPatch();
     static EPatch *FindLogPatch(void *addr);
 
-    void LogParam(size_t param, int index);
+    void LogParam(size_t param, int index, std::string &buf);
 
 #define CALLING_CONVENTION			__cdecl
 #define SUFFIX_CONVENTION				

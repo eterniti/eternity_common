@@ -114,6 +114,10 @@ static std::string DlcToString(uint64_t dlc)
             ret = "Dlc_17";
          break;
 
+        case 0x80000000000ULL:
+            ret = "Dlc_18";
+         break;
+
         default:
             DPRINTF("%s: Unknown dlc 0x%016I64X.\n", FUNCNAME, dlc);
     }
@@ -169,6 +173,8 @@ static uint64_t StringToDlc(const std::string &dlc)
         return 0x4000000000ULL;
     else if (dlc == "Dlc_17")
         return 0x20000000000ULL;
+    else if (dlc == "Dlc_18")
+        return 0x80000000000ULL;
     else
     {
         DPRINTF("%s: Unknown DLC: %s\n", FUNCNAME, dlc.c_str());
@@ -372,9 +378,9 @@ bool Xv2PatcherSlotsFile::LoadFromCst(const uint8_t *buf, size_t size, const uin
         if (entry->is_custom_costume)
             continue;
 
-        /*if (entry->unk_30 != 0)
+        /*if (entry->unk_28 != 0)
         {
-            DPRINTF("%s:%d\n", entry->code, entry->unk_30);
+           DPRINTF("%s_%d_%d:%d\n", entry->code, entry->costume_index, entry->model_preset, entry->unk_28);
         }*/
 
         // Some GOK entries at end of 1.10, but before the "HUM" for the other cacs

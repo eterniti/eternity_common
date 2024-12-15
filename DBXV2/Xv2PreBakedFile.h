@@ -5,7 +5,9 @@
 #include <map>
 #include "BaseFile.h"
 
-#define BEHAVIOUR_MAX	0x21
+#define BEHAVIOUR_MAX	0x22
+#define DEFAULT_DESTRUCTION_DAMAGE  650
+#define DEFAULT_DESTRUCTION_TIME    3000
 
 struct BodyShape
 {
@@ -106,6 +108,46 @@ struct AuraExtraData
     bool Compile(const TiXmlElement *root);
 };
 
+struct DestructionLevelMap
+{
+    std::unordered_map<uint64_t, std::vector<uint32_t>> map;
+
+    float damage;
+    uint32_t time;
+    bool is_percentage;
+};
+
+struct DestructionLevel
+{
+    std::string map_in;
+    std::string map_out;
+
+    uint32_t damage;
+    uint32_t time;
+    bool percentage;
+
+    DestructionLevel()
+    {
+        damage = DEFAULT_DESTRUCTION_DAMAGE;
+        time = DEFAULT_DESTRUCTION_TIME;
+        percentage = false;
+    }
+
+    bool CompileMap(DestructionLevelMap *m) const;
+
+    TiXmlElement *Decompile(TiXmlNode *root) const;
+    bool Compile(const TiXmlElement *root);
+};
+
+struct DestructionLevelSet
+{
+    uint32_t cms_id;
+    std::vector<DestructionLevel> levels;
+
+    TiXmlElement *Decompile(TiXmlNode *root) const;
+    bool Compile(const TiXmlElement *root);
+};
+
 class Xv2PreBakedFile : public BaseFile
 {
 private:
@@ -119,6 +161,7 @@ private:
     std::vector<uint32_t> any_dual_skill_list;
     std::unordered_map<uint32_t, BcsColorsMap> colors_map;
     std::map<int32_t, AuraExtraData> aura_extra_map;
+    std::map<uint32_t, DestructionLevelSet> destruction_map;
 
 protected:
 
@@ -158,6 +201,9 @@ public:
 
     inline const std::map<int32_t, AuraExtraData> &GetAuraExtraMap() const { return aura_extra_map; }
     inline std::map<int32_t, AuraExtraData> &GetAuraExtraMap() { return aura_extra_map; }
+
+    inline const std::map<uint32_t, DestructionLevelSet> &GetDestructionMap() const { return destruction_map; }
+    inline std::map<uint32_t, DestructionLevelSet> &GetDestructionMap() { return destruction_map; }
 
     void AddOzaru(const std::string &ozaru);
     void RemoveOzaru(const std::string &ozaru);
@@ -219,6 +265,19 @@ public:
         {
             aura_extra_map.erase(it);
         }
+    }
+
+    inline void SetDestruction(uint32_t cms_id, const std::vector<DestructionLevel> &levels)
+    {
+        DestructionLevelSet set;
+        set.cms_id = cms_id;
+        set.levels = levels;
+        destruction_map[cms_id] = set;
+    }
+
+    inline void RemoveDestruction(uint32_t cms_id)
+    {
+        destruction_map.erase(cms_id);
     }
 };
 

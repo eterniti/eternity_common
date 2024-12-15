@@ -1,7 +1,7 @@
 #include "RdbFile.h"
 #include "DOA6/RnkFile.h"
 
-#include "MemoryStream.h"
+#include "FixedMemoryStream.h"
 #include "debug.h"
 
 //#define OPPW4
@@ -80,6 +80,14 @@ static const std::unordered_map<int, std::string> files_extensions
     { 0xed410290, ".kts" },
     { 0x82945a44, ".lsqtree" },
     { 0xf13845ef, ".sclshape" },
+
+    // Fairy Tail 2
+    { 0x5b2970fc, ".ktf2" },
+    { 0x32ac9403, ".g1fpose" },
+    { 0x133d2c3b, ".sid" },
+    { 0x2bcc0c02, ".g1frani" },
+    { 0x6dbd6ea6, ".mit" },
+    { 0x1a6300fd, ".g1es" },
 };
 
 RdbFile::RdbFile()
@@ -296,43 +304,89 @@ bool RdbFile::LoadAndBuildMap(const uint8_t *buf, size_t size, std::vector<RDBEn
             DPRINTF("Flags %08X at %Ix", entry->flags, (size_t)Utils::DifPointer64(entry, buf));
         }*/
 
-        // Actually can check flags & RDB_FILE_EXTERNAL too
-        if (entry->c_size == 0)
+        bool add = true;
+        if (!IsRdxMode())
         {
-            new_entry.external = true;
+            // Actually can check flags & RDB_FILE_EXTERNAL too
+            if (entry->c_size == 0)
+            {
+                new_entry.external = true;
+            }
+            else
+            {
+                const char *address = (const char *)(p + address_offset);
+                //DPRINTF("%s\n", address);
+
+                if ((const uint8_t *)address >= end)
+                    break;
+
+
+                new_entry.address = address;
+
+                if (!decode_file_address(new_entry.address,  &new_entry.offset, &new_entry.size, &new_entry.index1, &new_entry.index2))
+                {
+                    DPRINTF("Cannot decode address %s at %Ix\n", address, (size_t)Utils::DifPointer64(entry, buf));
+                    return false;
+                }
+
+                new_entry.bin_file = ".bin";
+
+                if (new_entry.index1 != -1)
+                    new_entry.bin_file += Utils::UnsignedToString(new_entry.index1, false);
+
+                if (new_entry.index2 != -1)
+                {
+                    new_entry.bin_file.push_back('_');
+                    new_entry.bin_file += Utils::UnsignedToString(new_entry.index2, false);
+                }
+
+                bin_files_list.insert(new_entry.bin_file);
+            }
         }
         else
         {
-            const char *address = (const char *)(p + address_offset);
-            //DPRINTF("%s\n", address);
+            // Rdx mode (Fairy tail 2)
+            // Welcome to a world where it is difficult to tell between external and internal files *sigh*
+            new_entry.is_new_format = true;
 
-            if ((const uint8_t *)address >= end)
-                break;
-
-
-            new_entry.address = address;
-
-            if (!decode_file_address(new_entry.address,  &new_entry.offset, &new_entry.size, &new_entry.index1, &new_entry.index2))
+            if (entry->c_size != 0xD)
             {
-                DPRINTF("Cannot decode address %s at %Ix\n", address, (size_t)Utils::DifPointer64(entry, buf));
-                return false;
+               // These files are neither in the .fdata nor in the data folder
+               add = false;
             }
-
-            new_entry.bin_file = ".bin";
-
-            if (new_entry.index1 != -1)
-                new_entry.bin_file += Utils::UnsignedToString(new_entry.index1, false);
-
-            if (new_entry.index2 != -1)
+            else
             {
-                new_entry.bin_file.push_back('_');
-                new_entry.bin_file += Utils::UnsignedToString(new_entry.index2, false);
-            }
+                const RDBEntryEx *entry_ex = (const RDBEntryEx *)GetOffsetPtr(entry, entry->entry_size-0xD, true);
 
-            bin_files_list.insert(new_entry.bin_file);
+                if (entry_ex->flags == 0x401)
+                {
+                    new_entry.external = false;
+                    new_entry.offset = entry_ex->fdata_offset;
+                }
+                else if (entry_ex->flags == 0xC01)
+                {
+                    new_entry.external = true;
+                }
+                else
+                {
+                    DPRINTF("%s: Unknown extended flags 0x%04x for file 0x%08x\n", FUNCNAME, entry_ex->flags, entry->file_id);
+                }
+
+                new_entry.fdata_id = entry_ex->file_id;
+                auto it = rdx_map.find(entry_ex->file_id);
+                if (it != rdx_map.end())
+                {
+                    new_entry.fdata_hash = it->second;
+                }
+                else if (!new_entry.external)
+                {
+                    DPRINTF("%s: Warning, file_id 0x%x not found in rdx map.\n", FUNCNAME, new_entry.fdata_id);
+                }
+            }
         }
 
-        entries.push_back(new_entry);
+        if (add)
+            entries.push_back(new_entry);
         p += entry->entry_size;
     }
 
@@ -639,14 +693,153 @@ std::string RdbFile::GetExternalPath(size_t idx) const
     return Utils::MakePathString(dir, "data/" + Utils::UnsignedToHexString(entry.file_id, true) + ".file");
 }
 
+bool RdbFile::ExtractFileFData(const RdbEntry &entry, Stream *out, bool omit_external_error, bool external_error_is_success)
+{
+    RDBEntry fentry;
+
+    FileStream in("rb");
+
+    std::string in_path = Utils::MakePathString(base_path, Utils::UnsignedToHexString(entry.fdata_hash, true) + ".fdata");
+    if (!Utils::FileExists(in_path))
+    {
+        in_path = Utils::MakePathString(base_path, "jaJP/" + Utils::UnsignedToHexString(entry.fdata_hash, true) + ".fdata");
+    }
+
+    if (!in.LoadFromFile(in_path, !omit_external_error))
+        return external_error_is_success;
+
+    if (!in.Seek(entry.offset, SEEK_SET))
+    {
+        if (!omit_external_error)
+            DPRINTF("%s: Seek to 0x%I64x failed.\n", FUNCNAME, entry.offset);
+
+        return external_error_is_success;
+    }
+
+    if (!in.Read(&fentry, sizeof(RDBEntry)))
+    {
+        if (!omit_external_error)
+            DPRINTF("%s: Read of entry failed.\n", FUNCNAME);
+
+        return external_error_is_success;
+    }
+
+    if (memcmp(fentry.signature, RDB_ENTRY_SIGNATURE, 4) != 0)
+    {
+        if (!omit_external_error)
+            DPRINTF("%s: Invalid signature (offset 0x%I64x).\n", FUNCNAME, in.Tell());
+
+        return external_error_is_success;
+    }
+
+    uint64_t pos = entry.offset + (fentry.entry_size-fentry.c_size);
+    if (!in.Seek(pos, SEEK_SET))
+    {
+        if (!omit_external_error)
+            DPRINTF("%s: Failed to seek to pos 0x%I64x\n", FUNCNAME, pos);
+
+        return external_error_is_success;
+    }
+
+    uint8_t *ubuf = new uint8_t[fentry.file_size];
+
+    if (fentry.file_size == fentry.c_size) // Assume uncompressed
+    {
+        if (!in.Read(ubuf, fentry.file_size))
+        {
+            delete[] ubuf;
+
+            if (!omit_external_error)
+                DPRINTF("%s: Failed to read uncompressed file.\n", FUNCNAME);
+
+            return external_error_is_success;
+        }
+    }
+    else
+    {
+        uint8_t *cbuf = new uint8_t[fentry.c_size];
+        if (!in.Read(cbuf, fentry.c_size))
+        {
+            delete[] cbuf;
+            delete[] ubuf;
+
+           if (!omit_external_error)
+                    DPRINTF("%s: Failed to read compressed file.\n", FUNCNAME);
+
+            return external_error_is_success;
+        }
+
+        uint32_t current_size = 0, capacity = (uint32_t)fentry.file_size;
+        uint8_t *ptr = ubuf;
+        FixedMemoryStream mem(cbuf, fentry.c_size);
+
+        uint16_t chunk_size;
+        while (current_size < (uint32_t)fentry.file_size && mem.Read16(&chunk_size))
+        {
+            if (!mem.Seek(8, SEEK_CUR)) // Is this a hash/checksum?
+            {
+                DPRINTF("%s: premature end of compressed file. Read 0x%x from 0x%I64x.\n", FUNCNAME, current_size, fentry.file_size);
+                delete[] cbuf;
+                delete[] ubuf;
+                return false;
+            }
+
+            uint8_t *cchunk;
+            if (!mem.FastRead(&cchunk, chunk_size))
+            {
+                DPRINTF("%s: premature end of compressed file(2). Read 0x%x from 0x%I64x.\n", FUNCNAME, current_size, fentry.file_size);
+                delete[] cbuf;
+                delete[] ubuf;
+                return false;
+            }
+
+            uint32_t this_size = capacity;
+            if (!Utils::UncompressZlib(ptr, &this_size, cchunk, chunk_size))
+            {
+                DPRINTF("%s: UncompressZlib failed.\n", FUNCNAME);
+                delete[] cbuf;
+                delete[] ubuf;
+                return false;
+            }
+
+            ptr += this_size;
+            current_size += this_size;
+        }
+
+        delete[] cbuf;
+
+        if (current_size != (uint32_t)fentry.file_size)
+        {
+            DPRINTF("%s: Couldn't read whole compressed file 0x%x != 0x%I64x.\n", FUNCNAME, current_size, fentry.file_size);
+            delete[] ubuf;
+            return false;
+        }
+    }
+
+    bool ret = out->Write(ubuf, fentry.file_size);
+    delete[] ubuf;
+
+    if (!ret)
+    {
+        if (!omit_external_error)
+            DPRINTF("%s: Failed to write file.\n", FUNCNAME);
+
+        return external_error_is_success;
+    }
+
+    return true;
+}
+
 bool RdbFile::ExtractFile(size_t idx, Stream *out, bool omit_external_error, bool external_error_is_success)
 {
-    FileStream *stream;
+    FileStream *stream;    
 
     if (idx >= entries.size())
         return false;
 
     const RdbEntry &entry = entries[idx];
+    if (!entry.external && IsRdxMode())
+        return ExtractFileFData(entry, out, omit_external_error, external_error_is_success);
 
     if (entry.external)
     {
@@ -1480,4 +1673,76 @@ bool RdbFile::IsScreenLayout() const
 bool RdbFile::IsSequenceEditor() const
 {
     return (FindFileByID(0x45835957) != (size_t)-1);
+}
+
+bool RdbFile::SetRdxMode(const std::string &rdx_path, const std::string &base_path)
+{
+    rdx_entries.clear();
+
+    size_t size;
+    uint8_t *buf = Utils::ReadFile(rdx_path, &size);
+    if (!buf)
+        return false;
+
+    rdx_entries.resize(size / sizeof(RDXEntry));
+    memcpy(rdx_entries.data(), buf, size);
+
+    for (const RDXEntry &entry : rdx_entries)
+    {
+        rdx_map[entry.file_id] = entry.filename_hash;
+    }
+
+    this->base_path = base_path;
+    return true;
+}
+
+bool RdbFile::GetNewFormatData(size_t idx, std::string &pkg) const
+{
+    if (idx >= entries.size())
+        return false;
+
+    const RdbEntry &entry = entries[idx];
+    if (!entry.is_new_format)
+        return false;
+
+    if (entry.external)
+    {
+        pkg =  Utils::MakePathString(base_path, "data/" + Utils::UnsignedToHexString(entry.file_id, true) + ".file");
+        return Utils::FileExists(pkg);
+    }
+    else
+    {
+        pkg = Utils::MakePathString(base_path, Utils::UnsignedToHexString(entry.fdata_hash, true) + ".fdata");
+        /*FileStream f;
+
+        if (!f.LoadFromFile(pkg, false))
+            return false;
+
+        if (!f.Seek(entry.offset, SEEK_SET))
+        {
+            //DPRINTF("Mehhhh file_id=0x%x, offset=0x%I64x\n", entry.file_id, entry.offset);
+            return false;
+        }
+
+        if (entry.offset & 0xF)
+        {
+            //DPRINTF("Booooh file_id=0x%x, offset=0x%I64x\n", entry.file_id, entry.offset);
+            return false;
+        }
+
+        RDBEntry idrk;
+        if (!f.Read(&idrk, sizeof(idrk)))
+        {
+            //DPRINTF("Bah file_id=0x%x, offset=0x%I64x\n", entry.file_id, entry.offset);
+            return false;
+        }
+
+        if (memcmp(idrk.signature, RDB_ENTRY_SIGNATURE, 4) != 0)
+        {
+            DPRINTF("Bleh file_id=0x%x, offset=0x%I64x, pkg=%s\n", entry.file_id, entry.offset, pkg.c_str());
+            return false;
+        }*/
+    }
+
+    return true;
 }

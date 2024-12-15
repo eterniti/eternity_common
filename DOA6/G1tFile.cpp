@@ -317,6 +317,7 @@ static void get_pb_size(int g1t_fmt, size_t *point_size, size_t *block_size)
 G1tFile::G1tFile()
 {
     this->big_endian = false;
+    this->disable_format_warnings = false;
 }
 
 G1tFile::~G1tFile()
@@ -432,7 +433,7 @@ bool G1tFile::Load(const uint8_t *buf, size_t size)
         memcpy(textures[i].image_data.data(), tex_buf, textures[i].image_data.size());
     }
 
-    if (unk_data.size() > 0)
+    if (unk_data.size() > 0 && !disable_format_warnings)
     {
         DPRINTF("Warning: this g1t may be a cubemap, which is not supported.\n"
                 "Writing to this .g1t may corrupt it.\n");
@@ -442,7 +443,7 @@ bool G1tFile::Load(const uint8_t *buf, size_t size)
     {
         for (size_t i = 0; i < textures.size(); i++)
         {
-            if (IsArrayTexture(i))
+            if (IsArrayTexture(i) && !disable_format_warnings)
             {
                 DPRINTF("Warning: this g1t uses multiple textures, where at least one of them is also an array texture, this is currently not supported.\n"
                         "A write operation may corrupt mipmaps or not update them.\n");

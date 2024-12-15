@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string>
 
 #define DPRINTF		DebugPrintf
 #define UPRINTF		UserPrintf
@@ -15,9 +16,11 @@
 #ifdef _MSC_VER
 #define FORMAT_PRINTF
 #define FORMAT_PRINTF2
+#define FORMAT_PRINTF3
 #else
 #define FORMAT_PRINTF __attribute__ ((format (printf, 1, 2)))
 #define FORMAT_PRINTF2 __attribute__ ((format (printf, 2, 3)))
+#define FORMAT_PRINTF3 __attribute__ ((format (printf, 3, 4)))
 #endif
 
 typedef void (* RedirectFunc)(const char *s);
@@ -240,5 +243,6 @@ static void __forceinline DumpStackTrace1(void)
 }
 
 void PrintStackTrace(uint8_t level);
+void PrintStackTrace(uint8_t level, std::string &buf);
 
 #endif

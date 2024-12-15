@@ -5,8 +5,8 @@
 
 #define QSF_PATH    "data/system/QuestSort.qsf"
 
-#define MAX_PQ  192
-#define MAX_EQ  96
+#define MAX_PQ  191
+#define MAX_EQ  95
 
 static const std::vector<int> start_new_quest_id_search =
 {
@@ -797,6 +797,7 @@ static const std::unordered_map<int, std::string> update_to_constant =
     { QXD_UPDATE_DLC16, "DLC16" },
     { QXD_UPDATE_GBB, "GBB" },
     { QXD_UPDATE_DLC17, "DLC17" },
+    { QXD_UPDATE_DLC18, "DLC18" },
     { QXD_UPDATE_DEVELOPER, "DEVELOPER" }
 };
 
@@ -826,6 +827,7 @@ static const std::unordered_map<ci_string, int, CIStrHash> constant_to_update =
     { "DLC16", QXD_UPDATE_DLC16 },
     { "GBB", QXD_UPDATE_GBB },
     { "DLC17", QXD_UPDATE_DLC17 },
+    { "DLC18", QXD_UPDATE_DLC18 },
     { "DEVELOPER", QXD_UPDATE_DEVELOPER }
 };
 
@@ -849,6 +851,7 @@ static const std::unordered_map<int, std::string> dlc_to_constant =
     { QXD_DLC_DLC15, "DLC15" },
     { QXD_DLC_DLC16, "DLC16" },
     { QXD_DLC_DLC17, "DLC17" },
+    { QXD_DLC_DLC18, "DLC18" },
 };
 
 static const std::unordered_map<ci_string, int, CIStrHash> constant_to_dlc =
@@ -871,6 +874,7 @@ static const std::unordered_map<ci_string, int, CIStrHash> constant_to_dlc =
     { "DLC15", QXD_DLC_DLC15 },
     { "DLC16", QXD_DLC_DLC16 },
     { "DLC17", QXD_DLC_DLC17 },
+    { "DLC18", QXD_DLC_DLC18 },
 };
 
 static const std::unordered_map<int, std::string> ai_to_constant =
@@ -1225,6 +1229,10 @@ static const std::unordered_map<ci_string, int, CIStrHash> constant_to_stats2 =
 
 static const std::vector<InstructionDef> instructions_defs =
 {
+    // Corrected versions of past mistakes go on top, with a different name
+    { QED_COND_UNK_65, "Unk65_", false, { PARAM_INTEGER, PARAM_INTEGER, PARAM_INTEGER } },
+
+    //
     { QED_COND_NEVER, "Never", false, { } },
     { QED_COND_ALWAYS, "Always", false, { } },
     { QED_COND_ALWAYS_, "Always_", false, { } },
@@ -1272,6 +1280,7 @@ static const std::vector<InstructionDef> instructions_defs =
     { QED_COND_TEACHER_DIALOGUE_FINISH, "TeacherDialogueFinish", false, { PARAM_INTEGER } },
     { QED_COND_CURRENT_PARTNER_IS, "PartnerIs", false, { PARAM_PARTNER } },
     { QED_COND_UNK_61, "Unk61", false, { PARAM_INTEGER } },
+    { QED_COND_UNK_66, "Unk66", false, { PARAM_INTEGER } },
     { QED_ACT_REGISTER_ACTOR_FOR_DEMO, "RegisterActorForDemo", true, { PARAM_QCHAR} },
     { QED_ACT_UNK_22, "Unk22", true, { PARAM_BOOLEAN } },
     { QED_ACT_GOTO_STATE, "GotoState", true, { PARAM_INTEGER } },
@@ -1364,6 +1373,7 @@ static const std::vector<InstructionDef> instructions_defs =
     { QED_COND_UNK_60, "Unk60", false, { PARAM_BOOLEAN, PARAM_INTEGER, PARAM_INTEGER } },
     { QED_COND_UNK_63, "Unk63", false, { PARAM_INTEGER, PARAM_BOOLEAN, PARAM_FLOAT } },
     { QED_ACT_PLAY_BGM, "PlayBgm", true, { PARAM_INTEGER, PARAM_INTEGER, PARAM_INTEGER } },
+    { QED_ACT_PLAY_BGM2, "PlayBgm2", true, { PARAM_INTEGER, PARAM_INTEGER, PARAM_INTEGER } },
     { QED_ACT_STOP_BGM, "StopBgm", true, { PARAM_BOOLEAN, PARAM_INTEGER, PARAM_INTEGER } }, // Set boolean to false
     { QED_ACT_UNK_9, "Unk9", true, { PARAM_INTEGER, PARAM_INTEGER, PARAM_BOOLEAN } },
     { QED_ACT_HEALTH_CAP, "HealthCap", true, { PARAM_BOOLEAN, PARAM_QCHAR, PARAM_FLOAT } },
@@ -8841,6 +8851,14 @@ bool Xv2QuestCompiler::CompileQuestStruct()
 
             if (SupportsAudio())
             {
+                // 1.23: a lot of the files for EVT have ceased to exist (only amk remains). They were probably dummy files anyway
+                if (compiled_quest.name.substr(0, 4) == "EVT_")
+                {
+                    const std::string apath = Utils::MakePathString("data/sound/VOX/Quest", GetAudioFile(compiled_quest.name, compiled_quest.episode, compiled_quest.flags, false));
+                    if (!xv2fs->FileExists(apath + ".acb"))
+                        return true;
+                }
+
                 /* Some exception code becuse of dummys acb
                  * In the future, re-check if this workaround is still needed
                    May as well give the acb parser support for these */
@@ -8851,7 +8869,7 @@ bool Xv2QuestCompiler::CompileQuestStruct()
                     //DPRINTF("%d %d\n", (uint32_t)size, xv2fs->FileExists(apath + ".awb"));
                     if (size < 5000 && !xv2fs->FileExists(apath + ".awb")) // a bit arbitrary...
                         return true;
-                }
+                }               
 
                 if (!LoadDialogueAudio(compiled_quest.name, compiled_quest.episode, compiled_quest.flags))
                     return false;
@@ -11782,18 +11800,33 @@ bool Xv2QuestCompiler::CompileQuest(const std::string &qstr, const std::string &
             else
             {
                 //DPRINTF("adding quest %s\n", compiled_quest.name.c_str());
-                active_qxd.AddQuest(compiled_quest, start_new_quest_id_search[quest_type]);
+                int limit = 0x7FFFFFFF;
+                if (quest_type == QUEST_TYPE_TMQ)
+                    limit = MAX_PQ;
+                else if (quest_type == QUEST_TYPE_HLQ)
+                    limit = MAX_EQ;
 
-                if (quest_type == QUEST_TYPE_TMQ && compiled_quest.id >= MAX_PQ)
+                bool ret = active_qxd.AddQuest(compiled_quest, start_new_quest_id_search[quest_type], limit);
+
+                if (!ret)
                 {
-                    DPRINTF("Overflow, only %d parallel quests allowed on the system.\n", MAX_PQ);
+                    if (quest_type == QUEST_TYPE_TMQ && compiled_quest.id >= MAX_PQ)
+                    {
+                        DPRINTF("Overflow, only %d parallel quests allowed on the system.\n", MAX_PQ);
+                    }
+                    else if (quest_type == QUEST_TYPE_HLQ && compiled_quest.id >= MAX_EQ)
+                    {
+                        DPRINTF("Overflow, only %d expert quests allowed on the system.\n", MAX_EQ);
+                    }
+                    else
+                    {
+                        DPRINTF("Failed to add quest (unknown reasons)\n");
+                    }
+
                     return false;
                 }
-                else if (quest_type == QUEST_TYPE_HLQ && compiled_quest.id >= MAX_EQ)
-                {
-                    DPRINTF("Overflow, only %d expert quests allowed on the system.\n", MAX_EQ);
-                    return false;
-                }
+
+                //DPRINTF("Assigned quest id 0x%x\n", compiled_quest.id);
 
                 if (self_reference_parent)
                 {
@@ -11953,6 +11986,39 @@ bool Xv2QuestCompiler::CompileQuest(const std::string &qstr, const std::string &
         return false;
     }
 
+    return true;
+}
+
+bool Xv2QuestCompiler::RemoveQuestEntry(const std::string &quest_name, bool fail_if_not_exists)
+{
+    Reset();
+
+    quest_type = GetQuestType(quest_name);
+    if (quest_type < 0)
+    {
+        DPRINTF("%s: Unknown quest type for \"%s\"\n", FUNCNAME, quest_name.c_str());
+        return false;
+    }
+
+    if (!LoadActiveQxd())
+    {
+        DPRINTF("%s: Failed to load active qxd (quest_type=%d)\n", FUNCNAME, quest_type);
+        return false;
+    }
+
+    QxdQuest *quest = active_qxd.FindQuestByName(quest_name);
+    if (!quest)
+    {
+        if (fail_if_not_exists)
+        {
+            DPRINTF("%s: Cannot find quest \"%s\"\n", FUNCNAME, quest_name.c_str());
+            return false;
+        }
+
+        return true;
+    }
+
+    active_qxd.RemoveQuest(quest->id, true);
     return true;
 }
 

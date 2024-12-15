@@ -509,6 +509,8 @@ private:
     std::vector<IkdEntry> ikd_entries;
     VlcEntry vlc_entry;
 
+    std::vector<DestructionLevel> des_levels;
+
     bool invisible; // No slots
 
     // For skill
@@ -654,7 +656,7 @@ protected:
 
 public:
 
-    const float X2M_CURRENT_VERSION = 22.0f;
+    const float X2M_CURRENT_VERSION = 23.0f;
 
     const float X2M_MIN_VERSION_CSO = 2.0f;
     const float X2M_MIN_VERSION_PSC = 3.0f;
@@ -702,6 +704,7 @@ public:
     const float X2M_MIN_VERSION_INVISIBLE = 22.0f;
     const float X2M_MIN_VERSION_IKD = 22.0f;
     const float X2M_MIN_VERSION_VLC = 22.0f;
+    const float X2M_MIN_VERSION_DESTRUCTION =  23.0f;
 
     X2mFile();
     virtual ~X2mFile() override;
@@ -1150,6 +1153,15 @@ public:
 
     inline bool IsInvisible() const { return invisible; }
     inline void SetInvisible(bool invisible) { this->invisible = invisible; }
+
+    inline size_t GetNumDestructionStages() const { return des_levels.size(); }
+    inline const DestructionLevel &GetDestructionStage(size_t idx) const { return des_levels[idx]; }
+    inline DestructionLevel &GetDestructionStage(size_t idx) { return des_levels[idx]; }
+
+    inline size_t AddDestructionStage(const DestructionLevel &entry) { des_levels.push_back(entry); return (des_levels.size()-1); }
+    inline void RemoveDestructionStage(size_t idx) { des_levels.erase(des_levels.begin()+idx); }
+
+    inline bool HasDestruction() const { return format_version >= X2M_MIN_VERSION_DESTRUCTION && des_levels.size() > 0;}
 
     // Skill
     inline std::string GetSkillName(int lang) const

@@ -79,6 +79,8 @@ private:
     uint32_t plattform;
     uint32_t unk_1C;
 
+    bool disable_format_warnings;
+
     size_t CalculateFileSize() const;
 
 protected:
@@ -133,6 +135,8 @@ public:
     static int DdsToG1tFormat(int dds_fmt);
 
     static int IdealMipsCount(int width, int height);
+
+    inline void DisableFormatWarnings(bool disable) { disable_format_warnings = disable;}
 };
 
 #endif // G1TFILE_H

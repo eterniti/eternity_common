@@ -281,6 +281,7 @@ bool CriFs::LoadFile(BaseFile *file, const std::string &path, bool only_cpk)
 
 bool CriFs::SaveFile(BaseFile *file, const std::string &path)
 {
+    //DPRINTF("Save %s\n", path.c_str());
     size_t size;
     uint8_t *buf = file->Save(&size);
 

@@ -108,6 +108,7 @@ uintptr_t CALLING_CONVENTION FUNCTION_NAME(EPatch::Log)(
 {
 	EPatch *patch;
     TYPE_NAME func;
+	std::string buf;
 
     {
         MutexLocker lock(&log_mutex);
@@ -121,51 +122,52 @@ uintptr_t CALLING_CONVENTION FUNCTION_NAME(EPatch::Log)(
 
         if (patch->log_before)
         {
-            DPRINTF("\n%s called.\n", patch->function.c_str());
+            Utils::Sprintf(buf, true, "\n%s called.\n", patch->function.c_str());
 
             if (patch->log_ra)
             {
-                DPRINTF("Return address is %p. Relative: 0x%x\n", BRA(0), REL_ADDR32_2(BRA(0), patch));
+                Utils::Sprintf(buf, true, "Return address is %p. Relative: 0x%x\n", BRA(0), REL_ADDR32_2(BRA(0), patch));
+				PrintStackTrace(8, buf);
             }
 			
 #if NUM_PARAMS >= 1			
-			patch->LogParam(arg0, 0);
+			patch->LogParam(arg0, 0, buf);
 #endif
 
 #if NUM_PARAMS >= 2
-            patch->LogParam(arg1, 1);
+            patch->LogParam(arg1, 1, buf);
 #endif
 
 #if NUM_PARAMS >= 3
-            patch->LogParam(arg2, 2);
+            patch->LogParam(arg2, 2, buf);
 #endif
 
 #if NUM_PARAMS >= 4
-            patch->LogParam(arg3, 3);
+            patch->LogParam(arg3, 3, buf);
 #endif
 
 #if NUM_PARAMS >= 5
-            patch->LogParam(arg4, 4);
+            patch->LogParam(arg4, 4, buf);
 #endif
 
 #if NUM_PARAMS >= 6
-            patch->LogParam(arg5, 5);
+            patch->LogParam(arg5, 5, buf);
 #endif
 
 #if NUM_PARAMS >= 7
-            patch->LogParam(arg6, 6);
+            patch->LogParam(arg6, 6, buf);
 #endif
 
 #if NUM_PARAMS >= 8
-            patch->LogParam(arg7, 7);
+            patch->LogParam(arg7, 7, buf);
 #endif
 
 #if NUM_PARAMS >= 9
-            patch->LogParam(arg8, 8);
+            patch->LogParam(arg8, 8, buf);
 #endif
 
 #if NUM_PARAMS >= 10
-            patch->LogParam(arg9, 9);
+            patch->LogParam(arg9, 9, buf);
 #endif
         }
 
@@ -221,56 +223,56 @@ uintptr_t CALLING_CONVENTION FUNCTION_NAME(EPatch::Log)(
 
         if (!patch->log_before)
         {
-            DPRINTF("\n%s was called and has returned.\n", patch->function.c_str());
+            Utils::Sprintf(buf, true, "\n%s was called and has returned.\n", patch->function.c_str());
 
             if (patch->log_ra)
             {
-                DPRINTF("Return address is %p. Relative: 0x%x\n", BRA(0), REL_ADDR32_2(BRA(0), patch));
+                Utils::Sprintf(buf, true, "Return address is %p. Relative: 0x%x\n", BRA(0), REL_ADDR32_2(BRA(0), patch));
             }
 			
 #if NUM_PARAMS >= 1			
-			patch->LogParam(arg0, 0);
+			patch->LogParam(arg0, 0, buf);
 #endif
 
 #if NUM_PARAMS >= 2
-            patch->LogParam(arg1, 1);
+            patch->LogParam(arg1, 1, buf);
 #endif
 
 #if NUM_PARAMS >= 3
-            patch->LogParam(arg2, 2);
+            patch->LogParam(arg2, 2, buf);
 #endif
 
 #if NUM_PARAMS >= 4
-            patch->LogParam(arg3, 3);
+            patch->LogParam(arg3, 3, buf);
 #endif
 
 #if NUM_PARAMS >= 5
-            patch->LogParam(arg4, 4);
+            patch->LogParam(arg4, 4, buf);
 #endif
 
 #if NUM_PARAMS >= 6
-            patch->LogParam(arg5, 5);
+            patch->LogParam(arg5, 5, buf);
 #endif
 
 #if NUM_PARAMS >= 7
-            patch->LogParam(arg6, 6);
+            patch->LogParam(arg6, 6, buf);
 #endif
 
 #if NUM_PARAMS >= 8
-            patch->LogParam(arg7, 7);
+            patch->LogParam(arg7, 7, buf);
 #endif
 
 #if NUM_PARAMS >= 9
-            patch->LogParam(arg8, 8);
+            patch->LogParam(arg8, 8, buf);
 #endif
 
 #if NUM_PARAMS >= 10
-            patch->LogParam(arg9, 9);
+            patch->LogParam(arg9, 9, buf);
 #endif
         }
 		
-		patch->LogParam(ret, -1);
-        DPRINTF("\n");
+		patch->LogParam(ret, -1, buf);
+        DPRINTF("%s\n", buf.c_str());
     }
 	
     return ret;

@@ -268,6 +268,188 @@ bool AuraExtraData::Compile(const TiXmlElement *root)
     return true;
 }
 
+bool DestructionLevel::CompileMap(DestructionLevelMap *m) const
+{
+    std::vector<std::string> vin, vout;
+    Utils::GetMultipleStrings(map_in, vin);
+    Utils::GetMultipleStrings(map_out, vout);
+
+    if (vin.size() == 0)
+    {
+        DPRINTF("%s: map in can't be empty.\n", FUNCNAME);
+        return false;
+    }
+
+    if (vin.size() != vout.size())
+    {
+        DPRINTF("%s: Mismatch in number of in and out elements, %Id != %Id\n", FUNCNAME, vin.size(), vout.size());
+        return false;
+    }
+
+    if (m)
+    {
+        m->map.reserve(vin.size());
+    }
+
+    for (size_t i = 0; i < vin.size(); i++)
+    {
+        auto &swin = vin[i];
+        auto &swout = vout[i];
+
+        std::vector<std::string> list;
+        Utils::GetMultipleStrings(swin, list, ':');
+
+        if (list.size() == 0 || list.size() > 2)
+        {
+            DPRINTF("%s: Number of elements of each \"in\" element have to be 1 or 2, found %Id.\n", FUNCNAME, list.size());
+            return false;
+        }
+
+        uint32_t low=0, high=0;
+
+        for (size_t n = 0; n < list.size(); n++)
+        {
+            int32_t partset = Utils::GetSigned(list[n], -404);
+            if (partset == -404)
+            {
+                DPRINTF("%s: Number parsing error in \"in\" side (string=%s).\n", FUNCNAME, list[n].c_str());
+                return false;
+            }
+            else if (partset < 0)
+            {
+                DPRINTF("%s: Negative numbers are not allowed here (num=%d)\n", FUNCNAME, partset);
+                return false;
+            }
+
+            if (n == 0)
+                low = (uint32_t)partset;
+            else
+                high = (uint32_t)partset;
+        }
+
+        if (list.size() == 1)
+            high = low;
+
+        uint64_t key = Utils::Make64(low, high);
+        if (m)
+            m->map[key] = std::vector<uint32_t>();
+
+        Utils::GetMultipleStrings(swout, list, '+');
+        if (list.size() == 0)
+        {
+            DPRINTF("%s: Number of elements of each \"out\" element have to be greater than 0.\n", FUNCNAME);
+            return false;
+        }
+
+        for (const std::string &str : list)
+        {
+            int32_t partset = Utils::GetSigned(str, -404);
+            if (partset == -404)
+            {
+                DPRINTF("%s: Number parsing error in \"out\" side (string=%s).\n", FUNCNAME, str.c_str());
+                return false;
+            }
+            else if (partset < 0)
+            {
+                DPRINTF("%s: Negative numbers are not allowed here (num=%d)\n", FUNCNAME, partset);
+                return false;
+            }
+
+            if (m)
+            {
+                m->map[key].push_back((uint32_t)partset);
+            }
+        }
+    }
+
+    if (m)
+    {
+        m->is_percentage = percentage;
+        m->damage = (float)damage;
+        m->time = time;
+
+        if (percentage)
+        {
+            m->damage = damage / 100.0f;
+            if (m->damage > 1.0f)
+                m->damage = 1.0f;
+        }
+
+        if (m->time == 0)
+            m->time = DEFAULT_DESTRUCTION_TIME;
+    }
+
+    return true;
+}
+
+TiXmlElement *DestructionLevel::Decompile(TiXmlNode *root) const
+{
+    if (!CompileMap(nullptr))
+        return nullptr;
+
+    TiXmlElement *entry_root = new TiXmlElement("DestructionLevel");
+    Utils::WriteParamString(entry_root, "MAP_IN", map_in);
+    Utils::WriteParamString(entry_root, "MAP_OUT", map_out);
+    Utils::WriteParamUnsigned(entry_root, "DAMAGE", damage);
+    Utils::WriteParamUnsigned(entry_root, "TIME", time);
+    Utils::WriteParamBoolean(entry_root, "PERCENTAGE", percentage);
+
+    root->LinkEndChild(entry_root);
+    return entry_root;
+}
+
+bool DestructionLevel::Compile(const TiXmlElement *root)
+{
+    if (!Utils::GetParamString(root, "MAP_IN", map_in)) return false;
+    if (!Utils::GetParamString(root, "MAP_OUT", map_out)) return false;
+    if (!Utils::GetParamUnsigned(root, "DAMAGE", &damage)) return false;
+    if (!Utils::GetParamUnsigned(root, "TIME", &time)) return false;
+    if (!Utils::ReadParamBoolean(root, "PERCENTAGE", &percentage)) return false;
+
+    return CompileMap(nullptr);
+}
+
+TiXmlElement *DestructionLevelSet::Decompile(TiXmlNode *root) const
+{
+    TiXmlElement *entry_root = new TiXmlElement("DestructionLevelSet");
+    entry_root->SetAttribute("cms_id", Utils::UnsignedToHexString(cms_id, false));
+
+    for (const auto &level : levels)
+    {
+        if (!level.Decompile(entry_root))
+            return nullptr;
+    }
+
+    root->LinkEndChild(entry_root);
+    return entry_root;
+}
+
+bool DestructionLevelSet::Compile(const TiXmlElement *root)
+{
+    if (!Utils::ReadAttrUnsigned(root, "cms_id", &cms_id))
+    {
+        DPRINTF("%s: cms_id missing.\n", FUNCNAME);
+        return false;
+    }
+
+    for (const TiXmlElement *elem = root->FirstChildElement(); elem; elem = elem->NextSiblingElement())
+    {
+        const std::string &name = elem->ValueStr();
+
+        if (name == "DestructionLevel")
+        {
+            DestructionLevel level;
+
+            if (!level.Compile(elem))
+                return false;
+
+            levels.push_back(level);
+        }
+    }
+
+    return true;
+}
+
 Xv2PreBakedFile::Xv2PreBakedFile()
 {
     this->big_endian = false;
@@ -352,6 +534,11 @@ TiXmlDocument *Xv2PreBakedFile::Decompile() const
         {
             it.second.Decompile(root);
         }
+    }
+
+    for (auto &it : destruction_map)
+    {
+        it.second.Decompile(root);
     }
 
     doc->LinkEndChild(root);
@@ -452,6 +639,18 @@ bool Xv2PreBakedFile::Compile(TiXmlDocument *doc, bool)
 
             if (extra.aur_id >= 0)
                 aura_extra_map[extra.aur_id] = extra;
+        }
+        else if (name == "DestructionLevelSet")
+        {
+            DestructionLevelSet set;
+
+            if (!set.Compile(elem))
+                return false;
+
+            if (set.levels.size() > 0)
+            {
+                destruction_map[set.cms_id] = set;
+            }
         }
     }
 

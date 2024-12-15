@@ -723,6 +723,8 @@ public:
                       const std::string &dstr, const std::string &dfile, const std::string &pstr, const std::string &pfile,
                       const std::vector<std::string> &svec, const std::vector<std::string> &sfvec);
 
+    bool RemoveQuestEntry(const std::string &quest_name, bool fail_if_not_exists=false);
+
     inline std::string GetCompiledQuestName()
     {
         return compiled_quest.name;

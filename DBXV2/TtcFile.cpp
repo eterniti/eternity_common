@@ -611,6 +611,7 @@ void TtcFile::AddString(std::unordered_map<std::string, size_t> &map, std::vecto
         strings.push_back(str);
         map[str] = size;
         size += str.length() + 1;
+        //DPRINTF("***Added string %s\n", str.c_str());
     }
 }
 
@@ -626,7 +627,7 @@ size_t TtcFile::BuildStrings(std::unordered_map<std::string, size_t> &map, std::
         {
             for (int costume = -1; costume <= 20; costume++)
             {
-                for (int transformation = -1; transformation <= 6; transformation++)
+                for (int transformation = -1; transformation <= 12; transformation++)
                 {
                     const std::vector<uint32_t> *types_vec;
 
@@ -656,7 +657,7 @@ size_t TtcFile::BuildStrings(std::unordered_map<std::string, size_t> &map, std::
                                 {
                                     doit = (int)event.condition == costume && (int)event.transformation == transformation;
                                 }
-                                else if (entry.cms_id == 0x54)
+                                else if (entry.cms_id == 0x54 || entry.cms_id == 0xD8)
                                 {
                                     if (type >= 0xa)
                                         doit = (int)event.condition == transformation;
@@ -718,7 +719,6 @@ size_t TtcFile::BuildStrings(std::unordered_map<std::string, size_t> &map, std::
                 }
             }
         } // for caq
-
 
         // Any remaining entry now
         for (const TtcEventList &list : entry.lists)
@@ -875,4 +875,16 @@ size_t TtcFile::RemoveChar(uint32_t cms_id)
     return count;
 }
 
-
+void TtcFile::DumpEvents() const
+{
+    for (const TtcEntry &entry : entries)
+    {
+        for (const TtcEventList &list :entry.lists)
+        {
+            for (const TtcEvent &ev : list.events)
+            {
+                DPRINTF("cms=0x%x,costume=%d,transformation=%d,condition=%d,type=0x%x,name=%s\n", entry.cms_id, ev.costume, ev.transformation, ev.condition, list.type, ev.name.c_str());
+            }
+        }
+    }
+}

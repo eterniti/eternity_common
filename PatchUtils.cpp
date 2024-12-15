@@ -1,6 +1,8 @@
 #include <windows.h>
 #include <MinHook.h>
 #include <vector>
+#include <unordered_set>
+#include <unordered_map>
 #include "PatchUtils.h"
 #include "debug.h"
 
@@ -464,6 +466,22 @@ bool PatchUtils::HookResolveTarget(void *call_addr, void **orig, void *new_addr,
 	return Hook(func, orig, new_addr);
 }
 
+void PatchUtils::HookVirtual(void *obj, size_t ofs, void **orig, void *new_addr)
+{
+	uintptr_t *vtable = (uintptr_t *) *(uintptr_t *)obj;
+	
+	if (orig)
+	{
+		*orig = (void *)vtable[ofs/sizeof(uintptr_t)];
+	}
+	
+#ifdef CPU_X86_64
+	Write64(&vtable[ofs/sizeof(uintptr_t)], (uint64_t)new_addr);
+#else	
+	Write32(&vtable[ofs/sizeof(uintptr_t)], (uint32_t)new_addr);
+#endif
+}
+
 #ifdef CPU_X86_64
 
 void *PatchUtils::AllocateIn32BitsArea(void *ref_addr, size_t size, bool executable)
@@ -613,6 +631,41 @@ bool PatchUtils::UnsetMemoryBreakpoint(void *addr, size_t len)
 	return false;
 }
 
+static std::unordered_map<void *, std::string> debug_addr_names;
+
+static void DebugMemoryHandler1(void *pc, void *addr)
+{
+	// Avoid recursion due to own access
+	if ((uintptr_t)pc >= (uintptr_t)DebugMemoryHandler1 && (uintptr_t)pc <= (uintptr_t)DebugMemoryHandler1 + 0x200)
+		return; 
+	
+	void *rel_pc = (void *)PatchUtils::RelAddress(pc);	
+	DPRINTF("%s accessed from %p. Value8: 0x%02X, Value16: 0x%04X, Value32: 0x%08x, Value 64: 0x%I64x\n", debug_addr_names[addr].c_str(), rel_pc, PatchUtils::Read8(addr), PatchUtils::Read16(addr), PatchUtils::Read32(addr), PatchUtils::Read64(addr));
+}
+
+static void DebugMemoryHandler2(void *pc, void *addr)
+{
+	// Avoid recursion due to own access
+	if ((uintptr_t)pc >= (uintptr_t)DebugMemoryHandler2 && (uintptr_t)pc <= (uintptr_t)DebugMemoryHandler2 + 0x200)
+		return; 
+	
+	static std::unordered_set<void *> pcs;
+	
+	if (pcs.find(pc) != pcs.end())
+		return;
+	
+	pcs.insert(pc);
+	
+	void *rel_pc = (void *)PatchUtils::RelAddress(pc);	
+	DPRINTF("%s accessed from %p. Value8: 0x%02X, Value16: 0x%04X, Value32: 0x%08x, Value 64: 0x%I64x\n", debug_addr_names[addr].c_str(), rel_pc, PatchUtils::Read8(addr), PatchUtils::Read16(addr), PatchUtils::Read32(addr), PatchUtils::Read64(addr));
+}
+
+bool PatchUtils::SetGenericDebugMemoryBreakPoint(void *addr, size_t len, const std::string &name, bool only_once_per_pc)
+{
+	debug_addr_names[addr] = name;
+	return SetMemoryBreakpoint(addr, len, only_once_per_pc ? DebugMemoryHandler2 : DebugMemoryHandler1);
+}
+
 #ifdef CPU_X86_64 
 
 typedef uintptr_t (* RegisterFunctionType)(uintptr_t, uintptr_t, uintptr_t, uintptr_t);
@@ -633,6 +686,12 @@ uintptr_t PatchUtils::InvokeVirtualRegisterFunction(void *obj, size_t ofs, uintp
 	RegisterFunctionType func = (RegisterFunctionType) vtable[ofs/8];
 
 	return func((uintptr_t)obj, rdx, r8, r9);
+}
+
+void *PatchUtils::GetVirtualFunction(void *obj, size_t ofs)
+{
+	uintptr_t *vtable = (uintptr_t *) *(uintptr_t *)obj;
+	return (void *)vtable[ofs/sizeof(uintptr_t)];
 }
 
 #endif

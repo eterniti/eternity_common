@@ -36,8 +36,9 @@ struct PACKED CSTEntry
     uint32_t unk_28; // Added in 1.21. Doesnt't seem it is used by charasele.iggy
     uint32_t unk_2C; // Added in 1.21. Only 0 & 1 values found, probably boolean. Doesnt't seem it is used by charasele.iggy
     uint32_t flag_cgk2; // Added in 1.22, "Chou gokuaku"
+    uint32_t unk_34; // Added in 1.23. Not used by CSS=
 };
-CHECK_STRUCT_SIZE(CSTEntry, 0x34);
+CHECK_STRUCT_SIZE(CSTEntry, 0x38);
 
 //#ifdef _MSC_VER
 #pragma pack(pop)

@@ -46,6 +46,36 @@ struct VCStdString
 		return str.buf;
 	}
 };
+
+template <typename T> 
+struct VCVector
+{
+	T *first;
+	T *end;
+	T *alloc_end;
+	
+	inline size_t Size() const
+	{
+		return ((uintptr_t)end - (uintptr_t)first) / sizeof(T);
+	}
+	
+	inline size_t Capacity() const
+	{
+		return ((uintptr_t)alloc_end - (uintptr_t)first) / sizeof(T);
+	}
+	
+	// Meh no range check
+	inline T &operator[](size_t idx)
+	{
+		return first[idx];
+	}
+	
+	inline const T &operator[](size_t idx) const
+	{
+		return first[idx];
+	}
+};
+
 #ifdef CPU_X86_64
 CHECK_STRUCT_SIZE(VCStdString, 0x20);
 #endif
@@ -171,7 +201,8 @@ static const std::vector<std::string> log_param_types =
     "cstr",
     "wstr",
 	"vcstr",
-    "ptr",
+	"vcvectoru32",
+    "ptr",	
 };
 
 static const std::vector<std::string> calling_conventions =
@@ -209,13 +240,18 @@ bool EPatch::IsPattern(size_t address, const std::vector<uint16_t> &pattern)
 
 uint8_t *EPatch::Find()
 {
-    if (type >= EPATCH_TYPE_MAX)
-        return nullptr;
+	if (type >= EPATCH_TYPE_MAX)
+		return nullptr;
+	
+	if (instructions.size() == 0)
+	{
+		return (uint8_t *)GetPtr(search_start, CSTR(module));
+	}
 
     if (rebuild)
     {
-        if (instructions.size() == 0)
-            return nullptr;
+        /*if (instructions.size() == 0)
+            return nullptr;*/
 
         size_t total_size = 0;
         for (const EInstruction &ins : instructions)
@@ -298,7 +334,7 @@ EPatch *EPatch::FindLogPatch(void *addr)
     return nullptr;
 }
 
-void EPatch::LogParam(size_t param, int index)
+void EPatch::LogParam(size_t param, int index, std::string &buf)
 {
     if (index >= 0 && (size_t)index >= log_select.size())
         return;	
@@ -333,15 +369,15 @@ void EPatch::LogParam(size_t param, int index)
         {
             if (extra == LOG_EXTRA_DECIMAL)
             {
-                DPRINTF("%s: %u\n", param_name, (uint8_t)param);
+                Utils::Sprintf(buf, true, "%s: %u\n", param_name, (uint8_t)param);
             }
             else if (extra == LOG_EXTRA_HEXADECIMAL_ALIGNED)
             {
-                DPRINTF("%s: 0x%02x\n", param_name, (uint8_t)param);
+                Utils::Sprintf(buf, true, "%s: 0x%02x\n", param_name, (uint8_t)param);
             }
             else
             {
-                DPRINTF("%s: 0x%x\n", param_name, (uint8_t)param);
+                Utils::Sprintf(buf, true, "%s: 0x%x\n", param_name, (uint8_t)param);
             }
         }
         break;
@@ -350,15 +386,15 @@ void EPatch::LogParam(size_t param, int index)
         {
             if (extra == LOG_EXTRA_DECIMAL)
             {
-                DPRINTF("%s: %u\n", param_name, (uint16_t)param);
+                Utils::Sprintf(buf, true, "%s: %u\n", param_name, (uint16_t)param);
             }
             else if (extra == LOG_EXTRA_HEXADECIMAL_ALIGNED)
             {
-                DPRINTF("%s: 0x%04x\n", param_name, (uint16_t)param);
+                Utils::Sprintf(buf, true, "%s: 0x%04x\n", param_name, (uint16_t)param);
             }
             else
             {
-                DPRINTF("%s: 0x%x\n", param_name, (uint16_t)param);
+                Utils::Sprintf(buf, true, "%s: 0x%x\n", param_name, (uint16_t)param);
             }
         }
         break;
@@ -367,15 +403,15 @@ void EPatch::LogParam(size_t param, int index)
         {
             if (extra == LOG_EXTRA_DECIMAL)
             {
-                DPRINTF("%s: %u\n", param_name, (uint32_t)param);
+                Utils::Sprintf(buf, true, "%s: %u\n", param_name, (uint32_t)param);
             }
             else if (extra == LOG_EXTRA_HEXADECIMAL_ALIGNED)
             {
-                DPRINTF("%s: 0x%08x\n", param_name, (uint32_t)param);
+                Utils::Sprintf(buf, true, "%s: 0x%08x\n", param_name, (uint32_t)param);
             }
             else
             {
-                DPRINTF("%s: 0x%x\n", param_name, (uint32_t)param);
+                Utils::Sprintf(buf, true, "%s: 0x%x\n", param_name, (uint32_t)param);
             }
         }
         break;
@@ -385,15 +421,15 @@ void EPatch::LogParam(size_t param, int index)
         {
             if (extra == LOG_EXTRA_DECIMAL)
             {
-                DPRINTF("%s: %I64u\n", param_name, param);
+                Utils::Sprintf(buf, true, "%s: %I64u\n", param_name, param);
             }
             else if (extra == LOG_EXTRA_HEXADECIMAL_ALIGNED)
             {
-                DPRINTF("%s: 0x%016I64x\n", param_name, param);
+                Utils::Sprintf(buf, true, "%s: 0x%016I64x\n", param_name, param);
             }
             else
             {
-                DPRINTF("%s: 0x%I64x\n", param_name, param);
+                Utils::Sprintf(buf, true, "%s: 0x%I64x\n", param_name, param);
             }
         }
         break;
@@ -403,15 +439,15 @@ void EPatch::LogParam(size_t param, int index)
         {
             if (extra == LOG_EXTRA_DECIMAL)
             {
-                DPRINTF("%s: %d\n", param_name, (int8_t)param);
+                Utils::Sprintf(buf, true, "%s: %d\n", param_name, (int8_t)param);
             }
             else if (extra == LOG_EXTRA_HEXADECIMAL_ALIGNED)
             {
-                DPRINTF("%s: 0x%02x\n", param_name, (int8_t)param);
+                Utils::Sprintf(buf, true, "%s: 0x%02x\n", param_name, (int8_t)param);
             }
             else
             {
-                DPRINTF("%s: 0x%x\n", param_name, (int8_t)param);
+                Utils::Sprintf(buf, true, "%s: 0x%x\n", param_name, (int8_t)param);
             }
         }
         break;
@@ -420,15 +456,15 @@ void EPatch::LogParam(size_t param, int index)
         {
             if (extra == LOG_EXTRA_DECIMAL)
             {
-                DPRINTF("%s: %d\n", param_name, (int16_t)param);
+                Utils::Sprintf(buf, true, "%s: %d\n", param_name, (int16_t)param);
             }
             else if (extra == LOG_EXTRA_HEXADECIMAL_ALIGNED)
             {
-                DPRINTF("%s: 0x%04x\n", param_name, (int16_t)param);
+                Utils::Sprintf(buf, true, "%s: 0x%04x\n", param_name, (int16_t)param);
             }
             else
             {
-                DPRINTF("%s: 0x%x\n", param_name, (int16_t)param);
+                Utils::Sprintf(buf, true, "%s: 0x%x\n", param_name, (int16_t)param);
             }
         }
         break;
@@ -437,15 +473,15 @@ void EPatch::LogParam(size_t param, int index)
         {
             if (extra == LOG_EXTRA_DECIMAL)
             {
-                DPRINTF("%s: %d\n", param_name, (int32_t)param);
+                Utils::Sprintf(buf, true, "%s: %d\n", param_name, (int32_t)param);
             }
             else if (extra == LOG_EXTRA_HEXADECIMAL_ALIGNED)
             {
-                DPRINTF("%s: 0x%08x\n", param_name, (int32_t)param);
+                Utils::Sprintf(buf, true, "%s: 0x%08x\n", param_name, (int32_t)param);
             }
             else
             {
-                DPRINTF("%s: 0x%x\n", param_name, (int32_t)param);
+                Utils::Sprintf(buf, true, "%s: 0x%x\n", param_name, (int32_t)param);
             }
         }
         break;
@@ -455,37 +491,72 @@ void EPatch::LogParam(size_t param, int index)
         {
             if (extra == LOG_EXTRA_DECIMAL)
             {
-                DPRINTF("%s: %I64d\n", param_name, (int64_t)param);
+                Utils::Sprintf(buf, true, "%s: %I64d\n", param_name, (int64_t)param);
             }
             else if (extra == LOG_EXTRA_HEXADECIMAL_ALIGNED)
             {
-                DPRINTF("%s: 0x%016I64x\n", param_name, (int64_t)param);
+                Utils::Sprintf(buf, true, "%s: 0x%016I64x\n", param_name, (int64_t)param);
             }
             else
             {
-                DPRINTF("%s: 0x%I64x\n", param_name, (int64_t)param);
+                Utils::Sprintf(buf, true, "%s: 0x%I64x\n", param_name, (int64_t)param);
             }
         }
         break;		
 #endif
 
         case LOG_PARAM_TYPE_CSTR:
-            DPRINTF("%s: \"%s\"\n", param_name, (const char *)param);
+            Utils::Sprintf(buf, true, "%s: \"%s\"\n", param_name, (const char *)param);
         break;
 
         case LOG_PARAM_TYPE_WSTR:
-            DPRINTF("%s: \"%S\"\n", param_name, (const wchar_t *)param);
+            Utils::Sprintf(buf, true, "%s: \"%S\"\n", param_name, (const wchar_t *)param);
         break;
 		
 		case LOG_PARAM_TYPE_VCSTR:			
-			DPRINTF("%s: \"%s\"\n", param_name, ((VCStdString *)param)->CStr());			
+			Utils::Sprintf(buf, true, "%s: \"%s\"\n", param_name, ((VCStdString *)param)->CStr());			
+		break;
+		
+		case LOG_PARAM_TYPE_VCVECTORU32:
+		{
+			VCVector<uint32_t> *vec = (VCVector<uint32_t> *) param;
+			Utils::Sprintf(buf, true, "%s(first=%p,end=%p,alloc_end=%p): ", param_name, vec->first, vec->end, vec->alloc_end);
+			
+			if (vec->Size() == 0)
+			{
+				Utils::Sprintf(buf, true, "<empty>\n");
+			}
+			else
+			{
+				for (size_t i = 0; i < vec->Size(); i++)
+				{					
+					if (extra == LOG_EXTRA_DECIMAL)
+					{
+						Utils::Sprintf(buf, true, "%u", (*vec)[i]);
+					}
+					else if (extra == LOG_EXTRA_HEXADECIMAL_ALIGNED)
+					{
+						Utils::Sprintf(buf, true, "0x%08x", (*vec)[i]);
+					}
+					else
+					{
+						Utils::Sprintf(buf, true, "0x%x", (*vec)[i]);
+					}
+						
+					if (i != (vec->Size()-1))
+						Utils::Sprintf(buf, true, ",");
+				}
+				
+				Utils::Sprintf(buf, true, "\n");				
+			}
+		}
 		break;
 
         case LOG_PARAM_TYPE_PTR:
         {
             if (param == 0)
             {
-                DPRINTF("%s: <NULL>\n", param_name);
+                Utils::Sprintf(buf, true, "%s: <NULL>\n", param_name);
                 break;
             }
 
@@ -496,9 +567,9 @@ void EPatch::LogParam(size_t param, int index)
                 num_lines++;
 
             if (num_lines == 1)
-                DPRINTF("%s: ", param_name);
+                Utils::Sprintf(buf, true, "%s: ", param_name);
             else
-                DPRINTF("%s:\n", param_name);
+                Utils::Sprintf(buf, true, "%s:\n", param_name);
 
             uint8_t *data = (uint8_t *)param;
             std::string str;
@@ -507,16 +578,16 @@ void EPatch::LogParam(size_t param, int index)
                 char temp[4];
                 sprintf(temp, "%02X ", data[i]);
                 str += temp;
-                //DPRINTF("%02X ", data[i]);
+                //Utils::Sprintf(buf, true, "%02X ", data[i]);
 
                 if (i == (size-1) || (i != 0 && ((i+1) % extra) == 0))
                 {
-                    //DPRINTF("\n");
+                    //Utils::Sprintf(buf, true, "\n");
                     str += '\n';
                 }
             }
 
-            DPRINTF("%s", str.c_str());
+            Utils::Sprintf(buf, true, "%s", str.c_str());
         }
         break;
     }
@@ -861,22 +932,25 @@ bool EPatch::Compile(const TiXmlElement *root)
         num_matches = 1;
 
     size_t inst_count = Utils::GetElemCount(root, "Instruction");
-    if (inst_count == 0)
-        return false;
+    /*if (inst_count == 0)
+        return false;*/
+	
+	if (inst_count > 0)
+	{
+		instructions.resize(inst_count);
 
-    instructions.resize(inst_count);
+		size_t idx = 0;
+		for (const TiXmlElement *elem = root->FirstChildElement(); elem; elem = elem->NextSiblingElement())
+		{
+			if (elem->ValueStr() == "Instruction")
+			{
+				EInstruction &instruction = instructions[idx++];
 
-    size_t idx = 0;
-    for (const TiXmlElement *elem = root->FirstChildElement(); elem; elem = elem->NextSiblingElement())
-    {
-        if (elem->ValueStr() == "Instruction")
-        {
-            EInstruction &instruction = instructions[idx++];
-
-            if (!instruction.Compile(elem))
-                return false;
-        }
-    }
+				if (!instruction.Compile(elem))
+					return false;
+			}
+		}
+	}
 
     const TiXmlElement *common = nullptr;
 
@@ -1187,23 +1261,26 @@ bool EPatch::Compile(const TiXmlElement *root)
         inst_index = 0;
 
     if (!Utils::ReadAttrUnsigned(common, "inst_offset", &inst_offset))
-        inst_offset = 0;
+		inst_offset = 0;
+	
+	if (instructions.size() > 0)
+	{
+		if (inst_index >= instructions.size())
+			return false;
 
-    if (inst_index >= instructions.size())
-        return false;
+		if (inst_offset >= instructions[inst_index].search_pattern.size())
+			return false;
 
-    if (inst_offset >= instructions[inst_index].search_pattern.size())
-        return false;
+		if (type == EPATCH_TYPE_NOP && size == 0)
+		{
+			size = instructions[inst_index].search_pattern.size() - inst_offset;
 
-    if (type == EPATCH_TYPE_NOP && size == 0)
-    {
-        size = instructions[inst_index].search_pattern.size() - inst_offset;
-
-        for (size_t i = inst_offset+1; i < instructions.size(); i++)
-        {
-            size += instructions[i].search_pattern.size();
-        }
-    }
+			for (size_t i = inst_offset+1; i < instructions.size(); i++)
+			{
+				size += instructions[i].search_pattern.size();
+			}
+		}
+	}
 
     rebuild = true;
     return true;
@@ -1218,11 +1295,14 @@ bool EPatch::Apply()
 		uint8_t *ptr = Find();
 		if (!ptr)
 			return false;
+		
+		if (instructions.size() > 0)
+		{
+			for (size_t i = 0; i < inst_index; i++)
+				ptr += instructions[i].search_pattern.size();
 
-		for (size_t i = 0; i < inst_index; i++)
-			ptr += instructions[i].search_pattern.size();
-
-		ptr += inst_offset;
+			ptr += inst_offset;
+		}
 
 		DPRINTF("Patch \"%s\" located at address %p. Relative: 0x%x.\n", name.c_str(), ptr, REL_ADDR32(ptr));
 

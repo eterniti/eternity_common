@@ -186,6 +186,8 @@ extern IkdFile *game_ikd_battle, *game_ikd_lobby;
 
 extern VlcFile *game_vlc;
 
+extern int global_lang;
+
 namespace Xenoverse2
 {
     void InitFs(const std::string &game_path);

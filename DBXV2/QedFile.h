@@ -200,7 +200,8 @@ enum QedConditions
     QED_COND_UNK_62 = 62, // Added in ? Only used in tournaments? Param 1: qml_char Param 2: integer. Param 3: integer. Param 4: integer.
     QED_COND_UNK_63 = 63, // Added in 1.21. Param 1: integer Param 2: boolean Param 3: float
     QED_COND_UNK_64 = 64, // Added in 1.21 Param 1: qml_char Param 2: boolean
-    QED_COND_UNK_65 = 65, // Added in 1.21 Param 1: integer Param 2: integer
+    QED_COND_UNK_65 = 65, // Added in 1.21 Param 1: integer Param 2: integer Param 3: integer
+    QED_COND_UNK_66 = 66, // Added in 1.23, used by some EVT quest. Param 1: integer
 };
 
 // There are 120 actions according to the exe (function 0x6AC380 in 1.09.01)
@@ -341,6 +342,7 @@ enum QedActions
     QED_ACT_UNK_125 = 125, // (Added in 1.21) Param 1: integer (may be related with character) Param 2: boolean Param 3: float
     QED_ACT_UNK_126 = 126, // (Added in 1.21) Param 1: integer
     QED_ACT_UNK_127 = 127, // (Added in 1.21) Param 1: integer Param 2: boolean Param 3: string (12 chars), Param 4: string (12 chars)
+    QED_ACT_PLAY_BGM2 = 128, // (Added in 1.23) Param 1: i1 (range 0-3). It's an index to an array with following values {1, 0x8C, 0xB, 0x22A}, Param 2: cue_id, Param 3: fade time (milisecs integer)
 };
 
 // Condition extensions of xv2 patcher

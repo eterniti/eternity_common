@@ -265,6 +265,8 @@ ErsFile *game_ers;
 IkdFile *game_ikd_battle, *game_ikd_lobby;
 VlcFile *game_vlc;
 
+int global_lang=-1;
+
 //static std::string chasel_path, chalist_path;
 static bool multiple_hci_loaded = false;
 
@@ -372,7 +374,13 @@ bool Xenoverse2::LoadMsgs(const std::string &base_path, std::vector<MsgFile *> &
 
     for (int i = 0; i < XV2_LANG_NUM; i++)
     {
-        if (only_this_lang >= 0 && i != only_this_lang)
+        if (global_lang >= 0 && i != global_lang)
+        {
+            msgs[i] = nullptr;
+            continue;
+        }
+
+        if (global_lang < 0 && only_this_lang >= 0 && i != only_this_lang)
             continue;
 
         std::string path = base_path + xv2_lang_codes[i] + ".msg";
@@ -384,6 +392,8 @@ bool Xenoverse2::LoadMsgs(const std::string &base_path, std::vector<MsgFile *> &
             return false;
         }
     }
+
+
 
     return true;
 }
@@ -418,6 +428,9 @@ bool Xenoverse2::GetMsgTextByIndex(const std::vector<MsgFile *> &msgs, uint32_t 
     if (!xv2fs || msgs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
         return false;
 
+    if (global_lang >= 0)
+        lang = global_lang;
+
     if (idx >= msgs[lang]->GetNumEntries())
         return false;
 
@@ -431,6 +444,9 @@ bool Xenoverse2::SetMsgTextByIndex(std::vector<MsgFile *> &msgs, uint32_t idx, c
 {
     if (!xv2fs || msgs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
         return false;
+
+    if (global_lang >= 0)
+        lang = global_lang;
 
     if (idx >= msgs[lang]->GetNumEntries())
         return false;
@@ -447,6 +463,9 @@ bool Xenoverse2::GetMsgTextByName(const std::vector<MsgFile *> &msgs, const std:
     if (!xv2fs || msgs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
         return false;
 
+    if (global_lang >= 0)
+        lang = global_lang;
+
     MsgEntry *entry = msgs[lang]->FindEntryByName(entry_name);
     if (!entry)
         return false;
@@ -459,6 +478,9 @@ bool Xenoverse2::SetMsgTextByName(std::vector<MsgFile *> &msgs, const std::strin
 {
     if (!xv2fs || msgs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
         return false;
+
+    if (global_lang >= 0)
+        lang = global_lang;
 
     MsgEntry *entry = msgs[lang]->FindEntryByName(entry_name);
 
@@ -486,6 +508,9 @@ bool Xenoverse2::RemoveMsgTextByIndex(std::vector<MsgFile *> &msgs, uint32_t idx
     if (!xv2fs || msgs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
         return false;
 
+    if (global_lang >= 0)
+        lang = global_lang;
+
     if (idx >= msgs[lang]->GetNumEntries())
         return true; // Yes, true
 
@@ -499,6 +524,9 @@ bool Xenoverse2::RemoveMsgTextByName(std::vector<MsgFile *> &msgs, const std::st
 {
     if (!xv2fs || msgs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
         return false;
+
+    if (global_lang >= 0)
+        lang = global_lang;
 
     if (!msgs[lang]->RemoveEntry(entry_name))
         return false;
@@ -1009,11 +1037,20 @@ static bool InitSkillMsgCommon(int only_this_lang, std::vector<MsgFile *> &sup_m
     sup_msgs.resize(XV2_LANG_NUM);
     ult_msgs.resize(XV2_LANG_NUM);
     eva_msgs.resize(XV2_LANG_NUM);
-    awa_msgs.resize(XV2_LANG_NUM);
+    awa_msgs.resize(XV2_LANG_NUM);    
 
     for (int i = 0; i < XV2_LANG_NUM; i++)
     {
-        if (only_this_lang >= 0 && i != only_this_lang)
+        if (global_lang >= 0 && i != global_lang)
+        {
+            sup_msgs[i] = nullptr;
+            ult_msgs[i] = nullptr;
+            eva_msgs[i] = nullptr;
+            awa_msgs[i] = nullptr;
+            continue;
+        }
+
+        if (global_lang < 0 && only_this_lang >= 0 && i != only_this_lang)
             continue;
 
         {
@@ -1083,28 +1120,28 @@ static bool CommitSkillMsgCommon(bool dynamic_load, std::vector<MsgFile *> &sup_
         {
             std::string path = sup_path + xv2_lang_codes[i] + ".msg";
 
-            if (!xv2fs->SaveFile(sup_msgs[i], path))
+            if (sup_msgs[i] && !xv2fs->SaveFile(sup_msgs[i], path))
                 return false;
         }
 
         {
             std::string path = ult_path + xv2_lang_codes[i] + ".msg";
 
-            if (!xv2fs->SaveFile(ult_msgs[i], path))
+            if (ult_msgs[i] && !xv2fs->SaveFile(ult_msgs[i], path))
                 return false;
         }
 
         {
             std::string path = eva_path + xv2_lang_codes[i] + ".msg";
 
-            if (!xv2fs->SaveFile(eva_msgs[i], path))
+            if (eva_msgs[i] && !xv2fs->SaveFile(eva_msgs[i], path))
                 return false;
         }
 
         {
             std::string path = awa_path + xv2_lang_codes[i] + ".msg";
 
-            if (!xv2fs->SaveFile(awa_msgs[i], path))
+            if (awa_msgs[i] && !xv2fs->SaveFile(awa_msgs[i], path))
                 return false;
         }
     }
@@ -1221,7 +1258,14 @@ bool Xenoverse2::InitCacCostumeNames(int only_this_lang)
 
     for (int i = 0; i < XV2_LANG_NUM; i++)
     {
-        if (only_this_lang >= 0 && i != only_this_lang)
+        if (global_lang >= 0 && i != global_lang)
+        {
+            game_cac_costume_names[i] = nullptr;
+            game_accesory_names[i] = nullptr;
+            continue;
+        }
+
+        if (global_lang < 0 && only_this_lang >= 0 && i != only_this_lang)
             continue;
 
         {
@@ -1247,13 +1291,20 @@ bool Xenoverse2::InitCacCostumeNames(int only_this_lang)
 bool Xenoverse2::CommitCacCostumeNames()
 {
     if (!xv2fs || game_cac_costume_names.size() != XV2_LANG_NUM || game_accesory_names.size() != XV2_LANG_NUM)
-        return false;
+        return false;    
 
-    size_t num_entries = game_cac_costume_names[0]->GetNumEntries();
-
-    for (size_t i = 0; i < XV2_LANG_NUM; i++)
+    size_t ls = 0, le = XV2_LANG_NUM;
+    if (global_lang >= 0)
     {
-        if (i != 0 && game_cac_costume_names[i]->GetNumEntries() != num_entries)
+        ls = global_lang;
+        le = global_lang+1;
+    }
+
+    size_t num_entries = game_cac_costume_names[ls]->GetNumEntries();
+
+    for (size_t i = ls; i < le; i++)
+    {
+        if (i != ls && game_cac_costume_names[i]->GetNumEntries() != num_entries)
         {
             DPRINTF("%s: Failure in saving proper_noun_costume_name_* files."
                     "This program requires the files for all languages to be synchronized.\n", FUNCNAME);
@@ -1270,11 +1321,11 @@ bool Xenoverse2::CommitCacCostumeNames()
         }
     }
 
-    num_entries = game_accesory_names[0]->GetNumEntries();
+    num_entries = game_accesory_names[ls]->GetNumEntries();
 
-    for (size_t i = 0; i < XV2_LANG_NUM; i++)
+    for (size_t i = ls; i < le; i++)
     {
-        if (i != 0 && game_accesory_names[i]->GetNumEntries() != num_entries)
+        if (i != ls && game_accesory_names[i]->GetNumEntries() != num_entries)
         {
             DPRINTF("%s: Failure in saving proper_noun_accessory_name_* files."
                     "This program requires the files for all languages to be synchronized.\n", FUNCNAME);
@@ -1319,7 +1370,14 @@ bool Xenoverse2::InitCacCostumeDescs(int only_this_lang)
 
     for (int i = 0; i < XV2_LANG_NUM; i++)
     {
-        if (only_this_lang >= 0 && i != only_this_lang)
+        if (global_lang >= 0 && i != global_lang)
+        {
+            game_cac_costume_descs[i] = nullptr;
+            game_accesory_descs[i] = nullptr;
+            continue;
+        }
+
+        if (global_lang >= 0 && only_this_lang >= 0 && i != only_this_lang)
             continue;
 
         {
@@ -1347,11 +1405,18 @@ bool Xenoverse2::CommitCacCostumeDescs()
     if (!xv2fs || game_cac_costume_descs.size() != XV2_LANG_NUM)
         return false;
 
-    size_t num_entries = game_cac_costume_descs[0]->GetNumEntries();
-
-    for (size_t i = 0; i < XV2_LANG_NUM; i++)
+    size_t ls = 0, le = XV2_LANG_NUM;
+    if (global_lang >= 0)
     {
-        if (i != 0 && game_cac_costume_descs[i]->GetNumEntries() != num_entries)
+        ls = global_lang;
+        le = global_lang+1;
+    }
+
+    size_t num_entries = game_cac_costume_descs[ls]->GetNumEntries();
+
+    for (size_t i = ls; i < le; i++)
+    {
+        if (i != ls && game_cac_costume_descs[i]->GetNumEntries() != num_entries)
         {
             DPRINTF("%s: Failure in saving proper_noun_costume_info_* files."
                     "This program requires the files for all languages to be synchronized.\n", FUNCNAME);
@@ -1368,11 +1433,11 @@ bool Xenoverse2::CommitCacCostumeDescs()
         }
     }    
 
-    num_entries = game_accesory_descs[0]->GetNumEntries();
+    num_entries = game_accesory_descs[ls]->GetNumEntries();
 
-    for (size_t i = 0; i < XV2_LANG_NUM; i++)
+    for (size_t i = ls; i < le; i++)
     {
-        if (i != 0 && game_accesory_descs[i]->GetNumEntries() != num_entries)
+        if (i != ls && game_accesory_descs[i]->GetNumEntries() != num_entries)
         {
             DPRINTF("%s: Failure in saving proper_noun_accessory_info_* files."
                     "This program requires the files for all languages to be synchronized.\n", FUNCNAME);
@@ -3692,6 +3757,9 @@ uint32_t Xenoverse2::CusAuraToAurAura(uint32_t id)
 		
 		case 33:
 			return 59;
+			
+		case 34:
+			return 60;
     }
 
     return 0xFFFFFFFF;
@@ -3740,7 +3808,7 @@ void Xenoverse2::GetAuraExtra(int32_t id, AuraExtraData &extra)
             extra.bpe_id = 302;
         break;
 		
-		case 57: case 58: case 59:
+		case 57: case 58: case 59: case 60:
 			extra.bpe_id = 320;
 		break;
     }
@@ -4420,6 +4488,12 @@ bool Xenoverse2::InitCommonDialogue()
 
     for (int i = 0; i < XV2_LANG_NUM; i++)
     {
+        if (global_lang >= 0 && i != global_lang)
+        {
+            qc_dialogue_subs[i] = nullptr;
+            continue;
+        }
+
         std::string path = GAME_QC_DIALOGUE_SUBS + xv2_lang_codes[i] + ".msg";
         qc_dialogue_subs[i] = new MsgFile();
 
@@ -4458,6 +4532,9 @@ bool Xenoverse2::CommitCommonDialogue()
 
     for (int i = 0; i < XV2_LANG_NUM; i++)
     {
+        if (!qc_dialogue_subs[i])
+            continue;
+
         std::string path = GAME_QC_DIALOGUE_SUBS + xv2_lang_codes[i] + ".msg";
 
         if (!xv2fs->SaveFile(qc_dialogue_subs[i], path))
@@ -4481,6 +4558,9 @@ bool Xenoverse2::GetTtbSubtitle(const std::string &event_name, std::string &subt
             return false;
     }
 
+    if (global_lang >= 0)
+        lang = global_lang;
+
     MsgEntry *entry = qc_dialogue_subs[lang]->FindEntryByName(event_name);
 
     if (!entry)
@@ -4500,6 +4580,9 @@ bool Xenoverse2::SetTtbSubtitle(const std::string &event_name, const std::string
         if (!InitCommonDialogue())
             return false;
     }
+
+    if (global_lang >= 0)
+        lang = global_lang;
 
     MsgEntry *entry = qc_dialogue_subs[lang]->FindEntryByName(event_name);
 
@@ -4532,6 +4615,9 @@ bool Xenoverse2::RemoveTtbSubtitle(const std::string &event_name, int lang, bool
         if (!InitCommonDialogue())
             return false;
     }
+
+    if (global_lang >= 0)
+        lang = global_lang;
 
     return qc_dialogue_subs[lang]->RemoveEntry(event_name, existed);
 }

@@ -48,18 +48,18 @@ enum TtcEventCondition
 struct PACKED TTCHeader
 {
     uint32_t signature;
-    uint16_t endianess_check;
+    uint16_t endianess_check; // 4
     uint16_t unk_06;
-    uint32_t num_entries;
-    uint32_t strings_size;
+    uint32_t num_entries; // 8
+    uint32_t strings_size; // C
 };
 CHECK_STRUCT_SIZE(TTCHeader, 0x10);
 
 struct PACKED TTCEntry
 {
     uint32_t num_lists;
-    uint32_t data_start;
-    uint32_t start_index;
+    uint32_t data_start; // 4
+    uint32_t start_index; // 8
     uint32_t cms_id;
 };
 CHECK_STRUCT_SIZE(TTCEntry, 0x10);
@@ -67,8 +67,8 @@ CHECK_STRUCT_SIZE(TTCEntry, 0x10);
 struct PACKED TTCEventList
 {
     uint32_t num_events;
-    uint32_t data_start;
-    uint32_t start_index;
+    uint32_t data_start; // 4
+    uint32_t start_index; // 8
     uint32_t type;
 };
 CHECK_STRUCT_SIZE(TTCEventList, 0x10);
@@ -78,7 +78,7 @@ struct PACKED TTCEvent
     uint32_t cms_id; // Always matches the TTCEntry cms_id
     uint32_t costume;
     uint32_t transformation;
-    uint32_t list_type; // Always matches the TTCEventsList type
+    uint32_t list_type; // 0C - Always matches the TTCEventsList type
     uint32_t condition;
     uint32_t name;
     // The following are always 0xFFFFFFFF
@@ -107,6 +107,16 @@ struct TtcEvent
         condition = 0;
     }
 
+    inline bool operator==(const TtcEvent &rhs) const
+    {
+        return (this->costume == rhs.costume && this->transformation == rhs.transformation && this->condition == rhs.condition && this->name == rhs.name);
+    }
+
+    inline bool operator!=(const TtcEvent &rhs) const
+    {
+        return !(*this == rhs);
+    }
+
     TiXmlElement *Decompile(TiXmlNode *root, uint32_t cms_id=0xFFFFFFFF, bool subtitles_comment=false) const;
     bool Compile(const TiXmlElement *root);
 };
@@ -126,6 +136,16 @@ struct TtcEventList
 
     TiXmlElement *Decompile(TiXmlNode *root, uint32_t cms_id=0xFFFFFFFF, bool subtitles_comment=false) const;
     bool Compile(const TiXmlElement *root);
+
+    inline bool operator==(const TtcEventList &rhs) const
+    {
+        return (this->type == rhs.type && this->events == rhs.events);
+    }
+
+    inline bool operator!=(const TtcEventList &rhs) const
+    {
+        return !(*this == rhs);
+    }
 };
 
 struct TtcEntry
@@ -137,6 +157,16 @@ struct TtcEntry
 
     TiXmlElement *Decompile(TiXmlNode *root, bool subtitles_comment=false) const;
     bool Compile(const TiXmlElement *root);
+
+    inline bool operator==(const TtcEntry &rhs) const
+    {
+        return (this->cms_id == rhs.cms_id && this->lists == rhs.lists);
+    }
+
+    inline bool operator!=(const TtcEntry &rhs) const
+    {
+        return !(*this == rhs);
+    }
 };
 
 class TtcFile : public BaseFile
@@ -184,6 +214,18 @@ public:
 
     inline std::vector<TtcEntry>::iterator begin() { return entries.begin(); }
     inline std::vector<TtcEntry>::iterator end() { return entries.end(); }
+
+    inline bool operator==(const TtcFile &rhs) const
+    {
+        return (this->entries == rhs.entries);
+    }
+
+    inline bool operator!=(const TtcFile &rhs) const
+    {
+        return !(*this == rhs);
+    }
+
+    void DumpEvents() const;
 };
 
 #endif // TTCFILE_H

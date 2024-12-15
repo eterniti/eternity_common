@@ -1515,6 +1515,7 @@ void X2mFile::Reset()
     ikd_entries.clear();
     vlc_entry = VlcEntry();
     vlc_entry.cms_id = X2M_INVALID_ID;
+    des_levels.clear();
 
     invisible = false;
 
@@ -2723,6 +2724,12 @@ bool X2mFile::Decompile()
             if (!vlc_entry.Decompile(root))
                 return false;
         }
+
+        for (const DestructionLevel &dl : des_levels)
+        {
+            if (!dl.Decompile(root))
+                return false;
+        }
     }
     else if (type == X2mType::NEW_SKILL)
     {
@@ -3405,6 +3412,15 @@ bool X2mFile::Compile()
 
                 vlc_entry.cms_id = X2M_DUMMY_ID;
             }
+            else if (param_name == "DestructionLevel" && format_version >= X2M_MIN_VERSION_DESTRUCTION)
+            {
+                DestructionLevel dl;
+
+                if (!dl.Compile(elem))
+                    return false;
+
+                des_levels.push_back(dl);
+            }
 
         } // End NEW_CHARACTER
         else if (type == X2mType::NEW_SKILL)
@@ -3645,6 +3661,7 @@ X2mFile *X2mFile::CreateDummyPackage()
 
     dummy->ikd_entries = ikd_entries;
     dummy->vlc_entry = vlc_entry;
+    dummy->des_levels = des_levels;
 
     dummy->chara_ss_depends = chara_ss_depends;
 
@@ -5674,7 +5691,14 @@ bool X2mFile::InstallCharaName()
     if (type != X2mType::NEW_CHARACTER)
         return false;
 
-    for (int i = 0; i < XV2_LANG_NUM; i++)
+    int ls = 0, le = XV2_LANG_NUM;
+    if (global_lang >= 0)
+    {
+        ls = global_lang;
+        le = global_lang+1;
+    }
+
+    for (int i = ls; i < le; i++)
     {
         std::string *name;
 
@@ -5759,7 +5783,14 @@ bool X2mFile::InstallCostumeNames()
     {
         const X2mSlotEntry &entry = slot_entries[i];
 
-        for (int j = 0; j < XV2_LANG_NUM; j++)
+        int ls = 0, le = XV2_LANG_NUM;
+        if (global_lang >= 0)
+        {
+            ls = global_lang;
+            le = global_lang+1;
+        }
+
+        for (int j = ls; j < le; j++)
         {
             const std::string *name;
 
@@ -6028,7 +6059,7 @@ bool X2mFile::AssignSkillIds()
         return false;
     }
 
-    uint16_t desired_lower_limit = 0xFFFF;
+    uint16_t desired_lower_limit = 0;
     if (type == CUS_SKILL_TYPE_BLAST && blast_ss_intended)
     {
         desired_lower_limit = 2000;
@@ -6038,7 +6069,7 @@ bool X2mFile::AssignSkillIds()
     {
         for (int i = 0; i < 10; i++)
         {
-            if (!game_cus->IsSkillInUse(entry->id, i, type) && ((uint16_t)entry->id*10) <= desired_lower_limit)
+            if (!game_cus->IsSkillInUse(entry->id, i, type) && ((uint16_t)entry->id*10) >= desired_lower_limit)
             {
                 skill_entry.id2 = (entry->id*10)+i;
                 skill_entry.id = IdFromId2(skill_entry.id2);
@@ -8104,7 +8135,14 @@ bool X2mFile::InstallTtbSubtitle(const TtbEventResLL &res)
     if (!Utils::BeginsWith(res.name, prefix))
         return true;
 
-    for (int lang = 0; lang < XV2_LANG_NUM; lang++)
+    int ls = 0, le = XV2_LANG_NUM;
+    if (global_lang >= 0)
+    {
+        ls = global_lang;
+        le = global_lang+1;
+    }
+
+    for (int lang = ls; lang < le; lang++)
     {
         const std::string *sub;
 
@@ -8755,6 +8793,11 @@ bool X2mFile::InstallPreBaked()
 
     InstallColors();
 
+    if (HasDestruction())
+    {
+        game_prebaked->SetDestruction(cms_entry.id, des_levels);
+    }
+
     return true;
 }
 
@@ -8908,7 +8951,14 @@ bool X2mFile::UninstallCharaName()
     if (type != X2mType::NEW_CHARACTER)
         return false;
 
-    for (int i = 0; i < XV2_LANG_NUM; i++)
+    int ls = 0, le = XV2_LANG_NUM;
+    if (global_lang >= 0)
+    {
+        ls = global_lang;
+        le = global_lang+1;
+    }
+
+    for (int i = ls; i < le; i++)
     {
         if (!Xenoverse2::RemoveAllCharaName(entry_name, i))
             return false;
@@ -8929,7 +8979,14 @@ bool X2mFile::UninstallCostumeNames()
     {
         const X2mSlotEntry &slot = slot_entries[i];
 
-        for (int j = 0; j < XV2_LANG_NUM; j++)
+        int ls = 0, le = XV2_LANG_NUM;
+        if (global_lang >= 0)
+        {
+            ls = global_lang;
+            le = global_lang+1;
+        }
+
+        for (int j = ls; j < le; j++)
         {
             if (!Xenoverse2::RemoveCharaCostumeName(entry_name, slot.costume_index, slot.model_preset, j))
                 return false;
@@ -9219,9 +9276,16 @@ bool X2mFile::UninstallTtbSubtitles()
         std::string name = "X2M_TTB_" + cms_entry.name + "_" + Utils::ToString(i);
         bool existed;
 
-        for (int lang = 0; lang < XV2_LANG_NUM; lang++)
+        int ls = 0, le = XV2_LANG_NUM;
+        if (global_lang >= 0)
         {
-            if (!Xenoverse2::RemoveTtbSubtitle(name, lang, (lang == XV2_LANG_ENGLISH) ? &existed : nullptr))
+            ls = global_lang;
+            le = global_lang+1;
+        }
+
+        for (int lang = ls; lang < le; lang++)
+        {
+            if (!Xenoverse2::RemoveTtbSubtitle(name, lang, (lang == ls) ? &existed : nullptr))
             {
                 DPRINTF("%s: Failed to remove subtitle \"%s\"\n", FUNCNAME, name.c_str());
                 return false;
@@ -9423,6 +9487,7 @@ bool X2mFile::UninstallPreBaked()
     game_prebaked->RemoveAlias(cms_entry.id);
     game_prebaked->RemoveCharFromAnyDualSkillList(cms_entry.id);
     game_prebaked->RemoveColorsMap(cms_entry.id);
+    game_prebaked->RemoveDestruction(cms_entry.id);
 
     return true;
 }
@@ -9846,7 +9911,14 @@ bool X2mFile::InstallSkillName()
             if (skill_name[XV2_LANG_ENGLISH].length() == 0)
                 return false;
 
-            for (int i = 0; i < XV2_LANG_NUM; i++)
+            int ls = 0, le = XV2_LANG_NUM;
+            if (global_lang >= 0)
+            {
+                ls = global_lang;
+                le = global_lang+1;
+            }
+
+            for (int i = ls; i < le; i++)
             {
                 const std::string *name;
 
@@ -9866,7 +9938,14 @@ bool X2mFile::InstallSkillName()
     if (skill_name[XV2_LANG_ENGLISH].length() == 0)
         return false;
 
-    for (int i = 0; i < XV2_LANG_NUM; i++)
+    int ls = 0, le = XV2_LANG_NUM;
+    if (global_lang >= 0)
+    {
+        ls = global_lang;
+        le = global_lang+1;
+    }
+
+    for (int i = ls; i < le; i++)
     {
         const std::string *name;
 
@@ -9907,7 +9986,14 @@ bool X2mFile::InstallSkillName()
         // Clean up first (for updated with different number of entries)
         for (int i = 0; i < 100; i++)
         {
-            for (int lang = 0; lang < XV2_LANG_NUM; lang++)
+            int ls = 0, le = XV2_LANG_NUM;
+            if (global_lang >= 0)
+            {
+                ls = global_lang;
+                le = global_lang+1;
+            }
+
+            for (int lang = ls; lang < le; lang++)
                 Xenoverse2::RemoveBtlHudAwakenName(skill_entry.id2, i, lang);
         }
 
@@ -9915,7 +10001,14 @@ bool X2mFile::InstallSkillName()
         {
             const X2mSkillTransName &tn = skill_trans_names[i];
 
-            for (int lang = 0; lang < XV2_LANG_NUM; lang++)
+            int ls = 0, le = XV2_LANG_NUM;
+            if (global_lang >= 0)
+            {
+                ls = global_lang;
+                le = global_lang+1;
+            }
+
+            for (int lang = ls; lang < le; lang++)
             {
                 const std::string *name;
 
@@ -9953,7 +10046,14 @@ bool X2mFile::InstallSkillDesc()
         return UninstallSkillDesc();
     }
 
-    for (int i = 0; i < XV2_LANG_NUM; i++)
+    int ls = 0, le = XV2_LANG_NUM;
+    if (global_lang >= 0)
+    {
+        ls = global_lang;
+        le = global_lang+1;
+    }
+
+    for (int i = ls; i < le; i++)
     {
         const std::string *desc;
 
@@ -10012,7 +10112,14 @@ bool X2mFile::InstallSkillHow()
         return UninstallSkillHow();
     }
 
-    for (int i = 0; i < XV2_LANG_NUM; i++)
+    int ls = 0, le = XV2_LANG_NUM;
+    if (global_lang >= 0)
+    {
+        ls = global_lang;
+        le = global_lang+1;
+    }
+
+    for (int i = ls; i < le; i++)
     {
         const std::string *how;
 
@@ -10465,7 +10572,14 @@ bool X2mFile::UninstallSkillName()
     {
         if (blast_ss_intended)
         {
-            for (int i = 0; i < XV2_LANG_NUM; i++)
+            int ls = 0, le = XV2_LANG_NUM;
+            if (global_lang >= 0)
+            {
+                ls = global_lang;
+                le = global_lang+1;
+            }
+
+            for (int i = ls; i < le; i++)
             {
                 if (!Xenoverse2::RemoveModBlastSkillType(skill_entry.id2, i))
                     return false;
@@ -10475,7 +10589,14 @@ bool X2mFile::UninstallSkillName()
         return true;
     }
 
-    for (int i = 0; i < XV2_LANG_NUM; i++)
+    int ls = 0, le = XV2_LANG_NUM;
+    if (global_lang >= 0)
+    {
+        ls = global_lang;
+        le = global_lang+1;
+    }
+
+    for (int i = ls; i < le; i++)
     {
         if (skill_type == X2mSkillType::SUPER)
         {
@@ -10508,7 +10629,14 @@ bool X2mFile::UninstallSkillName()
     {
         for (int i = 0; i < 100; i++)
         {
-            for (int lang = 0; lang < XV2_LANG_NUM; lang++)
+            int ls = 0, le = XV2_LANG_NUM;
+            if (global_lang >= 0)
+            {
+                ls = global_lang;
+                le = global_lang+1;
+            }
+
+            for (int lang = ls; lang < le; lang++)
                 Xenoverse2::RemoveBtlHudAwakenName(skill_entry.id2, i, lang);
         }
     }
@@ -10530,7 +10658,14 @@ bool X2mFile::UninstallSkillDesc()
     if (skill_type == X2mSkillType::BLAST)
         return true;
 
-    for (int i = 0; i < XV2_LANG_NUM; i++)
+    int ls = 0, le = XV2_LANG_NUM;
+    if (global_lang >= 0)
+    {
+        ls = global_lang;
+        le = global_lang+1;
+    }
+
+    for (int i = ls; i < le; i++)
     {
         if (skill_type == X2mSkillType::SUPER)
         {
@@ -10576,7 +10711,14 @@ bool X2mFile::UninstallSkillHow()
     if (skill_type == X2mSkillType::BLAST)
         return true;
 
-    for (int i = 0; i < XV2_LANG_NUM; i++)
+    int ls = 0, le = XV2_LANG_NUM;
+    if (global_lang >= 0)
+    {
+        ls = global_lang;
+        le = global_lang+1;
+    }
+
+    for (int i = ls; i < le; i++)
     {
         if (skill_type == X2mSkillType::SUPER)
         {
@@ -11080,9 +11222,16 @@ bool X2mFile::InstallCostumeCostumeNames()
 
         RemoveCostumeNameReferences(name_id);
 
-        for (int l = 0; l < XV2_LANG_NUM; l++)
+        int ls = 0, le = XV2_LANG_NUM;
+        if (global_lang >= 0)
         {
-            if (!Xenoverse2::RemoveCacCostumeName(name_id, l, (l==0)))
+            ls = global_lang;
+            le = global_lang+1;
+        }
+
+        for (int l = ls; l < le; l++)
+        {
+            if (!Xenoverse2::RemoveCacCostumeName(name_id, l, (l==ls)))
             {
                 DPRINTF("%s: Internal error, fail in RemoveCacCostumeName.\n", FUNCNAME);
                 return false;
@@ -11117,7 +11266,14 @@ bool X2mFile::InstallCostumeCostumeNames()
         if (name_found)
             continue;
 
-        for (int l = 0; l < XV2_LANG_NUM; l++)
+        int ls = 0, le = XV2_LANG_NUM;
+        if (global_lang >= 0)
+        {
+            ls = global_lang;
+            le = global_lang+1;
+        }
+
+        for (int l = ls; l < le; l++)
         {
             const std::string *name;
 
@@ -11185,9 +11341,16 @@ bool X2mFile::InstallCostumeAccessoryNames()
 
         RemoveAccessoryNameReferences(name_id);
 
-        for (int l = 0; l < XV2_LANG_NUM; l++)
+        int ls = 0, le = XV2_LANG_NUM;
+        if (global_lang >= 0)
         {
-            if (!Xenoverse2::RemoveAccesoryName(name_id, l, (l==0)))
+            ls = global_lang;
+            le = global_lang+1;
+        }
+
+        for (int l = ls; l < le; l++)
+        {
+            if (!Xenoverse2::RemoveAccesoryName(name_id, l, (l==ls)))
             {
                 DPRINTF("%s: Internal error, fail in RemoveAccesoryName.\n", FUNCNAME);
                 return false;
@@ -11222,7 +11385,14 @@ bool X2mFile::InstallCostumeAccessoryNames()
         if (name_found)
             continue;
 
-        for (int l = 0; l < XV2_LANG_NUM; l++)
+        int ls = 0, le = XV2_LANG_NUM;
+        if (global_lang >= 0)
+        {
+            ls = global_lang;
+            le = global_lang+1;
+        }
+
+        for (int l = ls; l < le; l++)
         {
             const std::string *name;
 
@@ -11367,9 +11537,16 @@ bool X2mFile::InstallCostumeCostumeDescs()
 
         RemoveCostumeDescReferences(desc_id);
 
-        for (int l = 0; l < XV2_LANG_NUM; l++)
+        int ls = 0, le = XV2_LANG_NUM;
+        if (global_lang >= 0)
         {
-            if (!Xenoverse2::RemoveCacCostumeDesc(desc_id, l, (l==0)))
+            ls = global_lang;
+            le = global_lang+1;
+        }
+
+        for (int l = ls; l < le; l++)
+        {
+            if (!Xenoverse2::RemoveCacCostumeDesc(desc_id, l, (l==ls)))
             {
                 DPRINTF("%s: Internal error, fail in RemoveCacCostumeDesc.\n", FUNCNAME);
                 return false;
@@ -11404,7 +11581,14 @@ bool X2mFile::InstallCostumeCostumeDescs()
         if (desc_found)
             continue;
 
-        for (int l = 0; l < XV2_LANG_NUM; l++)
+        int ls = 0, le = XV2_LANG_NUM;
+        if (global_lang >= 0)
+        {
+            ls = global_lang;
+            le = global_lang+1;
+        }
+
+        for (int l = ls; l < le; l++)
         {
             const std::string *desc;
 
@@ -11472,9 +11656,16 @@ bool X2mFile::InstallCostumeAccessoryDescs()
 
         RemoveAccessoryDescReferences(desc_id);
 
-        for (int l = 0; l < XV2_LANG_NUM; l++)
+        int ls = 0, le = XV2_LANG_NUM;
+        if (global_lang >= 0)
         {
-            if (!Xenoverse2::RemoveAccesoryDesc(desc_id, l, (l==0)))
+            ls = global_lang;
+            le = global_lang+1;
+        }
+
+        for (int l = ls; l < le; l++)
+        {
+            if (!Xenoverse2::RemoveAccesoryDesc(desc_id, l, (l==ls)))
             {
                 DPRINTF("%s: Internal error, fail in RemoveAccesoryDesc.\n", FUNCNAME);
                 return false;
@@ -11509,7 +11700,14 @@ bool X2mFile::InstallCostumeAccessoryDescs()
         if (desc_found)
             continue;
 
-        for (int l = 0; l < XV2_LANG_NUM; l++)
+        int ls = 0, le = XV2_LANG_NUM;
+        if (global_lang >= 0)
+        {
+            ls = global_lang;
+            le = global_lang+1;
+        }
+
+        for (int l = ls; l < le; l++)
         {
             const std::string *desc;
 
@@ -11948,9 +12146,16 @@ bool X2mFile::UninstallCostumeCostumeNames()
 
             RemoveCostumeNameReferences(name_id);
 
-            for (int l = 0; l < XV2_LANG_NUM; l++)
+            int ls = 0, le = XV2_LANG_NUM;
+            if (global_lang >= 0)
             {
-                if (!Xenoverse2::RemoveCacCostumeName(name_id, l, (l==0)))
+                ls = global_lang;
+                le = global_lang+1;
+            }
+
+            for (int l = ls; l < le; l++)
+            {
+                if (!Xenoverse2::RemoveCacCostumeName(name_id, l, (l==ls)))
                 {
                     DPRINTF("%s: RemoveCacCostumeName failed.\n", FUNCNAME);
                     return false;
@@ -11988,9 +12193,16 @@ bool X2mFile::UninstallCostumeAccessoryNames()
 
             RemoveAccessoryNameReferences(name_id);
 
-            for (int l = 0; l < XV2_LANG_NUM; l++)
+            int ls = 0, le = XV2_LANG_NUM;
+            if (global_lang >= 0)
             {
-                if (!Xenoverse2::RemoveAccesoryName(name_id, l, (l==0)))
+                ls = global_lang;
+                le = global_lang+1;
+            }
+
+            for (int l = ls; l < le; l++)
+            {
+                if (!Xenoverse2::RemoveAccesoryName(name_id, l, (l==ls)))
                 {
                     DPRINTF("%s: RemoveAccesoryName failed.\n", FUNCNAME);
                     return false;
@@ -12039,9 +12251,16 @@ bool X2mFile::UninstallCostumeCostumeDescs()
 
             RemoveCostumeDescReferences(desc_id);
 
-            for (int l = 0; l < XV2_LANG_NUM; l++)
+            int ls = 0, le = XV2_LANG_NUM;
+            if (global_lang >= 0)
             {
-                if (!Xenoverse2::RemoveCacCostumeDesc(desc_id, l, (l==0)))
+                ls = global_lang;
+                le = global_lang+1;
+            }
+
+            for (int l = ls; l < le; l++)
+            {
+                if (!Xenoverse2::RemoveCacCostumeDesc(desc_id, l, (l==ls)))
                 {
                     DPRINTF("%s: RemoveCacCostumeDesc failed.\n", FUNCNAME);
                     return false;
@@ -12079,9 +12298,16 @@ bool X2mFile::UninstallCostumeAccessoryDescs()
 
             RemoveAccessoryDescReferences(desc_id);
 
-            for (int l = 0; l < XV2_LANG_NUM; l++)
+            int ls = 0, le = XV2_LANG_NUM;
+            if (global_lang >= 0)
             {
-                if (!Xenoverse2::RemoveAccesoryDesc(desc_id, l, (l==0)))
+                ls = global_lang;
+                le = global_lang+1;
+            }
+
+            for (int l = ls; l < le; l++)
+            {
+                if (!Xenoverse2::RemoveAccesoryDesc(desc_id, l, (l==ls)))
                 {
                     DPRINTF("%s: RemoveAccesoryDesc failed.\n", FUNCNAME);
                     return false;
@@ -12726,9 +12952,16 @@ bool X2mFile::InstallSSName()
             uint16_t name_id = entry->name_id;
             RemoveSSNameReferences(name_id);
 
-            for (int l = 0; l < XV2_LANG_NUM; l++)
+            int ls = 0, le = XV2_LANG_NUM;
+            if (global_lang >= 0)
             {
-                if (!Xenoverse2::RemoveTalismanName(name_id, l, (l==0)))
+                ls = global_lang;
+                le = global_lang+1;
+            }
+
+            for (int l = ls; l < le; l++)
+            {
+                if (!Xenoverse2::RemoveTalismanName(name_id, l, (l==ls)))
                 {
                     DPRINTF("%s: Internal error, fail in RemoveTalismanName.\n", FUNCNAME);
                     return false;
@@ -12738,7 +12971,14 @@ bool X2mFile::InstallSSName()
     }
 
     // Now add new name
-    for (int l = 0; l < XV2_LANG_NUM; l++)
+    int ls = 0, le = XV2_LANG_NUM;
+    if (global_lang >= 0)
+    {
+        ls = global_lang;
+        le = global_lang+1;
+    }
+
+    for (int l = ls; l < le; l++)
     {
         const std::string *name;
 
@@ -12783,9 +13023,16 @@ bool X2mFile::InstallSSDesc()
             uint16_t desc_id = entry->desc_id;
             RemoveSSDescReferences(desc_id);
 
-            for (int l = 0; l < XV2_LANG_NUM; l++)
+            int ls = 0, le = XV2_LANG_NUM;
+            if (global_lang >= 0)
             {
-                if (!Xenoverse2::RemoveTalismanDesc(desc_id, l, (l==0)))
+                ls = global_lang;
+                le = global_lang+1;
+            }
+
+            for (int l = ls; l < le; l++)
+            {
+                if (!Xenoverse2::RemoveTalismanDesc(desc_id, l, (l==ls)))
                 {
                     DPRINTF("%s: Internal error, fail in RemoveTalismanDesc.\n", FUNCNAME);
                     return false;
@@ -12795,7 +13042,14 @@ bool X2mFile::InstallSSDesc()
     }
 
     // Now add new desc
-    for (int l = 0; l < XV2_LANG_NUM; l++)
+    int ls = 0, le = XV2_LANG_NUM;
+    if (global_lang >= 0)
+    {
+        ls = global_lang;
+        le = global_lang+1;
+    }
+
+    for (int l = ls; l < le; l++)
     {
         const std::string *desc;
 
@@ -12840,9 +13094,16 @@ bool X2mFile::InstallSSHow()
             uint16_t how_id = entry->how_id;
             RemoveSSHowReferences(how_id);
 
-            for (int l = 0; l < XV2_LANG_NUM; l++)
+            int ls = 0, le = XV2_LANG_NUM;
+            if (global_lang >= 0)
             {
-                if (!Xenoverse2::RemoveTalismanHow(how_id, l, (l==0)))
+                ls = global_lang;
+                le = global_lang+1;
+            }
+
+            for (int l = ls; l < le; l++)
+            {
+                if (!Xenoverse2::RemoveTalismanHow(how_id, l, (l==ls)))
                 {
                     DPRINTF("%s: Internal error, fail in RemoveTalismanHow.\n", FUNCNAME);
                     return false;
@@ -12852,7 +13113,14 @@ bool X2mFile::InstallSSHow()
     }
 
     // Now add new desc
-    for (int l = 0; l < XV2_LANG_NUM; l++)
+    int ls = 0, le = XV2_LANG_NUM;
+    if (global_lang >= 0)
+    {
+        ls = global_lang;
+        le = global_lang+1;
+    }
+
+    for (int l = ls; l < le; l++)
     {
         const std::string *how;
 
@@ -12975,9 +13243,16 @@ bool X2mFile::UninstallSSName()
         uint16_t name_id = entry->name_id;
         RemoveSSNameReferences(name_id);
 
-        for (int l = 0; l < XV2_LANG_NUM; l++)
+        int ls = 0, le = XV2_LANG_NUM;
+        if (global_lang >= 0)
         {
-            if (!Xenoverse2::RemoveTalismanName(name_id, l, (l==0)))
+            ls = global_lang;
+            le = global_lang+1;
+        }
+
+        for (int l = ls; l < le; l++)
+        {
+            if (!Xenoverse2::RemoveTalismanName(name_id, l, (l==ls)))
             {
                 DPRINTF("%s: RemoveTalismanName failed.\n", FUNCNAME);
                 return false;
@@ -13006,9 +13281,16 @@ bool X2mFile::UninstallSSDesc()
         uint16_t desc_id = entry->desc_id;
         RemoveSSDescReferences(desc_id);
 
-        for (int l = 0; l < XV2_LANG_NUM; l++)
+        int ls = 0, le = XV2_LANG_NUM;
+        if (global_lang >= 0)
         {
-            if (!Xenoverse2::RemoveTalismanDesc(desc_id, l, (l==0)))
+            ls = global_lang;
+            le = global_lang+1;
+        }
+
+        for (int l = ls; l < le; l++)
+        {
+            if (!Xenoverse2::RemoveTalismanDesc(desc_id, l, (l==ls)))
             {
                 DPRINTF("%s: RemoveTalismanDesc failed.\n", FUNCNAME);
                 return false;
@@ -13037,9 +13319,16 @@ bool X2mFile::UninstallSSHow()
         uint16_t how_id = entry->how_id;
         RemoveSSHowReferences(how_id);
 
-        for (int l = 0; l < XV2_LANG_NUM; l++)
+        int ls = 0, le = XV2_LANG_NUM;
+        if (global_lang >= 0)
         {
-            if (!Xenoverse2::RemoveTalismanHow(how_id, l, (l==0)))
+            ls = global_lang;
+            le = global_lang+1;
+        }
+
+        for (int l = ls; l < le; l++)
+        {
+            if (!Xenoverse2::RemoveTalismanHow(how_id, l, (l==ls)))
             {
                 DPRINTF("%s: RemoveTalismanHow failed.\n", FUNCNAME);
                 return false;

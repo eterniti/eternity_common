@@ -19,7 +19,7 @@ struct PACKED RDBHeader
     char signature[4]; // 0
     char version[4]; // 4
     uint32_t header_size; // 8
-    uint32_t plattform;  // 0xA = windows or DX11
+    uint32_t plattform;  // 0xA = windows
     uint32_t num_files; // 0x10
     uint32_t name_db_file; // 0x14  ID of the file containing the resource file name to hash mapping and other info
     char path[8]; // 0x18;
@@ -48,6 +48,27 @@ struct PACKED RDBEntry
 };
 CHECK_STRUCT_SIZE(RDBEntry, 0x30);
 
+// Fairy tail 2
+
+struct PACKED RDBEntryEx
+{
+   uint16_t flags; // 0x401 for "internal" files (.fdata), 0xC01 for external files (.file)
+   uint32_t fdata_offset; // 2 - Dunno what this is for .file (there is the possibility that is noise)
+   uint32_t full_size; // 6 - Full size in the .fdata/.file including the IDRK
+   uint16_t file_id; // 0xA - Used to map to the .fdata file (dunno the meaning in external files)
+   uint8_t unk_0C;
+};
+CHECK_STRUCT_SIZE(RDBEntryEx, 0xD);
+
+// Fairy Tail 2
+struct PACKED RDXEntry
+{
+    uint16_t file_id;
+    int16_t unk_02; // Always -1?
+    uint32_t filename_hash; // 4
+};
+CHECK_STRUCT_SIZE(RDXEntry, 8);
+
 #ifdef _MSC_VER
 #pragma pack(pop)
 #endif
@@ -72,6 +93,10 @@ struct RdbEntry
     uint32_t type_id;
     uint32_t flags;
 
+    uint16_t fdata_id; // Fairy Tail 2, etc
+    uint32_t fdata_hash;
+    bool is_new_format;
+
     std::vector<uint8_t> unk_data;
 
     RdbEntry()
@@ -81,6 +106,10 @@ struct RdbEntry
         index1 = -1;
         index2 = -1;
         external = false;
+        //
+        fdata_id = 0xFFFF;
+        fdata_hash = 0;
+        is_new_format = false;
     }
 };
 
@@ -100,10 +129,16 @@ private:
 
     uint32_t name_db_file;
 
+    std::vector<RDXEntry> rdx_entries;
+    std::string base_path;
+    std::unordered_map<uint16_t, uint32_t> rdx_map;
+
     mutable bool fe4_check;
     mutable bool fe4_ret;
 
     RdbFile();
+
+    bool ExtractFileFData(const RdbEntry &entry, Stream *out, bool omit_external_error=false, bool external_error_is_success=false);
 
 protected:
 
@@ -158,6 +193,12 @@ public:
     bool IsSystem() const;
     bool IsScreenLayout() const;
     bool IsSequenceEditor() const;
+
+
+    bool SetRdxMode(const std::string &rdx_path, const std::string &base_path);
+    inline bool IsRdxMode() const { return rdx_entries.size() > 0; }
+
+    bool GetNewFormatData(size_t idx, std::string &pkg) const;
 
     inline std::unordered_map<uint32_t, std::string> &DebugGetNamesMap() { return names_map; }
 };

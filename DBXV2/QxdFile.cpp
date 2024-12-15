@@ -584,7 +584,7 @@ QxdQuest *QxdFile::FindQuestById(uint32_t id)
     return nullptr;
 }
 
-bool QxdFile::AddQuest(QxdQuest &quest, int new_id_search_start)
+bool QxdFile::AddQuest(QxdQuest &quest, int new_id_search_start, int limit)
 {
     QxdQuest *existing_quest = FindQuestByName(quest.name);
 
@@ -595,7 +595,7 @@ bool QxdFile::AddQuest(QxdQuest &quest, int new_id_search_start)
         return true;
     }
 
-    if (new_id_search_start < 0)
+    if (new_id_search_start < 0 || (GetHighestQuestID()+1) < (uint32_t)limit)
     {
         quest.id = GetHighestQuestID()+1;
     }
@@ -603,7 +603,8 @@ bool QxdFile::AddQuest(QxdQuest &quest, int new_id_search_start)
     {
         quest.id = 0x80000000;
 
-        for (int i = new_id_search_start; i >= 0; i++)
+        //for (int i = new_id_search_start; i >= 0; i++)
+        for (int i = quests[quests.size()-1].id; i >= 0; i--)
         {
             QxdQuest *existing_quest = FindQuestById((uint32_t)i);
 
@@ -622,9 +623,30 @@ bool QxdFile::AddQuest(QxdQuest &quest, int new_id_search_start)
                 }
             }
         }
+
+        if (quest.id >= 0x80000000 || (int)quest.id >= limit)
+        {
+            for (int i = quests[quests.size()-1].id; i >= 0; i++)
+            {
+                if (!existing_quest)
+                {
+                    quest.id = (uint32_t)i;
+                    break;
+                }
+                else
+                {
+                    if (existing_quest->update_requirement == QXD_UPDATE_DEVELOPER && Utils::BeginsWith(existing_quest->name, "empty", false))
+                    {
+                        quest.id = existing_quest->id;
+                        *existing_quest = quest;
+                        return true;
+                    }
+                }
+            }
+        }
     }
 
-    if (quest.id >= 0x80000000)
+    if (quest.id >= 0x80000000 || (int)quest.id >= limit)
         return false;
 
     quests.push_back(quest);
