@@ -432,6 +432,10 @@ TiXmlElement *X2mDepends::Decompile(TiXmlNode *root) const
     {
         Utils::WriteParamString(entry_root, "TYPE", "SUPERSOUL");
     }
+    else if (type == X2mDependsType::CHARACTER)
+    {
+        Utils::WriteParamString(entry_root, "TYPE", "CHARACTER");
+    }
     else
     {
         delete entry_root;
@@ -475,6 +479,10 @@ bool X2mDepends::Compile(const TiXmlElement *root)
     else if (type_str == "SUPERSOUL")
     {
         type = X2mDependsType::SUPERSOUL;
+    }
+    else if (type_str == "CHARACTER")
+    {
+        type = X2mDependsType::CHARACTER;
     }
     else
     {
@@ -1534,6 +1542,7 @@ void X2mFile::Reset()
     skill_costume_depend.id = X2M_INVALID_ID;
     skill_bodies.clear();
     blast_ss_intended = false;
+    skill_chara_depend.id = X2M_INVALID_ID;
 
     costume_items.clear();
     costume_partsets.clear();
@@ -1546,6 +1555,7 @@ void X2mFile::Reset()
     stage_eepk.clear();
 
     ss_item = X2mItem();
+    ss_item.idb.type = 9;
     ss_blast_depend.id = X2M_INVALID_ID;
 
     // Temp variables
@@ -2242,6 +2252,16 @@ check_myself:
             }
         }
 
+        if (HasSkillCharaDepend())
+        {
+            if (!IsSkillCharaDependReferenced())
+            {
+                DPRINTF("%s: Skill Chara Depends is not referenced in the cus entry.\n", FUNCNAME);
+                return false;
+
+            }
+        }
+
         if (HasSkillBodies())
         {
             std::unordered_set<int> bodies_ids;
@@ -2838,6 +2858,13 @@ bool X2mFile::Decompile()
         if (HasSkillCostumeDepend())
         {
             if (!skill_costume_depend.Decompile(root))
+                return false;
+        }
+
+
+        if (HasSkillCharaDepend())
+        {
+            if (!skill_chara_depend.Decompile(root))
                 return false;
         }
 
@@ -3475,9 +3502,17 @@ bool X2mFile::Compile()
             }
             else if (param_name == "X2mDepends" && format_version >= X2M_MIN_VERSION_COSTUME)
             {
-                if (!skill_costume_depend.Compile(elem) || skill_costume_depend.type != X2mDependsType::COSTUME)
+                X2mDepends dep;
+
+                if (!dep.Compile(elem))
+                    return false;
+
+                if (dep.type == X2mDependsType::COSTUME)
+                    skill_costume_depend = dep;
+                else if (dep.type == X2mDependsType::CHARACTER && format_version >= X2M_MIN_VERSION_SKILL_CHARA_DEPEND)
+                    skill_chara_depend = dep;
+                else
                 {
-                    skill_costume_depend.id = X2M_INVALID_ID;
                     return false;
                 }
             }
@@ -3679,6 +3714,7 @@ X2mFile *X2mFile::CreateDummyPackage()
     dummy->skill_costume_depend = skill_costume_depend;
     dummy->skill_bodies = skill_bodies;
     dummy->blast_ss_intended = blast_ss_intended;
+    dummy->skill_chara_depend = skill_chara_depend;
 
     dummy->costume_items = costume_items;
     dummy->costume_partsets = costume_partsets;
@@ -4951,7 +4987,7 @@ bool X2mFile::CharaSsDependsHasAttachment(const uint8_t *guid) const
     return false;
 }
 
-bool X2mFile::CharasDependsHasAttachment(const std::string &guid) const
+bool X2mFile::CharasSsDependsHasAttachment(const std::string &guid) const
 {
     uint8_t guid_bin[16];
 
@@ -5334,6 +5370,122 @@ int X2mFile::GetFreeSkillBodyId() const
     }
 
     return X2M_SKILL_BODY_ID_BEGIN;
+}
+
+bool X2mFile::IsSkillCharaDepends(const uint8_t *guid) const
+{
+    return (memcmp(skill_chara_depend.guid, guid, 16) == 0);
+}
+
+bool X2mFile::IsSkillCharaDepends(const std::string &guid) const
+{
+    uint8_t guid_bin[16];
+
+    if (!Utils::String2GUID(guid_bin, guid))
+        return false;
+
+    return IsSkillCharaDepends(guid_bin);
+}
+
+bool X2mFile::IsSkillCharaDepends(uint16_t id) const
+{
+    return (skill_chara_depend.id == id);
+}
+
+bool X2mFile::SetSkillCharaDepend(const X2mDepends &depends)
+{
+    skill_chara_depend = depends;
+    return true;
+}
+
+bool X2mFile::SetSkillCharaDepend(X2mFile *char_x2m)
+{
+    if (char_x2m->GetType() != X2mType::NEW_CHARACTER)
+        return false;
+
+    skill_chara_depend.type = X2mDependsType::CHARACTER;
+    memcpy(skill_chara_depend.guid, char_x2m->mod_guid, 16);
+    skill_chara_depend.name = char_x2m->GetModName();
+    skill_chara_depend.id = X2M_CHARA_DEPENDS_ID;
+
+    return true;
+}
+
+void X2mFile::SetSkillCharaDepend(const uint8_t *guid, const std::string &name)
+{
+    skill_chara_depend.type = X2mDependsType::CHARACTER;
+    memcpy(skill_chara_depend.guid, guid, 16);
+    skill_chara_depend.name = name;
+    skill_chara_depend.id = X2M_CHARA_DEPENDS_ID;
+}
+
+bool X2mFile::SkillCharaDependHasAttachment() const
+{
+    if (IsDummyMode())
+        return false;
+
+    const std::string att_path = X2M_SKILLS_CHARA_ATTACHMENTS + Utils::GUID2String(skill_chara_depend.guid) + ".x2m";
+    return FileExists(att_path);
+}
+
+bool X2mFile::SetSkillCharaDependAttachment(X2mFile *attachment)
+{
+    if (attachment->type != X2mType::NEW_CHARACTER)
+        return false;
+
+    if (memcmp(skill_chara_depend.guid, attachment->mod_guid, 16) != 0)
+        return false;
+
+    size_t size;
+    uint8_t *buf = attachment->Save(&size);
+
+    if (!buf)
+        return false;
+
+    const std::string att_path = X2M_SKILLS_CHARA_ATTACHMENTS + Utils::GUID2String(skill_chara_depend.guid) + ".x2m";
+    bool ret = WriteFile(att_path, buf, size);
+    delete[] buf;
+
+    return ret;
+}
+
+bool X2mFile::RemoveSkillCharaDependAttachment()
+{
+    const std::string att_path = X2M_SKILLS_CHARA_ATTACHMENTS + Utils::GUID2String(skill_chara_depend.guid) + ".x2m";
+    return RemoveFile(att_path);
+}
+
+X2mFile *X2mFile::LoadSkillCharaDependAttachment()
+{
+    if (!HasSkillCharaDepend())
+        return nullptr;
+
+    const std::string att_path = X2M_SKILLS_CHARA_ATTACHMENTS + Utils::GUID2String(skill_chara_depend.guid) + ".x2m";
+    size_t size;
+    uint8_t *buf = ReadFile(att_path, &size);
+    if (!buf)
+        return nullptr;
+
+    X2mFile *ret = new X2mFile();
+    if (!ret->Load(buf, size))
+    {
+        delete[] buf;
+        delete ret;
+        return nullptr;
+    }
+
+    if (ret->type != X2mType::NEW_CHARACTER)
+    {
+        DPRINTF("%s: Some retard has specified as char attachment a mod that is not a char.\n", FUNCNAME);
+        return nullptr;
+    }
+
+    return ret;
+}
+
+bool X2mFile::IsSkillCharaDependReferenced() const
+{
+    return (skill_entry.model == skill_chara_depend.id);
 }
 
 size_t X2mFile::GetNumCostumePartSets(uint8_t race) const
@@ -9836,7 +9988,7 @@ setup_data:
     return true;
 }
 
-bool X2mFile::InstallCusSkill()
+bool X2mFile::InstallCusSkill(uint32_t depends_cms)
 {
     if (type != X2mType::NEW_SKILL)
         return false;
@@ -9856,6 +10008,15 @@ bool X2mFile::InstallCusSkill()
         {
             skill_entry.partset = 0xFFFF;
         }
+    }
+
+    if (HasSkillCharaDepend())
+    {
+        skill_entry.model = (uint16_t)depends_cms;
+    }
+    else
+    {
+        skill_entry.model = 0xFFFF;
     }
 
     if (skill_type == X2mSkillType::BLAST && blast_ss_intended)

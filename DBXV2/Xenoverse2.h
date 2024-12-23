@@ -449,6 +449,7 @@ namespace Xenoverse2
     std::string GetPetNameEx(uint16_t item_id, int lang=XV2_LANG_ENGLISH);
 
     std::string GetSkillDirectory(const CusSkill &skill, std::string *last_part=nullptr);
+    std::string GetSkillDirectoryAlt(const CusSkill &skill, std::string *last_part=nullptr);
 
     std::vector<std::string> GetCostumeNamesForPartSet(uint32_t partset, uint8_t race_lock=0xFF);
     std::string GetCostumeNamesForPartSet2(uint32_t partset, uint8_t race_lock=0xFF);

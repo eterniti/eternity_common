@@ -25,6 +25,7 @@
 #define X2M_CHARA_SKILLS_ATTACHMENTS    "SKILL_ATACHMENT/"
 #define X2M_CHARA_SS_ATTACHMENTS    "SUPERSOUL_ATACHMENT/"
 #define X2M_SKILLS_COSTUME_ATTACHMENTS  "COSTUME_ATACHMENT/"
+#define X2M_SKILLS_CHARA_ATTACHMENTS "CHARA_ATACHMENT/"
 #define X2M_QUEST_ATTACHMENTS   "ATTACHMENT/"
 #define X2M_SS_BLAST_ATTACHMENT    "SKILL_ATACHMENT/"
 
@@ -51,6 +52,7 @@
 #define X2M_SS_DEPENDS_END   0xE000
 
 #define X2M_COSTUME_DEPENDS_ID   0xC000
+#define X2M_CHARA_DEPENDS_ID     0xC800
 
 #define X2M_CUSTOM_AUDIO_BEGIN  0xC0000000
 #define X2M_CUSTOM_AUDIO_END    0xD0000000
@@ -81,7 +83,8 @@ enum class X2mDependsType
 {
     SKILL,
     COSTUME,
-    SUPERSOUL
+    SUPERSOUL,
+    CHARACTER
 };
 
 enum
@@ -526,6 +529,7 @@ private:
     X2mDepends skill_costume_depend;
     std::vector<X2mBody> skill_bodies;
     bool blast_ss_intended;
+    X2mDepends skill_chara_depend;
 
     // For costumes
     std::vector<X2mItem> costume_items;
@@ -705,6 +709,7 @@ public:
     const float X2M_MIN_VERSION_IKD = 22.0f;
     const float X2M_MIN_VERSION_VLC = 22.0f;
     const float X2M_MIN_VERSION_DESTRUCTION =  23.0f;
+    const float X2M_MIN_VERSION_SKILL_CHARA_DEPEND = 23.0f;
 
     X2mFile();
     virtual ~X2mFile() override;
@@ -1056,7 +1061,7 @@ public:
 
     bool CharaSsDependsHasAttachment(size_t idx) const;
     bool CharaSsDependsHasAttachment(const uint8_t *guid) const;
-    bool CharasDependsHasAttachment(const std::string &guid) const;
+    bool CharasSsDependsHasAttachment(const std::string &guid) const;
 
     bool SetCharaSsDependsAttachment(size_t idx, X2mFile *attachment);
     bool SetCharaSsDependsAttachment(X2mFile *attachment);
@@ -1161,7 +1166,7 @@ public:
     inline size_t AddDestructionStage(const DestructionLevel &entry) { des_levels.push_back(entry); return (des_levels.size()-1); }
     inline void RemoveDestructionStage(size_t idx) { des_levels.erase(des_levels.begin()+idx); }
 
-    inline bool HasDestruction() const { return format_version >= X2M_MIN_VERSION_DESTRUCTION && des_levels.size() > 0;}
+    inline bool HasDestruction() const { return format_version >= X2M_MIN_VERSION_DESTRUCTION && des_levels.size() > 0;}   
 
     // Skill
     inline std::string GetSkillName(int lang) const
@@ -1295,6 +1300,28 @@ public:
 
     inline bool BlastSkillSsIntended() { return blast_ss_intended; }
     inline void SetBlastSkillSsIntended(bool intended) { blast_ss_intended = intended; }
+
+    inline bool HasSkillCharaDepend() const { return (format_version >= X2M_MIN_VERSION_SKILL_CHARA_DEPEND && skill_chara_depend.id != X2M_INVALID_ID); }
+    inline const X2mDepends &GetSkillCharaDepend() const { return skill_chara_depend; }
+    inline X2mDepends &GetSkillCharaDepend() { return skill_chara_depend; }
+
+    bool IsSkillCharaDepends(const uint8_t *guid) const;
+    bool IsSkillCharaDepends(const std::string &guid) const;
+    bool IsSkillCharaDepends(uint16_t id) const;
+
+    bool SetSkillCharaDepend(const X2mDepends &depends);
+    bool SetSkillCharaDepend(X2mFile *char_x2m);
+    void SetSkillCharaDepend(const uint8_t *guid, const std::string &name);
+
+    inline void RemoveSkillCharaDepend() { skill_chara_depend.id = X2M_INVALID_ID; }
+
+    bool SkillCharaDependHasAttachment() const;
+    bool SetSkillCharaDependAttachment(X2mFile *attachment);
+    bool RemoveSkillCharaDependAttachment();
+
+    X2mFile *LoadSkillCharaDependAttachment();
+
+    bool IsSkillCharaDependReferenced() const;
 
     // Costume
     inline bool CostumeDirectoryExists(uint8_t race) const { return (race < X2M_CR_NUM && DirExists(x2m_cr_code[race])); }
@@ -1464,7 +1491,7 @@ public:
     // Skill Ram installs
     bool InstallPupSkill();
     bool InstallAuraSkill();
-    bool InstallCusSkill();
+    bool InstallCusSkill(uint32_t depends_cms);
     bool InstallSkillName();
     bool InstallSkillDesc();
     bool InstallSkillHow();

@@ -715,6 +715,19 @@ uint8_t *Utils::ReadParamBlob(const TiXmlElement *root, const char *name, size_t
     return nullptr;
 }
 
+bool Utils::ReadParamBlob(const TiXmlElement *root, const char *name, std::vector<uint8_t> &value)
+{
+    size_t size;
+    uint8_t *buf = ReadParamBlob(root, name, &size);
+    if (!buf)
+        return false;
+
+    value.resize(size);
+    memcpy(value.data(), buf, value.size());
+    delete[] buf;
+    return true;
+}
+
 bool Utils::ReadParamUnsignedWithMultipleNames(const TiXmlElement *root, uint32_t *value, const char *name1, const char *name2, const char *name3, const char *name4, const char *name5)
 {
     if (ReadParamUnsigned(root, name1, value))
@@ -994,6 +1007,17 @@ uint8_t *Utils::GetParamBlob(const TiXmlElement *root, const char *name, size_t 
     }
 
     return ret;
+}
+
+bool Utils::GetParamBlob(const TiXmlElement *root, const char *name, std::vector<uint8_t> &value)
+{
+    if (!ReadParamBlob(root, name, value))
+    {
+        DPRINTF("Cannot read parameter \"%s\" (object at line %d)\n", name, root->Row());
+        return false;
+    }
+
+    return true;
 }
 
 bool Utils::GetParamUnsignedWithMultipleNames(const TiXmlElement *root, uint32_t *value, const char *name1, const char *name2, const char *name3, const char *name4, const char *name5)

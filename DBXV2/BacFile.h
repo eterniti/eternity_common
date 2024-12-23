@@ -647,7 +647,10 @@ struct BACType31
     uint16_t flags;
     uint32_t unk_08;
     uint32_t unk_0C;
-    uint16_t unk_10[4];
+    uint16_t unk_10;
+    uint16_t unk_12;
+    uint16_t skill_id;
+    uint16_t unk_16;
     float unk_18;
     float unk_1C;
     uint32_t unk_20[8];

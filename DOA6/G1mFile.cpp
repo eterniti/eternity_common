@@ -5,7 +5,7 @@
 
 #include "math/Vector.h"
 
-bool G1MFChunk::Read(FixedMemoryStream &in, uint32_t chunk_version, uint32_t)
+bool G1MFChunk::Read(FixedMemoryStream &in, uint32_t chunk_version, uint32_t chunk_size)
 {
     size_t size;
 
@@ -49,6 +49,10 @@ bool G1MFChunk::Read(FixedMemoryStream &in, uint32_t chunk_version, uint32_t)
     }
     else if (version == 33)
     {
+        size = 0x188;
+    }
+    else if (version == 40)
+    {
         size = sizeof(G1MFData);
     }
     else
@@ -59,6 +63,13 @@ bool G1MFChunk::Read(FixedMemoryStream &in, uint32_t chunk_version, uint32_t)
 
     if (!in.Read(&data, size))
         return false;
+
+    if (chunk_size > size)
+    {
+        extra.resize(chunk_size - size);
+        if (!in.Read(extra.data(), extra.size()))
+            return false;
+    }
 
     return true;
 }
@@ -105,6 +116,10 @@ bool G1MFChunk::Write(MemoryStream &out) const
     }
     else if (version == 33)
     {
+        size = 0x188;
+    }
+    else if (version == 40)
+    {
         size = sizeof(G1MFData);
     }
     else
@@ -112,7 +127,13 @@ bool G1MFChunk::Write(MemoryStream &out) const
         return false;
     }
 
-    return out.Write(&data, size);
+    if (!out.Write(&data, size))
+        return false;
+
+    if (extra.size() > 0 && !out.Write(extra.data(), extra.size()))
+        return false;
+
+    return true;
 }
 
 TiXmlElement *G1MFChunk::Decompile(TiXmlNode *root) const
@@ -235,6 +256,11 @@ TiXmlElement *G1MFChunk::Decompile(TiXmlNode *root) const
                 }
             }
         }
+    }
+
+    if (extra.size() > 0)
+    {
+        Utils::WriteParamBlob(entry_root, "extra_data", extra);
     }
 
     root->LinkEndChild(entry_root);
@@ -400,6 +426,10 @@ bool G1MFChunk::Compile(const TiXmlElement *root, bool *g1mf_auto)
     }
     else if (version == 33)
     {
+        size = 0x188;
+    }
+    else if (version == 40)
+    {
         size = sizeof(G1MFData);
     }
     else
@@ -415,6 +445,9 @@ bool G1MFChunk::Compile(const TiXmlElement *root, bool *g1mf_auto)
         size = (size - 0x130) / 4;
         if (!Utils::GetParamMultipleUnsigned(root, "MU_130", data.unk_130, size)) return false;
     }
+
+    Utils::ReadParamBlob(root, "extra_data", extra);
+    data.size += (uint32_t)extra.size();
 
     return true;
 }
@@ -958,24 +991,19 @@ TiXmlElement *G1MGUnkSection1::Decompile(TiXmlNode *root) const
 
     TiXmlElement *entry_root = new TiXmlElement("Section1");
     Utils::WriteComment(entry_root, "Section 1 is currently not parsed. Raw base64 ahead.");
-    Utils::WriteParamBlob(entry_root, "data", unk.data(), unk.size());
+    Utils::WriteParamBlob(entry_root, "data", unk);
 
     root->LinkEndChild(entry_root);
     return entry_root;
 }
 
 bool G1MGUnkSection1::Compile(const TiXmlElement *root)
-{
-    size_t size;
-    uint8_t *buf = Utils::GetParamBlob(root, "data", &size);
-    if (!buf)
+{    
+    if (!Utils::GetParamBlob(root, "data", unk))
     {
         DPRINTF("Failed in getting \"data\" parameter (in object at line %d)\n", root->Row());
         return false;
     }
-
-    unk = std::vector<uint8_t>(buf, buf+size);
-    delete[] buf;
 
     valid = true;
     return true;
@@ -2445,7 +2473,7 @@ TiXmlElement *G1MGBoneMapEntry::Decompile(TiXmlNode *root, const std::vector<std
 {
     TiXmlElement *entry_root = new TiXmlElement("BoneEntry");
 
-    if (mapped >= bone_names.size() && flags != 0)
+    if (mapped >= bone_names.size()/* && flags != 0*/)
     {
         /*DPRINTF("%s: mapped bone (0x%x aka %d) is greater than names array (%Id) (u_04=%d).\n", FUNCNAME, mapped, mapped, bone_names.size(), unk_04);
         return nullptr;*/
@@ -3236,9 +3264,9 @@ bool G1MGMesh::Read(FixedMemoryStream &in)
 
 bool G1MGMesh::Write(MemoryStream &out) const
 {
-    char str[17];
+    char str[18];
 
-    strncpy(str, shader.c_str(), sizeof(str));
+    strncpy(str, shader.c_str(), sizeof(str)-1);
     if (!out.Write(str, 16))
         return false;
 
@@ -3847,7 +3875,7 @@ bool G1MGChunk::Read(FixedMemoryStream &in, uint32_t chunk_version, uint32_t)
 {
     version = Utils::GetShortVersion(chunk_version);
 
-    if (version != 44)
+    if (version != 44 && version != 45)
     {
         DPRINTF("G1MG: cannot understand this version of chunk: 0x%08X (%d))\n", chunk_version, version);
         return false;
@@ -4126,7 +4154,7 @@ bool G1MGChunk::Compile(const TiXmlElement *root, const std::string &att_dir, co
         version = 44;
     }    
 
-    if (version != 44)
+    if (version != 44 && version != 45)
     {
         DPRINTF("G1MG: cannot understand this version (%d) (error in object at line %d)\n", version, root->Row());
         return false;
@@ -4767,58 +4795,87 @@ bool NUNO3::Read(FixedMemoryStream &in, uint32_t version)
 
     this->version = version;
 
+    // 0
     if (!in.Read16(&parent_bone))
         return false;
 
+    // 2
     if (!in.Read16(&dummy))
         return false;    
 
+    // 4
     if (!in.Read32(&num_control_points))
         return false;
 
+    // 8
     if (!in.Read32(&num_unk1))
         return false;
 
+    // 0xC
     if (!in.Read32(&num_unk4))
         return false;
 
+    // 0x10
     if (!in.Read32(&unk_10))
         return false;
 
+    // 0x14
     if (!in.Read32(&num_unk5))
         return false;
 
+    // 0x18
     if (!in.Read32(&num_unk6))
         return false;
 
-    if (!in.Read(unk_1C, sizeof(unk_1C)))
-        return false;
-
-    if (!in.Read32(&nun_opcode))
-        return false;
-
-    if (version >= 30)
+    // New parser for 35
+    if (version >= 35)
     {
-        // Note: only seen 0 in these values. If they are number of something, then when different than 0 this code will be screwed
-        if (!in.Read32(&unk_30))
+        if (!in.Read(np_1C, sizeof(np_1C)))
             return false;
 
-        if (!in.Read32(&unk_34))
+        uint32_t extra_size;
+        if (!in.Read32(&extra_size))
+            return false;
+
+        extra.resize(extra_size);
+        memcpy(extra.data(), &extra_size, sizeof(uint32_t));
+        if (!in.Read(extra.data()+sizeof(uint32_t), extra.size()-sizeof(uint32_t)))
             return false;
     }
-
-    if (!in.Read(&unk, sizeof(NUNO3::Unk)))
-        return false;
-
-    if (version >= 30)
+    else
     {
-        if (!in.Read(&unk2, sizeof(NUNO3::Unk2)))
+        // Old parser
+        if (!in.Read(unk_1C, sizeof(unk_1C)))
             return false;
 
-        if (version >= 32 && nun_opcode == 3)
+        // 0x2C
+        if (!in.Read32(&nun_opcode))
+            return false;
+
+        if (version >= 30)
         {
-            if (!in.Read(&unk3, sizeof(NUNO3::Unk3)))
+            // Note: only seen 0 in these values. If they are number of something, then when different than 0 this code will be screwed
+            if (!in.Read32(&unk_30))
                 return false;
+
+            if (!in.Read32(&unk_34))
+                return false;
+        }
+
+        if (!in.Read(&unk, sizeof(NUNO3::Unk)))
+            return false;
+
+       if (version >= 30)
+        {
+            // 0xE0
+            if (!in.Read(&unk2, sizeof(NUNO3::Unk2)))
+                return false;
+
+            if (version >= 32 && nun_opcode == 3)
+            {
+                if (!in.Read(&unk3, sizeof(NUNO3::Unk3)))
+                    return false;
+            }
         }
     }
 
@@ -4880,34 +4937,46 @@ bool NUNO3::Write(MemoryStream &out) const
     if (!out.Write32((uint32_t)unk6s.size()))
         return false;
 
-    if (!out.Write(unk_1C, sizeof(unk_1C)))
-        return false;
-
-    if (!out.Write32(nun_opcode))
-        return false;
-
-    if (version >= 30)
+    if (version >= 35)
     {
-        // Note: only seen 0 in these values. If they are number of something, then when different than 0 this code will be screwed
-        if (!out.Write32(unk_30))
+        // New parser
+        if (!out.Write(np_1C, sizeof(np_1C)))
             return false;
 
-        if (!out.Write32(unk_34))
+        if (extra.size() > 0 && !out.Write(extra.data(), extra.size()))
             return false;
     }
-
-    if (!out.Write(&unk, sizeof(NUNO3::Unk)))
-        return false;
-
-    if (version >= 30)
+    else
     {
-        if (!out.Write(&unk2, sizeof(NUNO3::Unk2)))
+        if (!out.Write(unk_1C, sizeof(unk_1C)))
             return false;
 
-        if (version >= 32 && nun_opcode == 3)
+        if (!out.Write32(nun_opcode))
+            return false;
+
+        if (version >= 30)
         {
-            if (!out.Write(&unk3, sizeof(NUNO3::Unk3)))
+            // Note: only seen 0 in these values. If they are number of something, then when different than 0 this code will be screwed
+            if (!out.Write32(unk_30))
                 return false;
+
+            if (!out.Write32(unk_34))
+                return false;
+        }
+
+        if (!out.Write(&unk, sizeof(NUNO3::Unk)))
+            return false;
+
+        if (version >= 30)
+        {
+            if (!out.Write(&unk2, sizeof(NUNO3::Unk2)))
+                return false;
+
+            if (version >= 32 && nun_opcode == 3)
+            {
+                if (!out.Write(&unk3, sizeof(NUNO3::Unk3)))
+                    return false;
+            }
         }
     }
 
@@ -4960,33 +5029,43 @@ TiXmlElement *NUNO3::Decompile(TiXmlNode *root, const G1mFile &g1m, size_t idx) 
         Utils::WriteParamUnsigned(entry_root, "dummy", dummy, true);
 
     Utils::WriteParamUnsigned(entry_root, "U_10", unk_10);
-    Utils::WriteParamMultipleUnsigned(entry_root, "U_1C", std::vector<uint32_t>(unk_1C, unk_1C+4), true);
-    Utils::WriteParamUnsigned(entry_root, "Opcode", nun_opcode);
 
-    if (version >= 30)
+    if (version >= 35)
     {
-        Utils::WriteParamUnsigned(entry_root, "U_30", unk_30);
-        Utils::WriteParamUnsigned(entry_root, "U_34", unk_34);
+        // New parser
+        Utils::WriteParamMultipleUnsigned(entry_root, "U_1C", std::vector<uint32_t>(np_1C, np_1C+3), true);
+        Utils::WriteParamBlob(entry_root, "extra_data", extra);
     }
-
-    Utils::WriteParamMultipleFloats(entry_root, "F_30", std::vector<float>(unk.unk_30, unk.unk_30+9));
-    Utils::WriteParamUnsigned(entry_root, "U_54", unk.unk_54, true);
-    Utils::WriteParamUnsigned(entry_root, "U_58", unk.unk_58, true);
-    Utils::WriteParamMultipleFloats(entry_root, "F_5C", std::vector<float>(unk.unk_5C, unk.unk_5C+11));
-    Utils::WriteParamMultipleUnsigned(entry_root, "U_88", std::vector<uint32_t>(unk.unk_88, unk.unk_88+4), true);
-    Utils::WriteParamMultipleFloats(entry_root, "F_98", std::vector<float>(unk.unk_98, unk.unk_98+7));
-    Utils::WriteParamUnsigned(entry_root, "U_B4", unk.unk_B4, true);
-    Utils::WriteParamFloat(entry_root, "F_B8", unk.unk_B8);
-    Utils::WriteParamMultipleUnsigned(entry_root, "U_BC", std::vector<uint32_t>(unk.unk_BC, unk.unk_BC+7), true);
-
-    if (version >= 30)
+    else
     {
-        Utils::WriteParamMultipleUnsigned(entry_root, "U_E0", std::vector<uint32_t>(unk2.unk_E0, unk2.unk_E0+4));
-        Utils::WriteParamSigned(entry_root, "I_F0", unk2.unk_F0);
+        Utils::WriteParamMultipleUnsigned(entry_root, "U_1C", std::vector<uint32_t>(unk_1C, unk_1C+4), true);
+        Utils::WriteParamUnsigned(entry_root, "Opcode", nun_opcode);
 
-        if (version >= 32 && nun_opcode == 3)
+        if (version >= 30)
         {
-            Utils::WriteParamMultipleFloats(entry_root, "F_F4", std::vector<float>(unk3.unk_F4, unk3.unk_F4+5));
+            Utils::WriteParamUnsigned(entry_root, "U_30", unk_30);
+            Utils::WriteParamUnsigned(entry_root, "U_34", unk_34);
+        }
+
+        Utils::WriteParamMultipleFloats(entry_root, "F_30", std::vector<float>(unk.unk_30, unk.unk_30+9));
+        Utils::WriteParamUnsigned(entry_root, "U_54", unk.unk_54, true);
+        Utils::WriteParamUnsigned(entry_root, "U_58", unk.unk_58, true);
+        Utils::WriteParamMultipleFloats(entry_root, "F_5C", std::vector<float>(unk.unk_5C, unk.unk_5C+11));
+        Utils::WriteParamMultipleUnsigned(entry_root, "U_88", std::vector<uint32_t>(unk.unk_88, unk.unk_88+4), true);
+        Utils::WriteParamMultipleFloats(entry_root, "F_98", std::vector<float>(unk.unk_98, unk.unk_98+7));
+        Utils::WriteParamUnsigned(entry_root, "U_B4", unk.unk_B4, true);
+        Utils::WriteParamFloat(entry_root, "F_B8", unk.unk_B8);
+        Utils::WriteParamMultipleUnsigned(entry_root, "U_BC", std::vector<uint32_t>(unk.unk_BC, unk.unk_BC+7), true);
+
+        if (version >= 30)
+        {
+            Utils::WriteParamMultipleUnsigned(entry_root, "U_E0", std::vector<uint32_t>(unk2.unk_E0, unk2.unk_E0+4));
+            Utils::WriteParamSigned(entry_root, "I_F0", unk2.unk_F0);
+
+            if (version >= 32 && nun_opcode == 3)
+            {
+                Utils::WriteParamMultipleFloats(entry_root, "F_F4", std::vector<float>(unk3.unk_F4, unk3.unk_F4+5));
+            }
         }
     }
 
@@ -5051,33 +5130,43 @@ bool NUNO3::Compile(const TiXmlElement *root, const G1mFile &g1m, uint32_t versi
 
     if (!Utils::ReadParamUnsigned(root, "dummy", &dummy)) dummy = 0;
     if (!Utils::GetParamUnsigned(root, "U_10", &unk_10)) return false;
-    if (!Utils::GetParamMultipleUnsigned(root, "U_1C", unk_1C, 4)) return false;
-    if (!Utils::GetParamUnsigned(root, "Opcode", &nun_opcode)) return false;
 
-    if (version >= 30)
+    if (version >= 35)
     {
-        if (!Utils::GetParamUnsigned(root, "U_30", &unk_30)) return false;
-        if (!Utils::GetParamUnsigned(root, "U_34", &unk_34)) return false;
+        // New parser
+        if (!Utils::GetParamMultipleUnsigned(root, "U_1C", np_1C, 3)) return false;
+        Utils::ReadParamBlob(root, "extra_data", extra);
     }
-
-    if (!Utils::GetParamMultipleFloats(root, "F_30", unk.unk_30, 9)) return false;
-    if (!Utils::GetParamUnsigned(root, "U_54", &unk.unk_54)) return false;
-    if (!Utils::GetParamUnsigned(root, "U_58", &unk.unk_58)) return false;
-    if (!Utils::GetParamMultipleFloats(root, "F_5C", unk.unk_5C, 11)) return false;
-    if (!Utils::GetParamMultipleUnsigned(root, "U_88", unk.unk_88, 4)) return false;
-    if (!Utils::GetParamMultipleFloats(root, "F_98", unk.unk_98, 7)) return false;
-    if (!Utils::GetParamUnsigned(root, "U_B4", &unk.unk_B4)) return false;
-    if (!Utils::GetParamFloat(root, "F_B8", &unk.unk_B8)) return false;
-    if (!Utils::GetParamMultipleUnsigned(root, "U_BC", unk.unk_BC, 7)) return false;
-
-    if (version >= 30)
+    else
     {
-        if (!Utils::GetParamMultipleUnsigned(root, "U_E0", unk2.unk_E0, 4)) return false;
-        if (!Utils::GetParamSigned(root, "I_F0", &unk2.unk_F0)) return false;
+        if (!Utils::GetParamMultipleUnsigned(root, "U_1C", unk_1C, 4)) return false;
+        if (!Utils::GetParamUnsigned(root, "Opcode", &nun_opcode)) return false;
 
-        if (version >= 32 && nun_opcode == 3)
+        if (version >= 30)
         {
-            if (!Utils::GetParamMultipleFloats(root, "F_F4", unk3.unk_F4, 5)) return false;
+            if (!Utils::GetParamUnsigned(root, "U_30", &unk_30)) return false;
+            if (!Utils::GetParamUnsigned(root, "U_34", &unk_34)) return false;
+        }
+
+        if (!Utils::GetParamMultipleFloats(root, "F_30", unk.unk_30, 9)) return false;
+        if (!Utils::GetParamUnsigned(root, "U_54", &unk.unk_54)) return false;
+        if (!Utils::GetParamUnsigned(root, "U_58", &unk.unk_58)) return false;
+        if (!Utils::GetParamMultipleFloats(root, "F_5C", unk.unk_5C, 11)) return false;
+        if (!Utils::GetParamMultipleUnsigned(root, "U_88", unk.unk_88, 4)) return false;
+        if (!Utils::GetParamMultipleFloats(root, "F_98", unk.unk_98, 7)) return false;
+        if (!Utils::GetParamUnsigned(root, "U_B4", &unk.unk_B4)) return false;
+        if (!Utils::GetParamFloat(root, "F_B8", &unk.unk_B8)) return false;
+        if (!Utils::GetParamMultipleUnsigned(root, "U_BC", unk.unk_BC, 7)) return false;
+
+        if (version >= 30)
+        {
+            if (!Utils::GetParamMultipleUnsigned(root, "U_E0", unk2.unk_E0, 4)) return false;
+            if (!Utils::GetParamSigned(root, "I_F0", &unk2.unk_F0)) return false;
+
+            if (version >= 32 && nun_opcode == 3)
+            {
+                if (!Utils::GetParamMultipleFloats(root, "F_F4", unk3.unk_F4, 5)) return false;
+            }
         }
     }
 
@@ -5169,18 +5258,23 @@ bool NUNO4::Read(FixedMemoryStream &in, uint32_t version)
         return false;
     }
 
+    // 0
     if (!in.Read32(&parent_bone))
         return false;
 
+    // 4
     if (!in.Read32(&num_unk7))
         return false;
 
+    // 8
     if (!in.Read32(&num_unk8))
         return false;
 
+    // C
     if (!in.Read32(&num_unk9))
         return false;
 
+    // 0x10
     if (!in.Read32(&num_unk10))
         return false;
 
@@ -5410,11 +5504,22 @@ bool NUNO4::Compile(const TiXmlElement *root, const G1mFile &g1m, uint32_t versi
     return true;
 }
 
+static bool ReadNunoBlob(FixedMemoryStream &in, const NUNSectionHeader &sec_hdr, std::vector<uint8_t> &blob)
+{
+    blob.resize(sec_hdr.size);
+    memcpy(blob.data(), &sec_hdr, sizeof(NUNSectionHeader));
+
+    if (!in.Read(blob.data()+sizeof(NUNSectionHeader), blob.size()-sizeof(NUNSectionHeader)))
+        return false;
+
+    return true;
+}
+
 bool NUNOChunk::Read(FixedMemoryStream &in, uint32_t chunk_version, uint32_t)
 {
     version = Utils::GetShortVersion(chunk_version);
 
-    if (version != 29 && version != 30 && version != 32)
+    if (version != 29 && version != 30 && version != 32 && version != 35)
     {
         DPRINTF("NUNO: cannot understand this version of chunk (0x%08X, aka %d)\n", chunk_version, version);
         return false;
@@ -5452,11 +5557,36 @@ bool NUNOChunk::Read(FixedMemoryStream &in, uint32_t chunk_version, uint32_t)
         }
         else if (sec_hdr.id == 0x30004)
         {
+            if (version >= 35)
+            {
+                if (!ReadNunoBlob(in, sec_hdr, nuno4s_blob))
+                    return false;
+
+                in.Seek(section_start + sec_hdr.size, SEEK_SET);
+                continue;
+            }
+
             nuno4s.resize(sec_hdr.count);
+        }
+        else if (sec_hdr.id == 0x30005)
+        {
+            if (!ReadNunoBlob(in, sec_hdr, nuno5s_blob))
+                return false;
+
+            in.Seek(section_start + sec_hdr.size, SEEK_SET);
+            continue;
+        }
+        else if (sec_hdr.id == 0x30006)
+        {
+            if (!ReadNunoBlob(in, sec_hdr, nuno6s_blob))
+                return false;
+
+            in.Seek(section_start + sec_hdr.size, SEEK_SET);
+            continue;
         }
         else
         {
-            DPRINTF("Unknown NUNO section 0x%x\n", sec_hdr.id);
+            DPRINTF("Unknown NUNO section 0x%x. At offset 0x%Ix\n", sec_hdr.id, (size_t)in.Tell()-sizeof(NUNSectionHeader));
             return false;
         }
 
@@ -5482,10 +5612,14 @@ bool NUNOChunk::Read(FixedMemoryStream &in, uint32_t chunk_version, uint32_t)
             if (sec_hdr.id == 0x30004)
             {
                 if (!nuno4s[i].Read(in, version))
+                {
+                    DPRINTF("NUNO4 read failed.\n");
                     return false;
+                }
             }
         }
 
+        //DPRINTF("At offset 0x%I64x, will go to 0x%I64x\n", in.Tell(), section_start + sec_hdr.size);
         in.Seek(section_start + sec_hdr.size, SEEK_SET);
     }
 
@@ -5621,6 +5755,30 @@ bool NUNOChunk::Write(MemoryStream &out) const
         hdr.section_count++;
     }
 
+    else if (nuno4s_blob.size() > 0)
+    {
+        if (!out.Write(nuno4s_blob.data(), nuno4s_blob.size()))
+            return false;
+
+        hdr.section_count++;
+    }
+
+    if (nuno5s_blob.size() > 0)
+    {
+        if (!out.Write(nuno5s_blob.data(), nuno5s_blob.size()))
+            return false;
+
+        hdr.section_count++;
+    }
+
+    if (nuno6s_blob.size() > 0)
+    {
+        if (!out.Write(nuno6s_blob.data(), nuno6s_blob.size()))
+            return false;
+
+        hdr.section_count++;
+    }
+
     uint64_t end = out.Tell();
     hdr.size = (uint32_t)(end - start);
 
@@ -5662,6 +5820,21 @@ TiXmlElement *NUNOChunk::Decompile(TiXmlNode *root, const G1mFile &g1m) const
             return nullptr;
     }
 
+    if (nuno4s_blob.size() > 0)
+    {
+        Utils::WriteParamBlob(entry_root, "Nuno4s", nuno4s_blob);
+    }
+
+    if (nuno5s_blob.size() > 0)
+    {
+        Utils::WriteParamBlob(entry_root, "Nuno5s", nuno5s_blob);
+    }
+
+    if (nuno6s_blob.size() > 0)
+    {
+        Utils::WriteParamBlob(entry_root, "Nuno6s", nuno6s_blob);
+    }
+
     root->LinkEndChild(entry_root);
     return entry_root;
 }
@@ -5671,7 +5844,7 @@ bool NUNOChunk::Compile(const TiXmlElement *root, const G1mFile &g1m)
     if (!Utils::ReadAttrUnsigned(root, "version", &version))
         version = 29;
 
-    if (version != 29 && version != 30 && version != 32)
+    if (version != 29 && version != 30 && version != 32 && version != 35)
     {
         DPRINTF("Cannot understand NUNO version %d.\n", version);
         return false;
@@ -5805,6 +5978,12 @@ bool NUNOChunk::Compile(const TiXmlElement *root, const G1mFile &g1m)
             nuno4s_compiled[idx] = true;
         }
     }
+
+    if (nuno4s.size() == 0)
+        Utils::ReadParamBlob(root, "Nuno4s", nuno4s_blob);
+
+    Utils::ReadParamBlob(root, "Nuno5s", nuno5s_blob);
+    Utils::ReadParamBlob(root, "Nuno6s", nuno6s_blob);
 
     return true;
 }
@@ -6333,7 +6512,7 @@ bool G1mFile::Load(const uint8_t *buf, size_t size)
 
     version = Utils::GetShortVersion(hdr->version);
 
-    if (version != 37 && version != 36 && version != 34)
+    if (version != 37 && version != 36 && version != 34 && version != 39)
     {
         DPRINTF("Not supported version of g1m format (0x%08x, aka %d)\n", hdr->version, version);
         return false;
@@ -6616,7 +6795,9 @@ void G1mFile::UpdateG1MF()
         g1mf.num_nuno2s = g1mf.num_nuno2s_unk11 = 0;
         g1mf.num_nuno1s = g1mf.num_nuno1s_unk4 = g1mf.num_nuno1s_control_points = g1mf.num_nuno1s_unk1 = g1mf.num_nuno1s_unk2_and_unk3 = 0;
         g1mf.num_nuno3s = g1mf.num_nuno3s_unk4 = g1mf.num_nuno3s_control_points = g1mf.num_nuno3s_unk1 = 0;
-        g1mf.num_nuno4s = g1mf.num_nuno4s_unk7 = g1mf.num_nuno4s_unk8 = g1mf.num_nuno4s_unk9 = g1mf.num_nuno4s_unk10 = 0;
+
+        if (!IsNuno4Blob())
+            g1mf.num_nuno4s = g1mf.num_nuno4s_unk7 = g1mf.num_nuno4s_unk8 = g1mf.num_nuno4s_unk9 = g1mf.num_nuno4s_unk10 = 0;
 
         for (const NUNOChunk &nuno : nunos)
         {
@@ -6645,12 +6826,15 @@ void G1mFile::UpdateG1MF()
                 g1mf.num_nuno3s_unk1 += (uint32_t)nuno3.unk1s.size();
             }
 
-            for (const NUNO4 &nuno4: nuno.nuno4s)
+            if (!IsNuno4Blob())
             {
-                g1mf.num_nuno4s_unk7 += (uint32_t)nuno4.unk7s.size();
-                g1mf.num_nuno4s_unk8 += (uint32_t)nuno4.unk8s.size();
-                g1mf.num_nuno4s_unk9 += (uint32_t)nuno4.unk9s.size();
-                g1mf.num_nuno4s_unk10 += (uint32_t)nuno4.unk10s.size();
+                for (const NUNO4 &nuno4: nuno.nuno4s)
+                {
+                    g1mf.num_nuno4s_unk7 += (uint32_t)nuno4.unk7s.size();
+                    g1mf.num_nuno4s_unk8 += (uint32_t)nuno4.unk8s.size();
+                    g1mf.num_nuno4s_unk9 += (uint32_t)nuno4.unk9s.size();
+                    g1mf.num_nuno4s_unk10 += (uint32_t)nuno4.unk10s.size();
+                }
             }
         }
     }
@@ -6842,7 +7026,7 @@ TiXmlDocument *G1mFile::Decompile() const
     {
         if (!g1mm.Decompile(root))
             return nullptr;
-    }    
+    }
 
     for (const G1MGChunk &g1mg : g1mgs)
     {
@@ -6940,7 +7124,7 @@ bool G1mFile::Compile(TiXmlDocument *doc, bool)
     if (!Utils::ReadAttrUnsigned(root, "version", &version))
         version = 37; 
 
-    if (version != 37 && version != 36 && version != 34)
+    if (version != 37 && version != 36 && version != 34 && version != 39)
     {
         DPRINTF("Not supported version of g1m format (%d)\n", version);
         return false;
@@ -8461,6 +8645,17 @@ bool G1mFile::HasExternalSkeleton() const
     for (const G1MSBone &bone : g1mss[0].bones)
     {
         if (bone.flags == 0x8000)
+            return true;
+    }
+
+    return false;
+}
+
+bool G1mFile::IsNuno4Blob() const
+{
+    for (const NUNOChunk &chunk : nunos)
+    {
+        if (chunk.nuno4s_blob.size() > 0)
             return true;
     }
 

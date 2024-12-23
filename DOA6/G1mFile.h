@@ -74,6 +74,7 @@ CHECK_STRUCT_SIZE(G1MChunk, 0xC);
 // Version 21 & 23: found in system folder in DOA6 (they also have "DX9" instead of "DX11" in the G1MG)
 // DOA6: mostly 29, but also 31 (Kula hair) and instances of 26/28/30
 // OPPW4: mostly 33
+// Fairy Tail 2: 40
 struct PACKED G1MFData
 {
     uint32_t signature;
@@ -160,8 +161,10 @@ struct PACKED G1MFData
     uint32_t unk_12C;
     // If version >= 30
     uint32_t unk_130[22]; // TODO
+    uint32_t unk_188[10]; // TODO
 };
-CHECK_STRUCT_SIZE(G1MFData, 0x188); // Currently updated for version 33 (OPPW4)
+//CHECK_STRUCT_SIZE(G1MFData, 0x188); // Currently updated for version 33 (OPPW4)
+CHECK_STRUCT_SIZE(G1MFData, 0x1B0); // Currently updated for version 40 (Fairy Tail 2)
 CHECK_FIELD_OFFSET(G1MFData, num_bone_maps, 0x40);
 CHECK_FIELD_OFFSET(G1MFData, num_individual_bone_maps, 0x44);
 CHECK_FIELD_OFFSET(G1MFData, num_bones, 0x10);
@@ -385,6 +388,7 @@ struct G1MFChunk
 {
     uint32_t version;
     G1MFData data;
+    std::vector<uint8_t> extra;
 
     bool Read(FixedMemoryStream &in, uint32_t chunk_version, uint32_t chunk_size);
     bool Write(MemoryStream &out) const;
@@ -946,6 +950,10 @@ struct NUNO3
     uint32_t unk_34;
     //
 
+    // Version >= 35 (new parser)
+    uint32_t np_1C[3];
+    std::vector<uint8_t> extra;
+
     // Unknown 0xA8 bytes
     // Notice: for version >= 30, the offsets here are actually 8 more
     struct PACKED Unk
@@ -963,7 +971,7 @@ struct NUNO3
     CHECK_STRUCT_SIZE(Unk, 0xA8);
     //
 
-    // if version >= 30
+    // if version >= 30 && < 35
     struct PACKED Unk2
     {
         uint32_t unk_E0[4]; // Warning: all of them 0 in the few files of DOA6 that have this, they could be float
@@ -1028,6 +1036,9 @@ struct NUNOChunk
     std::vector<NUNO2> nuno2s;
     std::vector<NUNO3> nuno3s;
     std::vector<NUNO4> nuno4s;
+    // TODO: parse these sections
+    std::vector<uint8_t> nuno4s_blob; // For v >= 35, until it gets parsed
+    std::vector<uint8_t> nuno5s_blob, nuno6s_blob; // The blobs includes the NUNOSectionHeader
 
     bool Read(FixedMemoryStream &in, uint32_t chunk_version, uint32_t chunk_size);
     bool Write(MemoryStream &out) const;
@@ -1215,6 +1226,8 @@ public:
     bool ExportFbxSkeleton(FbxScene *scene, std::vector<FbxNode *> &fbx_bones);
     bool ExportFbx(FbxScene *scene, std::vector<FbxNode *> *pfbx_bones, G1mFile *external_skl=nullptr) const;
 #endif
+
+    bool IsNuno4Blob() const;
 
     // Debug section. These are just test things
     void DebugMatrixTest() const;

@@ -3479,9 +3479,9 @@ XQ_X2mMod *Xv2QuestCompiler::FindCharModByCode(const std::string &cms_code)
     return nullptr;
 }
 
-XQ_X2mMod *Xv2QuestCompiler::FindCostumeModById(int16_t item_id, int item_type)
+XQ_X2mMod *Xv2QuestCompiler::FindItemModById(int16_t item_id, int item_type)
 {
-    if (item_type > QXD_ITEM_ACCESSORY)
+    if (item_type > QXD_ITEM_SUPERSOUL)
         return nullptr;
 
     for (auto &it : mods_table)
@@ -3512,6 +3512,13 @@ XQ_X2mMod *Xv2QuestCompiler::FindCostumeModById(int16_t item_id, int item_type)
                 else if (item_type == QXD_ITEM_ACCESSORY && costume.costume_types[i] == COSTUME_ACCESSORY)
                     return &mod;
             }
+        }
+        else if (mod.type == X2mType::NEW_SUPERSOUL && item_type == QXD_ITEM_SUPERSOUL)
+        {
+            X2mSuperSoul &ss = mod.ss;
+
+            if (ss.idb_id == item_id)
+                return &mod;
         }
     }
 
@@ -4309,7 +4316,7 @@ bool Xv2QuestCompiler::WriteItemParam(std::ostringstream &oss, const std::string
     }
     else if (type != 999)
     {
-        XQ_X2mMod *mod = FindCostumeModById(item_id, type);
+        XQ_X2mMod *mod = FindItemModById(item_id, type);
         GetItemName(item_id, type, comment);
 
         if (mod)
@@ -5272,10 +5279,11 @@ bool Xv2QuestCompiler::GetModCommon(const X2QcToken &token, XQ_X2mMod *mod)
     return true;
 }
 
-bool Xv2QuestCompiler::GetCostumeMod(const X2QcToken &token, int item_type, int *value)
+bool Xv2QuestCompiler::GetItemMod(const X2QcToken &token, int item_type, int *value)
 {
     int type;
     std::string component;
+    bool ss = false;
 
     if (item_type == QXD_ITEM_TOP)
     {
@@ -5302,9 +5310,13 @@ bool Xv2QuestCompiler::GetCostumeMod(const X2QcToken &token, int item_type, int 
         type = COSTUME_ACCESSORY;
         component = "accessory";
     }
+    else if (item_type == QXD_ITEM_SUPERSOUL)
+    {
+        ss = true;
+    }
     else
     {
-        DPRINTF("You cannot use a x2m for this typo of item. Only for TOP,BOTTOM,GLOVES,SHOES and ACCESSORY. ");
+        DPRINTF("You cannot use a x2m for this type of item. Only for TOP,BOTTOM,GLOVES,SHOES,ACCESSORY and SUPERSOUL. ");
         return LineError(token);
     }
 
@@ -5319,23 +5331,39 @@ bool Xv2QuestCompiler::GetCostumeMod(const X2QcToken &token, int item_type, int 
         return true;
     }
 
-    if (mod.type != X2mType::NEW_COSTUME)
+    if (!ss)
     {
-        DPRINTF("Mod \"%s\" is not of costume type.\n", mod.name.c_str());
-        return LineError(token);
-    }
-
-    X2mCostumeEntry &entry = mod.costume;
-    for (size_t i = 0; i < entry.idb_entries.size(); i++)
-    {
-        if (entry.costume_types[i] == type)
+        if (mod.type != X2mType::NEW_COSTUME)
         {
-            *value = entry.idb_entries[i];
-            return true;
+            DPRINTF("Mod \"%s\" is not of costume type.\n", mod.name.c_str());
+            return LineError(token);
         }
-    }
 
-    DPRINTF("Costume \"%s\" doesn't have a %s part.\n", mod.name.c_str(), component.c_str());
+        X2mCostumeEntry &entry = mod.costume;
+        for (size_t i = 0; i < entry.idb_entries.size(); i++)
+        {
+            if (entry.costume_types[i] == type)
+            {
+                *value = entry.idb_entries[i];
+                return true;
+            }
+        }
+
+        DPRINTF("Costume \"%s\" doesn't have a %s part.\n", mod.name.c_str(), component.c_str());
+    }
+    else
+    {
+        // Supersoul
+        if (mod.type != X2mType::NEW_SUPERSOUL)
+        {
+            DPRINTF("Mod \"%s\" is not of supersoul type.\n", mod.name.c_str());
+            return LineError(token);
+        }
+
+        *value = mod.ss.idb_id;
+        return true;
+
+    }
     return false;
 }
 
@@ -8252,7 +8280,7 @@ bool Xv2QuestCompiler::CompileItemCollectionEntry(QxdCollectionEntry &entry)
             {
                 int item_id;
 
-                if (!GetCostumeMod(mod_var, entry.item_type, &item_id))
+                if (!GetItemMod(mod_var, entry.item_type, &item_id))
                     return false;
 
                 entry.item_id = item_id;
@@ -8475,7 +8503,7 @@ bool Xv2QuestCompiler::CompileItemReward(QxdItemReward &reward)
                     // Mod
                     int item_id;
 
-                    if (!GetCostumeMod(var, reward.type, &item_id))
+                    if (!GetItemMod(var, reward.type, &item_id))
                         return false;
 
                     reward.id = (int32_t)item_id;
@@ -10004,7 +10032,7 @@ bool Xv2QuestCompiler::CompileInteractiveDialogue()
                     else
                     {
                         // Mod
-                        if (!GetCostumeMod(iparam, item_type, (int *)&item_id))
+                        if (!GetItemMod(iparam, item_type, (int *)&item_id))
                             return false;
                     }
                 }

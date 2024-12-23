@@ -4094,6 +4094,48 @@ std::string Xenoverse2::GetSkillDirectory(const CusSkill &skill, std::string *la
     return ret;
 }
 
+std::string Xenoverse2::GetSkillDirectoryAlt(const CusSkill &skill, std::string *last_part)
+{
+    std::string ret = "data/skill/";
+
+    if (/*skill.id >= 0 &&*/ skill.id < CUS_ULTIMATE_START)
+    {
+        ret += "SPA/";
+    }
+    else if (skill.id >= CUS_ULTIMATE_START && skill.id < CUS_EVASIVE_START)
+    {
+        ret += "ULT/";
+    }
+    else if (skill.id >= CUS_EVASIVE_START && skill.id < CUS_UNK_START)
+    {
+        ret += "ESC/";
+    }
+    else if (skill.id >= CUS_BLAST_START && skill.id < CUS_AWAKEN_START)
+    {
+        ret += "BLT/";
+    }
+    else if (skill.id >= CUS_AWAKEN_START && skill.id < CUS_ID_END)
+    {
+        ret += "MET/";
+    }
+    else
+    {
+        return std::string();
+    }
+
+    std::string skill_dir = Utils::ToStringAndPad(skill.id2, 3);
+    skill_dir += "_CMN_";
+    skill_dir += skill.name;
+
+    ret += skill_dir;
+    ret += '/';
+
+    if (last_part)
+        *last_part = skill_dir;
+
+    return ret;
+}
+
 std::vector<std::string> Xenoverse2::GetCostumeNamesForPartSet(uint32_t partset, uint8_t race_lock)
 {
     std::vector<std::string> ret;

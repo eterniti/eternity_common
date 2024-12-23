@@ -33,6 +33,10 @@ namespace Utils
 
     void WriteParamGUID(TiXmlElement *root, const char *name, const uint8_t *value);
     void WriteParamBlob(TiXmlElement *root, const char *name, const uint8_t *value, size_t size);
+    inline void WriteParamBlob(TiXmlElement *root, const char *name, const std::vector<uint8_t> &value)
+    {
+        return WriteParamBlob(root, name, value.data(), value.size());
+    }
 
     void WriteParamBoolean(TiXmlElement *root, const char *name, bool value);
 
@@ -78,6 +82,7 @@ namespace Utils
 
     bool ReadParamGUID(const TiXmlElement *root, const char *name, uint8_t *value);
     uint8_t *ReadParamBlob(const TiXmlElement *root, const char *name, size_t *psize);
+    bool ReadParamBlob(const TiXmlElement *root, const char *name, std::vector<uint8_t> &value);
 
     bool ReadParamUnsignedWithMultipleNames(const TiXmlElement *root, uint32_t *value, const char *name1, const char *name2, const char *name3=nullptr, const char *name4=nullptr, const char *name5=nullptr);
     bool ReadParamUnsignedWithMultipleNames(const TiXmlElement *root, uint16_t *value, const char *name1, const char *name2, const char *name3=nullptr, const char *name4=nullptr, const char *name5=nullptr);
@@ -109,6 +114,7 @@ namespace Utils
 
     bool GetParamGUID(const TiXmlElement *root, const char *name, uint8_t *value);
     uint8_t *GetParamBlob(const TiXmlElement *root, const char *name, size_t *psize);
+    bool GetParamBlob(const TiXmlElement *root, const char *name, std::vector<uint8_t> &value);
 
     bool GetParamUnsignedWithMultipleNames(const TiXmlElement *root, uint32_t *value, const char *name1, const char *name2, const char *name3=nullptr, const char *name4=nullptr, const char *name5=nullptr);
     bool GetParamUnsignedWithMultipleNames(const TiXmlElement *root, uint16_t *value, const char *name1, const char *name2, const char *name3=nullptr, const char *name4=nullptr, const char *name5=nullptr);

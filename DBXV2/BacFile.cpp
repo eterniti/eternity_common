@@ -1836,7 +1836,10 @@ TiXmlElement *BACType31::Decompile(TiXmlNode *root) const
     Utils::WriteParamUnsigned(entry_root, "FLAGS", flags);
     Utils::WriteParamUnsigned(entry_root, "U_08", unk_08);
     Utils::WriteParamUnsigned(entry_root, "U_0C", unk_0C);
-    Utils::WriteParamMultipleUnsigned(entry_root, "U_10", std::vector<uint16_t>(unk_10, unk_10+4));
+    Utils::WriteParamUnsigned(entry_root, "U_10", unk_10);
+    Utils::WriteParamUnsigned(entry_root, "U_12", unk_12);
+    Utils::WriteParamUnsigned(entry_root, "SKILL_ID", skill_id);
+    Utils::WriteParamUnsigned(entry_root, "U_16", unk_16);
     Utils::WriteParamFloat(entry_root, "F_18", unk_18);
     Utils::WriteParamFloat(entry_root, "F_1C", unk_1C);
     Utils::WriteParamMultipleUnsigned(entry_root, "U_20", std::vector<uint32_t>(unk_20, unk_20+8));
@@ -1852,11 +1855,28 @@ bool BACType31::Compile(const TiXmlElement *root)
     if (!Utils::GetParamUnsigned(root, "U_04", &unk_04)) return false;
     if (!Utils::GetParamUnsigned(root, "FLAGS", &flags)) return false;
     if (!Utils::GetParamUnsigned(root, "U_08", &unk_08)) return false;
-    if (!Utils::GetParamUnsigned(root, "U_0C", &unk_0C)) return false;
-    if (!Utils::GetParamMultipleUnsigned(root, "U_10", unk_10, 4)) return false;
+    if (!Utils::GetParamUnsigned(root, "U_0C", &unk_0C)) return false;    
     if (!Utils::GetParamFloat(root, "F_18", &unk_18)) return false;
     if (!Utils::GetParamFloat(root, "F_1C", &unk_1C)) return false;
     if (!Utils::GetParamMultipleUnsigned(root, "U_20", unk_20, 8)) return false;
+
+    uint16_t old_u10[4];
+    if (Utils::ReadParamMultipleUnsigned(root, "U_10", old_u10, 4))
+    {
+        // Old format
+        unk_10 = old_u10[0];
+        unk_12 = old_u10[1];
+        skill_id = old_u10[2];
+        unk_16 = old_u10[3];
+    }
+    else
+    {
+        // New format
+        if (!Utils::GetParamUnsigned(root, "U_10", &unk_10)) return false;
+        if (!Utils::GetParamUnsigned(root, "U_12", &unk_12)) return false;
+        if (!Utils::GetParamUnsigned(root, "SKILL_ID", &skill_id)) return false;
+        if (!Utils::GetParamUnsigned(root, "U_16", &unk_16)) return false;
+    }
 
     return true;
 }
@@ -3155,7 +3175,7 @@ bool BacFile::Load(const uint8_t *buf, size_t size)
 
                         for (size_t k = 0; k < entry.type31.size(); k++)
                         {
-                            entry.type31[k] = file_types31[k];
+                            entry.type31[k] = file_types31[k];                            
                         }
                     }
                 }
@@ -3954,6 +3974,15 @@ size_t BacFile::ChangeReferencesToSkill(uint16_t old_skill, uint16_t new_skill)
             if (t27.skill_id == old_skill)
             {
                 t27.skill_id = new_skill;
+                count++;
+            }
+        }
+
+        for (BACType31 &t31 : entry.type31)
+        {
+            if (t31.skill_id == old_skill)
+            {
+                t31.skill_id = new_skill;
                 count++;
             }
         }

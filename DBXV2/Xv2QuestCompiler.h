@@ -307,6 +307,7 @@ struct XQ_X2mMod
     std::string code; // For chars, skills, stages and quests
     uint32_t id; // For chars, skills (id1), quests and stages
     X2mCostumeEntry costume; // Only for costumes
+    X2mSuperSoul ss; // Only for ss
     std::string name; // Only to be used for error messages or to create var names
     std::string guid;
 
@@ -532,7 +533,7 @@ private:
     XQ_X2mMod *FindSkillModById(int16_t id1);
     XQ_X2mMod *FindCharModById(int16_t cms_id);
     XQ_X2mMod *FindCharModByCode(const std::string &cms_code);
-    XQ_X2mMod *FindCostumeModById(int16_t item_id, int item_type);
+    XQ_X2mMod *FindItemModById(int16_t item_id, int item_type);
 
     ci_string LinkMod(XQ_X2mMod &mod); // Parameter copy
 
@@ -602,7 +603,7 @@ private:
     XQ_X2mMod *FindModByVar(const ci_string &var_name);
 
     bool GetModCommon(const X2QcToken &token, XQ_X2mMod *mod);
-    bool GetCostumeMod(const X2QcToken &token, int item_type, int *value);
+    bool GetItemMod(const X2QcToken &token, int item_type, int *value);
     bool GetSkillMod(const X2QcToken &token, int16_t *id1);
     bool GetCharMod(const X2QcToken &token, int16_t *cms_id);
     bool GetCharMod(const X2QcToken &token, char *cms_code);

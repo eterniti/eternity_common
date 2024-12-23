@@ -50,13 +50,24 @@ CHECK_STRUCT_SIZE(RDBEntry, 0x30);
 
 // Fairy tail 2
 
+#define RDB_NEW_TYPE_INTERNAL   0x401
+#define RDB_NEW_TYPE_EXTERNAL   0xC01
+
 struct PACKED RDBEntryEx
 {
    uint16_t flags; // 0x401 for "internal" files (.fdata), 0xC01 for external files (.file)
    uint32_t fdata_offset; // 2 - Dunno what this is for .file (there is the possibility that is noise)
    uint32_t full_size; // 6 - Full size in the .fdata/.file including the IDRK
-   uint16_t file_id; // 0xA - Used to map to the .fdata file (dunno the meaning in external files)
+   uint16_t file_id; // 0xA - Used to map to the .fdata file (dunno the meaning in external files, probably all files that share this id are related)
    uint8_t unk_0C;
+
+   static RDBEntryEx *GetFromRDBEntry(RDBEntry *entry)
+   {
+       if (entry->c_size != 0xD)
+           return nullptr;
+
+       return (RDBEntryEx *)(((uint8_t *)entry)+entry->entry_size-0xD);
+   }
 };
 CHECK_STRUCT_SIZE(RDBEntryEx, 0xD);
 

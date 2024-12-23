@@ -272,11 +272,6 @@ bool RdbFile::LoadAndBuildMap(const uint8_t *buf, size_t size, std::vector<RDBEn
             return false;
         }
 
-        if (ret_entries)
-        {
-            ret_entries->push_back(const_cast<RDBEntry *>(entry));
-        }
-
         RdbEntry new_entry;
 
         new_entry.unk_data.resize(address_offset - sizeof(RDBEntry));
@@ -356,14 +351,14 @@ bool RdbFile::LoadAndBuildMap(const uint8_t *buf, size_t size, std::vector<RDBEn
             }
             else
             {
-                const RDBEntryEx *entry_ex = (const RDBEntryEx *)GetOffsetPtr(entry, entry->entry_size-0xD, true);
+                const RDBEntryEx *entry_ex = (const RDBEntryEx *)GetOffsetPtr(entry, entry->entry_size-0xD, true);                
 
-                if (entry_ex->flags == 0x401)
+                if (entry_ex->flags == RDB_NEW_TYPE_INTERNAL)
                 {
                     new_entry.external = false;
                     new_entry.offset = entry_ex->fdata_offset;
                 }
-                else if (entry_ex->flags == 0xC01)
+                else if (entry_ex->flags == RDB_NEW_TYPE_EXTERNAL)
                 {
                     new_entry.external = true;
                 }
@@ -386,7 +381,14 @@ bool RdbFile::LoadAndBuildMap(const uint8_t *buf, size_t size, std::vector<RDBEn
         }
 
         if (add)
-            entries.push_back(new_entry);
+        {
+            entries.push_back(new_entry);            
+
+            if (ret_entries)
+            {
+                ret_entries->push_back(const_cast<RDBEntry *>(entry));
+            }
+        }
         p += entry->entry_size;
     }
 
