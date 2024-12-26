@@ -8,13 +8,16 @@ TiXmlElement *CusSkillSet::Decompile(TiXmlNode *root, const CusFile *owner) cons
 {
     TiXmlElement *entry_root = new TiXmlElement("SkillSet");
 
+#ifndef CUS_SIMPLE
     std::string name = Xenoverse2::GetCharaAndCostumeName(char_id, costume_id, model_preset, true);
     if (name.length() != 0)
         Utils::WriteComment(entry_root, name);
+#endif
 
     Utils::WriteParamUnsigned(entry_root, "CHAR_ID", char_id, true);
     Utils::WriteParamUnsigned(entry_root, "COSTUME_ID", costume_id, true);
 
+#ifndef CUS_SIMPLE
     if (owner)
     {
         std::string skills_comment;
@@ -83,6 +86,7 @@ TiXmlElement *CusSkillSet::Decompile(TiXmlNode *root, const CusFile *owner) cons
 
         Utils::WriteComment(entry_root, skills_comment);
     }
+#endif
 
     Utils::WriteParamMultipleUnsigned(entry_root, "SKILLS", std::vector<uint16_t>(char_skills, char_skills+9));
     Utils::WriteParamUnsigned(entry_root, "MODEL_PRESET", model_preset);
@@ -908,6 +912,7 @@ TiXmlElement *CusFile::DecompileSkills(const char *name, TiXmlNode *root, const 
         if (!elem)
             return nullptr;
 
+#ifndef CUS_SIMPLE
         std::string skill_name;
 
         if (type == 0)
@@ -928,6 +933,7 @@ TiXmlElement *CusFile::DecompileSkills(const char *name, TiXmlNode *root, const 
             if (Utils::GetElemCount(elem, "RACE_LOCK", &race_lock) != 0)
                 elem->InsertBeforeChild(const_cast<TiXmlElement *>(race_lock), comment);
         }
+#endif
     }
 
     root->LinkEndChild(entry_root);

@@ -10014,10 +10014,6 @@ bool X2mFile::InstallCusSkill(uint32_t depends_cms)
     {
         skill_entry.model = (uint16_t)depends_cms;
     }
-    else
-    {
-        skill_entry.model = 0xFFFF;
-    }
 
     if (skill_type == X2mSkillType::BLAST && blast_ss_intended)
     {

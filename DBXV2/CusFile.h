@@ -36,6 +36,19 @@ enum CusSkillType
     CUS_SKILL_TYPE_AWAKEN
 };
 
+enum
+{
+    CUS_SKILL_SLOT_SUPER1,
+    CUS_SKILL_SLOT_SUPER2,
+    CUS_SKILL_SLOT_SUPER3,
+    CUS_SKILL_SLOT_SUPER4,
+    CUS_SKILL_SLOT_ULT1,
+    CUS_SKILL_SLOT_ULT2,
+    CUS_SKILL_SLOT_EVA,
+    CUS_SKILL_SLOT_BLAST,
+    CUS_SKILL_SLOT_AWA,
+};
+
 #pragma pack(push,1)
 
 typedef struct
@@ -117,7 +130,7 @@ struct CusSkillSet
 {
     uint32_t char_id;
     uint32_t costume_id;
-    uint16_t char_skills[9];
+    uint16_t char_skills[NUM_SKILL_SLOTS];
     uint16_t model_preset;
 
     CusSkillSet()
@@ -211,7 +224,7 @@ public:
     virtual TiXmlDocument *Decompile() const override;
     virtual bool Compile(TiXmlDocument *doc, bool big_endian=false) override;
 
-    inline size_t GetNumeSkillSets() const { return skill_sets.size(); }
+    inline size_t GetNumSkillSets() const { return skill_sets.size(); }
 
     inline const std::vector<CusSkillSet> &GetSkillSets() const { return skill_sets; }
     inline std::vector<CusSkillSet> &GetSkillSets() { return skill_sets; }
