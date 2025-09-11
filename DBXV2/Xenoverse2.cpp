@@ -3811,6 +3811,10 @@ void Xenoverse2::GetAuraExtra(int32_t id, AuraExtraData &extra)
 		case 57: case 58: case 59: case 60:
 			extra.bpe_id = 320;
 		break;
+
+        case 61:
+            extra.bpe_id = 340;
+        break;
     }
 
     if (id == 36 || id == 39 || id == 52 || id == 53)
