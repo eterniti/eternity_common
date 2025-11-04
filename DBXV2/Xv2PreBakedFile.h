@@ -20,6 +20,8 @@ struct BodyShape
 
 struct CusAuraData
 {
+    int32_t cus_id2_owner;
+
     uint16_t cus_aura_id;
     uint16_t aur_aura_id;
 
@@ -42,8 +44,12 @@ struct CusAuraData
 
     bool golden_freezer_skin_bh;
 
+    uint32_t trans_stage;
+    int32_t ki_requirement;
+
     CusAuraData()
     {
+        cus_id2_owner = -1;
         cus_aura_id = 0xFFFF;
         aur_aura_id = 0;
         behaviour_11 = 0;
@@ -57,6 +63,8 @@ struct CusAuraData
         bcs_hair_color = bcs_eyes_color = 0xFFFFFFFF;
         behaviour_64 = 0xFF;
         golden_freezer_skin_bh = false;
+        trans_stage = 0;
+        ki_requirement = 0;
     }
 
     TiXmlElement *Decompile(TiXmlNode *root) const;
@@ -225,6 +233,7 @@ public:
 
     bool AddConsecutiveAuraData(std::vector<CusAuraData> &datas);
     void RemoveAuraData(uint16_t cus_aura_id);
+    void SetAuraDataOwner(uint16_t cus_aura_id, int32_t cus_id2_owner);
 
     PreBakedAlias *FindAlias(uint32_t cms_id);
     PreBakedAlias *FindAlias(const std::string &cms_name);

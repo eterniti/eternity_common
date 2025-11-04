@@ -131,6 +131,8 @@ public:
 
     virtual bool Copy(Stream *other, size_t size);
     virtual bool CopyEx(Stream *other, size_t size, Hash hash_mode=Hash::NONE, uint8_t *hash=nullptr, Cipher decrypt_mode=Cipher::NONE, const uint8_t *decrypt_key=nullptr, int decrypt_key_size=0, Cipher encrypt_mode=Cipher::NONE, const uint8_t *encrypt_key=nullptr, int encrypt_key_size=0);
+    virtual bool CopyBuffered(Stream *out, void *buf, size_t size, size_t buf_size);
+
     virtual bool Align(unsigned int alignment);
     virtual bool SkipToAlignment(unsigned int alignment);
 

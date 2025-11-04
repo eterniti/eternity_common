@@ -27,9 +27,10 @@ static std::string GetCharacterName(uint32_t tnl_id)
         return ret;
 
 
-    if (ch->lobby_name.length() > 0 && game_lobby_texts.size() > XV2_LANG_ENGLISH)
+    if (ch->lobby_name.length() > 0 && game_lobby_texts.size() > 0)
     {
-        MsgEntry *msg = game_lobby_texts[XV2_LANG_ENGLISH]->FindEntryByName(ch->lobby_name);
+        int lang = (global_lang >= 0) ? global_lang : XV2_LANG_ENGLISH;
+        MsgEntry *msg = game_lobby_texts[lang]->FindEntryByName(ch->lobby_name);
 
         if (msg)
         {
@@ -693,7 +694,7 @@ TiXmlDocument *TsdFile::Decompile() const
     TiXmlDeclaration* decl = new TiXmlDeclaration("1.0", "utf-8", "" );
     doc->LinkEndChild(decl);
 
-    TiXmlElement *root = new TiXmlElement("TsdFile");
+    TiXmlElement *root = new TiXmlElement("TsdFile");    
 
     for (const TsdTrigger &trigger : triggers)
     {
@@ -711,7 +712,7 @@ TiXmlDocument *TsdFile::Decompile() const
     for (const TsdEvent &event : events)
     {
         event.Decompile(root);
-    }
+    }    
 
     for (const TsdGlobal &global : globals)
     {

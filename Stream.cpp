@@ -6,6 +6,27 @@
 
 #define BUFFER_SIZE	(16*1024*1024)
 
+#define MIN(x, y) ((x < y) ? x : y)
+
+bool Stream::CopyBuffered(Stream *out, void *buf, size_t size, size_t buf_size)
+{
+    size_t rem = size;
+
+    while (rem > 0)
+    {
+        size_t read_size =  MIN(rem, buf_size);
+        if (!Read(buf, read_size))
+            return false;
+
+        if (!out->Write(buf, read_size))
+            return false;
+
+        rem -= read_size;
+    }
+
+    return true;
+}
+
 bool Stream::ReadCString(std::string &str)
 {
     int8_t ch;

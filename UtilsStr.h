@@ -9,6 +9,7 @@ namespace Utils
     bool IsEmptyString(const std::string &str);
     std::string GetFileNameString(const std::string &path);
     std::string GetDirNameString(const std::string &path);
+    std::string GetBaseNameString(const std::string &path);
     std::string MakePathString(const std::string &comp1, const std::string &comp2);
 
     size_t GetMultipleStrings(const std::string &str, std::vector<std::string> &list, char separator = ',', bool omit_empty_strings=true, bool do_trimr=true);

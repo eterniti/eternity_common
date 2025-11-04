@@ -61,6 +61,10 @@ TiXmlElement *CusAuraData::Decompile(TiXmlNode *root) const
     if (golden_freezer_skin_bh)
         Utils::WriteParamBoolean(entry_root, "GOLDEN_FREEZER_SKIN_BH", golden_freezer_skin_bh);
 
+    Utils::WriteParamUnsigned(entry_root, "TRANS_STAGE", trans_stage);
+    Utils::WriteParamSigned(entry_root, "KI_REQ", ki_requirement);
+    Utils::WriteParamSigned(entry_root, "CUS_ID2_OWNER", cus_id2_owner);
+
     root->LinkEndChild(entry_root);
     return entry_root;
 }
@@ -171,6 +175,15 @@ bool CusAuraData::Compile(const TiXmlElement *root)
 
     if (!Utils::ReadParamBoolean(root, "GOLDEN_FREEZER_SKIN_BH", &golden_freezer_skin_bh))
         golden_freezer_skin_bh = false;
+
+    if (!Utils::ReadParamUnsigned(root, "TRANS_STAGE", &trans_stage))
+        trans_stage = 0;
+
+    if (!Utils::ReadParamSigned(root, "KI_REQ", &ki_requirement))
+        ki_requirement = 0;
+
+    if (!Utils::ReadParamSigned(root, "CUS_ID2_OWNER", &cus_id2_owner))
+        cus_id2_owner = -1;
 
     return true;
 }
@@ -805,9 +818,12 @@ bool Xv2PreBakedFile::AddConsecutiveAuraData(std::vector<CusAuraData> &datas)
             break;
     }
 
+    int n = 0;
+
     for (CusAuraData &data : datas)
     {
         data.cus_aura_id = id;
+        data.trans_stage = n++;
         cus_aura_datas.push_back(data);
         id++;
     }
@@ -823,6 +839,17 @@ void Xv2PreBakedFile::RemoveAuraData(uint16_t cus_aura_id)
         {
             cus_aura_datas.erase(cus_aura_datas.begin()+i);
             i--;
+        }
+    }
+}
+
+void Xv2PreBakedFile::SetAuraDataOwner(uint16_t cus_aura_id, int32_t cus_id2_owner)
+{
+    for (size_t i = 0; i < cus_aura_datas.size(); i++)
+    {
+        if (cus_aura_datas[i].cus_aura_id == cus_aura_id)
+        {
+            cus_aura_datas[i].cus_id2_owner = cus_id2_owner;
         }
     }
 }

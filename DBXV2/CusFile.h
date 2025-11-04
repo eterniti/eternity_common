@@ -122,6 +122,39 @@ struct CUSSkill121 : CUSSkill119
 };
 STATIC_ASSERT_STRUCT(CUSSkill121, 0x4C);
 
+struct CUSSkill125
+{
+    char name[4];
+    uint32_t unk_04;
+    uint16_t id; // 8
+    uint16_t id2; // 0xA
+    uint8_t race_lock; // 0xC
+    uint8_t type; // 0xD
+    uint16_t unk_0E; // 0xE
+    uint16_t old_unk_12; // 0x10
+    uint16_t new_unk_12; // 0x12
+    uint32_t paths_offsets[7]; // 0x14
+    uint16_t unk_30;
+    uint16_t unk_32;
+    uint16_t unk_34;
+    uint16_t skill_type; // 0x36
+    uint16_t pup_id; // 0x38
+    uint16_t aura; // 0x3A
+    uint32_t num_transforms; // 0x3C Num transforms + other thing. For compatibility reasons, we are keeping like before. They moved it to a lower position.
+    uint16_t partset; // 0x40 - They moved the partset all the way down here
+    uint16_t partset2; // 0x42 - Needs confirmation
+    uint16_t partset3; // 0x44 - Needs confirmation
+    uint16_t model; // 0x46
+    uint16_t model2; // 0x48
+    uint16_t model3; // 0x4A - Confirmed: code at 0x16B4EA (1.25.1), model, model2 and model3 are a single array in the game.
+    uint16_t change_skillset; // 0x4C
+    uint16_t new_unk_4E;
+    uint32_t unk_50;
+    uint32_t old_unk_44; // 0x54
+    uint32_t old_unk_48; // 0x58
+};
+STATIC_ASSERT_STRUCT(CUSSkill125, 0x5C);
+
 #pragma pack(pop)
 
 class CusFile;
@@ -154,7 +187,7 @@ struct CusSkill
     uint8_t type;
     uint16_t unk_0E;
     uint16_t partset;
-    uint16_t unk_12;
+    uint16_t old_unk_12;
     // 0 -> ean
     // 1 -> cam.ean
     // 2 -> eepk
@@ -170,16 +203,32 @@ struct CusSkill
     uint16_t model;
     uint16_t change_skillset;
     uint32_t num_transforms;
-    uint32_t unk_44; // New in 1.19
-    uint32_t unk_48; // New in 1.21
+    uint32_t old_unk_44; // New in 1.19
+    uint32_t old_unk_48; // New in 1.21
+    // New in 1.25
+    uint16_t new_unk_12;
+    uint16_t partset2;
+    uint16_t partset3;
+    uint16_t model2;
+    uint16_t model3;
+    uint16_t new_unk_4E;
+    uint32_t unk_50;
+    //
 
     TiXmlElement *Decompile(TiXmlNode *root) const;
     bool Compile(const TiXmlElement *root, int *version=nullptr);
 
     CusSkill()
     {
-        unk_44 = 0xFFFFFF00;
-        unk_48 = 0;
+        old_unk_44 = 0xFFFFFF00;
+        old_unk_48 = 0;
+        new_unk_12 = 0xFFFF;
+        partset2 = 0xFFFF;
+        partset3 = 0xFFFF;
+        model2 = 0xFFFF;
+        model3 = 0xFFFF;
+        new_unk_4E = 0xFFFF;
+        unk_50 = 0xFFFFFFFF;
     }
 };
 
@@ -200,9 +249,12 @@ private:
     bool LoadSkills(const uint8_t *top, const CUSSkill *sets_in, std::vector<CusSkill> &sets_out, uint32_t num);
     bool LoadSkills119(const uint8_t *top, const CUSSkill119 *sets_in, std::vector<CusSkill> &sets_out, uint32_t num);
     bool LoadSkills121(const uint8_t *top, const CUSSkill121 *sets_in, std::vector<CusSkill> &sets_out, uint32_t num);
+    bool LoadSkills125(const uint8_t *top, const CUSSkill125 *sets_in, std::vector<CusSkill> &sets_out, uint32_t num);
+
     void SaveSkills(uint8_t *top, char *str_top, char **str_current, const std::vector<CusSkill> &sets_in, CUSSkill *sets_out, std::unordered_set<std::string> &strings_list);
     void SaveSkills119(uint8_t *top, char *str_top, char **str_current, const std::vector<CusSkill> &sets_in, CUSSkill119 *sets_out, std::unordered_set<std::string> &strings_list);
     void SaveSkills121(uint8_t *top, char *str_top, char **str_current, const std::vector<CusSkill> &sets_in, CUSSkill121 *sets_out, std::unordered_set<std::string> &strings_list);
+    void SaveSkills125(uint8_t *top, char *str_top, char **str_current, const std::vector<CusSkill> &sets_in, CUSSkill125 *sets_out, std::unordered_set<std::string> &strings_list);
 
     TiXmlElement *DecompileSkills(const char *name, TiXmlNode *root, const std::vector<CusSkill> &skills, int type) const;
     bool CompileSkills(const TiXmlElement *root, std::vector<CusSkill> &skills);

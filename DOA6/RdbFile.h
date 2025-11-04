@@ -35,8 +35,7 @@ struct PACKED RDBEntry
 {
     char signature[4];
     char version[4];
-    uint32_t entry_size; // 8
-    uint32_t unk_0C;
+    uint64_t entry_size; // 8
     uint32_t c_size; // 0x10  string size in .rdb, comp size in .bin
     uint32_t unk_14;
     uint64_t file_size; // 0x18
@@ -75,10 +74,31 @@ CHECK_STRUCT_SIZE(RDBEntryEx, 0xD);
 struct PACKED RDXEntry
 {
     uint16_t file_id;
-    int16_t unk_02; // Always -1?
+    uint16_t unk_02; // Always 0xFFFF? Update: in Rise of Ronin 0x00FF and 0x03FF seen in some entries
     uint32_t filename_hash; // 4
 };
 CHECK_STRUCT_SIZE(RDXEntry, 8);
+
+// Rise of Ronin. For files that are beyond 4GB offset in .fdata archive
+struct PACKED RDBEntryExBig
+{
+    uint16_t flags; // Same as RDBEntryEx
+    uint8_t higher_byte_offset; // (probably)
+    uint8_t unk_03[3]; // Mmm... seems like 00 00 80
+    uint32_t fdata_offset; // 6 - low 32 bits of offset
+    uint32_t full_size; // A - Full size in the .fdata/.file including the IDRK
+    uint16_t file_id; // 0xE - Used to map to the .fdata file (dunno the meaning in external files, probably all files that share this id are related)
+    uint8_t unk_10; // Probably the same that unk_0C in RDBEntryEx
+
+    static RDBEntryExBig *GetFromRDBEntry(RDBEntry *entry)
+    {
+        if (entry->c_size != 0x11)
+            return nullptr;
+
+        return (RDBEntryExBig *)(((uint8_t *)entry)+entry->entry_size-0x11);
+    }
+};
+CHECK_STRUCT_SIZE(RDBEntryExBig, 0x11);
 
 #ifdef _MSC_VER
 #pragma pack(pop)
@@ -160,6 +180,7 @@ public:
     virtual ~RdbFile() override;
 
     bool LoadAndBuildMap(const uint8_t *buf, size_t size, std::vector<RDBEntry *> *ret_entries);
+    uint8_t *Convert32To40Bits(const uint8_t *buf, size_t size, size_t *ret_size, std::vector<RDBEntry *> *ret_entries); // Only for rdx mode
 
     virtual bool Load(const uint8_t *buf, size_t size) override;
     virtual uint8_t *Save(size_t *psize) override;
@@ -212,6 +233,10 @@ public:
     bool GetNewFormatData(size_t idx, std::string &pkg) const;
 
     inline std::unordered_map<uint32_t, std::string> &DebugGetNamesMap() { return names_map; }
+
+    uint8_t *CreateRdx(size_t *psize);
+    uint16_t GetNewFDataId();
+    void AddRdxEntry(uint16_t file_id, uint32_t filename_hash, uint16_t unk=0xFFFF);
 };
 
 #endif // RDBFILE_H

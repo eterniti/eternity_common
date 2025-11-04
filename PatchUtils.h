@@ -3,10 +3,15 @@
 
 #include "Utils.h"
 
-typedef void (* MemoryBreakpointHandler)(void *pc, void *addr);
+#define DEFINE_ALIGNED_STATIC(xyz) static uint8_t __attribute__ ((aligned(4096))) xyz[4096];
+#define EXECBUFFER(xyz, addr) uint8_t *xyz = (uint8_t *)PatchUtils::AllocateIn32BitsArea(addr, 4096, true);
+
+typedef void (* MemoryBreakpointHandler)(void *pc, void *addr, EXCEPTION_POINTERS *ExceptionInfo);
 
 namespace PatchUtils
 {
+	bool IsAccessible(void *ptr);
+	
 	void *GetPtr(size_t rel_address, const char *mod=nullptr);
 	ptrdiff_t RelAddress(void *ptr, const char *mod=nullptr);
 	
@@ -67,6 +72,8 @@ namespace PatchUtils
 
 	bool HookResolveTarget(void *call_addr, void **orig, void *new_addr, bool expect_call=true);
 	void HookVirtual(void *obj, size_t ofs, void **orig, void *new_addr);
+	
+	void HookGenericCode(void *addr, void *new_addr, size_t whole_area_size); 
 
 #ifdef CPU_X86_64
 
@@ -74,7 +81,9 @@ namespace PatchUtils
 
 #endif
 
-    bool SetMemoryBreakpoint(void *addr, size_t len, MemoryBreakpointHandler handler);
+    void StackTrace(PEXCEPTION_POINTERS ExceptionInfo);
+	
+	bool SetMemoryBreakpoint(void *addr, size_t len, MemoryBreakpointHandler handler);
 	bool UnsetMemoryBreakpoint(void *addr, size_t len);
 	
 	bool SetGenericDebugMemoryBreakPoint(void *addr, size_t len, const std::string &name, bool only_once_per_pc);
@@ -83,10 +92,14 @@ namespace PatchUtils
 
 	uintptr_t InvokeRegisterFunction(uintptr_t address, uintptr_t rcx=0, uintptr_t rdx=0, uintptr_t r8=0, uintptr_t r9=0, const char *mod=nullptr);
 	uintptr_t InvokeVirtualRegisterFunction(void *obj, size_t ofs, uintptr_t rdx=0, uintptr_t r8=0, uintptr_t r9=0);
-
+	void *GetVirtualFunction(void *obj, size_t ofs);
+	
+	bool ParseMsvcRTTI(const char *mod=nullptr);
+	bool GetRTTISymbol(void *ptr, std::string &ret);
+	bool GetRTTISymbolObject(void *pthis, std::string &ret);
+	
 #endif
 
-	void *GetVirtualFunction(void *obj, size_t ofs);
 }
 
 #endif

@@ -18,8 +18,10 @@
 // Audio fmt
 #define AUDIO_FMT_ADPCM1	0xE96FD86A
 #define AUDIO_FMT_ADPCM2    0x27052510
+#define AUDIO_FMT_ADPCM3    0x2EB6CA6F
 #define AUDIO_FMT_OGG1      0x7D43D038
 #define AUDIO_FMT_OGG2      0x7C002264
+#define AUDIO_FMT_OGG3      0x9f5292df
 
 #define KWM_SIGNATURE   0x004D574B
 
@@ -43,7 +45,7 @@ struct PACKED SRSAEntry
 	uint32_t type_signature; 
 	uint32_t entry_size;
 	uint32_t id; // (Hash of filename -no extension-, following same hash function used everywhere else). The SUBP and its audio counterpart have same hash.
-	uint32_t type; // 0x0C	
+    uint32_t flags; // 0x0C
 };	
 CHECK_STRUCT_SIZE(SRSAEntry, 0x10);
 
@@ -53,10 +55,50 @@ struct PACKED SUBPEntry : SRSAEntry
 	uint32_t ptr_name; // 0x28
 	// Other data here, don't care about them yet
 	
-	std::string GetName() const
-	{
+    /*std::string GetName() const
+    {
         return (const char *)(((const uint8_t *)this) + ptr_name);
-	}
+    }*/
+
+    bool HasName() const
+    {
+        return ((flags >> 16) & 1);
+    }
+
+    bool IsNameEncrypted() const
+    {
+        return (bool)((flags >> 9) & 1);
+    }
+
+    std::string GetName(uint32_t key) const
+    {
+        if (!HasName())
+        {
+            return Utils::UnsignedToHexString(id, true, true);
+        }
+
+        const char *buf = (const char *)(((const uint8_t *)this) + ptr_name);
+        if (!IsNameEncrypted())
+            return buf;
+
+        std::string ret;
+
+        for (int i = 0; ; i++)
+        {
+            key = 0x343FD * key + 0x269EC3;
+            uint8_t ch = (uint8_t)buf[i] ^ (uint8_t)(key >> 16);
+
+            if (ch == 0)
+                break;
+
+            ret.push_back((char)ch);
+
+            if (!ch)
+                break;
+        }
+
+        return ret;
+    }
 };
 CHECK_STRUCT_SIZE(SUBPEntry, 0x2C);
 
@@ -66,10 +108,50 @@ struct PACKED AUDIOEntry : SRSAEntry
 	uint32_t ptrptr_data_header; // 0x14
 	uint32_t ptr_name; // 0x18
 	
-	std::string GetName() const
+    /*std::string GetName() const
 	{
         return (const char *)(((const uint8_t *)this) + ptr_name);
-	}
+    }*/
+
+    bool HasName() const
+    {
+        return ((flags >> 16) & 1);
+    }
+
+    bool IsNameEncrypted() const
+    {
+        return ((flags & 0xFF) != 0);
+    }
+
+    std::string GetName(uint32_t key) const
+    {
+        if (!HasName())
+        {
+            return Utils::UnsignedToHexString(id, true, true);
+        }
+
+        const char *buf = (const char *)(((const uint8_t *)this) + ptr_name);
+        if (!IsNameEncrypted())
+            return buf;
+
+        std::string ret;
+
+        for (int i = 0; ; i++)
+        {
+            key = 0x343FD * key + 0x269EC3;
+            uint8_t ch = (uint8_t)buf[i] ^ (uint8_t)(key >> 16);
+
+            if (ch == 0)
+                break;
+
+            ret.push_back((char)ch);
+
+            if (!ch)
+                break;
+        }
+
+        return ret;
+    }
 
     const uint8_t *GetDataPtr() const
     {
@@ -257,7 +339,7 @@ struct SrsaEntry
     }
 
     void Copy(const SrsaEntry &other);
-    bool Decode();
+    bool Decode(uint32_t key);
 
     bool IsSameAdpcm(Stream &stream) const;
     bool IsSameOgg(Stream &stream) const;
@@ -265,7 +347,7 @@ struct SrsaEntry
     bool Extract(Stream &stream) const;
     bool Extract(const std::string &dir) const;
 
-    bool Replace(const std::string &file);
+    bool Replace(const std::string &file, uint32_t key);
     bool SetExternalOgg(const std::string &file);
     bool UpdateExternalOgg(uint32_t offset);
 };
@@ -274,7 +356,7 @@ class SrsaFile : public BaseFile
 {
 private:
     std::vector<SrsaEntry> entries;
-    uint32_t unk_hash1, unk_hash2;
+    uint32_t unk_hash1, key;
 
     size_t CalculateFileSize() const;
 
@@ -305,6 +387,8 @@ public:
 
     inline std::vector<SrsaEntry>::iterator begin() { return entries.begin(); }
     inline std::vector<SrsaEntry>::iterator end() { return entries.end(); }
+
+    inline uint32_t GetKey() const { return  key; }
 };
 
 #endif // SRSAFILE_H

@@ -115,6 +115,7 @@ struct X2mSlotEntry
     int32_t costume_index;
     int32_t model_preset;
     bool flag_gk2;
+    bool flag_cgk;
     int32_t voices_id_list[2];
     //
     std::vector<std::string> costume_name;
@@ -122,16 +123,21 @@ struct X2mSlotEntry
     // New field 0.5
     std::string audio_files[2];
 
+    bool hidden;
+
     X2mSlotEntry()
     {
         costume_index = 0;
         model_preset = 0;
         flag_gk2 = false;
+        flag_cgk = false;
         voices_id_list[0] = voices_id_list[1] = -1;
 
         costume_name.resize(XV2_LANG_NUM);
         audio_files[0].clear();
         audio_files[1].clear();
+
+        hidden = false;
     }    
 
     void CopyFrom(const CharaListSlotEntry &entry, bool name);
@@ -530,6 +536,7 @@ private:
     std::vector<X2mBody> skill_bodies;
     bool blast_ss_intended;
     X2mDepends skill_chara_depend;
+    bool auto_int2;
 
     // For costumes
     std::vector<X2mItem> costume_items;
@@ -660,7 +667,7 @@ protected:
 
 public:
 
-    const float X2M_CURRENT_VERSION = 23.0f;
+    const float X2M_CURRENT_VERSION = 25.0f;
 
     const float X2M_MIN_VERSION_CSO = 2.0f;
     const float X2M_MIN_VERSION_PSC = 3.0f;
@@ -710,6 +717,8 @@ public:
     const float X2M_MIN_VERSION_VLC = 22.0f;
     const float X2M_MIN_VERSION_DESTRUCTION =  23.0f;
     const float X2M_MIN_VERSION_SKILL_CHARA_DEPEND = 23.0f;
+    const float X2M_MIN_VERSION_SKILL_KI_REQUIREMENT = 24.0f;
+    const float X2M_MIN_VERSION_CUS125_FORMAT = 25.0f;
 
     X2mFile();
     virtual ~X2mFile() override;
@@ -802,6 +811,8 @@ public:
     inline size_t GetNumSlotEntries() const { return slot_entries.size(); }
     inline const X2mSlotEntry &GetSlotEntry(size_t idx) const { return slot_entries[idx]; }
     inline X2mSlotEntry &GetSlotEntry(size_t idx) { return slot_entries[idx]; }
+    size_t GetNumNonHiddenSlotEntries() const;
+    size_t GetNonHiddenSlotEntries(std::vector<X2mSlotEntry *> &entries);
 
     X2mSlotEntry *FindSlotEntry(uint32_t costume_index, uint32_t model_preset);
 
@@ -1322,6 +1333,9 @@ public:
     X2mFile *LoadSkillCharaDependAttachment();
 
     bool IsSkillCharaDependReferenced() const;
+
+    inline bool IsAutoInt2() const { return auto_int2; }
+    inline void SetAutoInt2(bool enable) { auto_int2 = enable; }
 
     // Costume
     inline bool CostumeDirectoryExists(uint8_t race) const { return (race < X2M_CR_NUM && DirExists(x2m_cr_code[race])); }

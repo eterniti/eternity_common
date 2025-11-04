@@ -346,9 +346,10 @@ enum InstructionParamsTypes
     PARAM_FLOAT,
     PARAM_BOOLEAN,
     PARAM_REVERSE_BOOLEAN,
-    PARAM_STRING, // 20 chars
-    PARAM_STRING_LONG, // 24 chars
-    PARAM_STRING_SHORT, // 12 chars
+    PARAM_STRING20,
+    PARAM_STRING24,
+    PARAM_STRING12,
+    PARAM_STRING7, // In an odd position. Careful with this
     PARAM_OPERATOR,
     PARAM_SCMS,
     PARAM_SKILL,
@@ -405,6 +406,8 @@ private:
     QedFile active_qed3;
     QedFile active_qed4;
     QedFile active_qed5;
+    QedFile active_qed6;
+    QedFile active_qed7;
     QsfFile qsf;
     std::vector<MsgFile> title;
     std::vector<MsgFile> dialogue;
@@ -547,6 +550,7 @@ private:
     bool WriteSkill(std::ostringstream &oss, int16_t id2, int type, bool allow_blast, std::string &comment);
     void WriteChar(std::ostringstream &oss, int16_t cms_id, std::string &comment, int costume_for_comment=-1, int model_preset_for_comment=0);
     void WriteChar(std::ostringstream &oss, const std::string &cms_code, std::string &comment, int costume_for_comment=-1, int model_preset_for_comment=0);
+    void WriteSuperSoul(std::ostringstream &oss, int16_t id, std::string &comment);
     void WriteTitle(std::ostringstream &oss, const std::string &msg_code, std::string &comment, int lang=XV2_LANG_ENGLISH);
     void WriteDialogueTA(std::ostringstream &oss, const std::string &msg_code, std::string &comment, int lang=XV2_LANG_ENGLISH);
     bool WriteQChar(std::ostringstream &oss, int qml_id, std::string &comment, bool allow_negative, bool allow_non_existing);
@@ -570,6 +574,7 @@ private:
     bool WriteSkillParam(std::ostringstream &oss, const std::string &name, int16_t id2, int type, bool allow_blast, bool new_line=true, std::string *comment_out=nullptr);
     bool WriteCharParam(std::ostringstream &oss, const std::string &name, int16_t cms_id, bool new_line=true, std::string *comment_out=nullptr, int costume_for_comment=-1, int model_preset_for_comment=0);
     bool WriteCharParam(std::ostringstream &oss, const std::string &name, const std::string &cms_name, bool new_line=true, std::string *comment_out=nullptr, int costume_for_comment=-1, int model_preset_for_comment=0);
+    bool WriteSuperSoulParam(std::ostringstream &oss, const std::string &name, int id, bool new_line=true, std::string *comment_out=nullptr);
     void WriteTitleParam(std::ostringstream &oss, const std::string &name, const std::string &msg_code, bool new_line=true, std::string *comment_out=nullptr, int lang=XV2_LANG_ENGLISH);
     void WriteDialogueTAParam(std::ostringstream &oss, const std::string &name, const std::string &msg_code, bool new_line=true, std::string *comment_out=nullptr, int lang=XV2_LANG_ENGLISH);
     bool WriteQCharParam(std::ostringstream &oss, const std::string &name, int qml_id, bool allow_negative, bool allow_non_existing, bool new_line=true, std::string *comment_out=nullptr);
@@ -615,6 +620,7 @@ private:
     bool GetEvasiveSkill(const X2QcToken &token, int16_t *id2);
     bool GetBlastSkill(const X2QcToken &token, int16_t *id2);
     bool GetAwakenSkill(const X2QcToken &token, int16_t *id2);
+    bool GetSuperSoul(const X2QcToken &token, int16_t *id);
     bool GetChar(const X2QcToken &token, int16_t *cms_id);
     bool GetChar(const X2QcToken &token, char *cms_code);
     bool GetQuest(const X2QcToken &token, int16_t *quest_id, bool allow_self);

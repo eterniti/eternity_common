@@ -7,7 +7,7 @@
 
 std::string Utils::UnsignedToString(uint64_t value, bool hexadecimal)
 {
-    char temp[16];
+    char temp[20];
     std::string str;
 
     if (hexadecimal)
@@ -120,9 +120,9 @@ std::string Utils::UnsignedToHexString(uint64_t value, bool zeropad, bool prefix
     else
     {
         if (prefix)
-            sprintf(temp, "0x%16I64x", value);
+            sprintf(temp, "0x%p", (void *)value);
         else
-            sprintf(temp, "%16I64x", value);
+            sprintf(temp, "%p", (void *)value);
     }
 
     str = temp;
@@ -614,6 +614,18 @@ std::string Utils::GetDirNameString(const std::string &path)
         return path;
 
     return path.substr(0, pos);
+}
+
+std::string Utils::GetBaseNameString(const std::string &path)
+{
+    std::string name = GetFileNameString(path);
+    size_t pos = name.rfind('.');
+    if (pos != std::string::npos)
+    {
+        name = name.substr(0, pos);
+    }
+
+    return name;
 }
 
 std::string Utils::MakePathString(const std::string &comp1, const std::string &comp2)

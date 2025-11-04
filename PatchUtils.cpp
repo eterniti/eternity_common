@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <dbghelp.h>
 #include <MinHook.h>
 #include <vector>
 #include <unordered_set>
@@ -6,8 +7,41 @@
 #include "PatchUtils.h"
 #include "debug.h"
 
+#define KB_64	0x10000
 #define MB_1    0x100000
 #define GB_2    0x80000000
+
+struct RTTICompleteObjectLocator
+{
+	uint32_t signature;
+	uint32_t offset;
+	uint32_t cdOffset;
+	uint32_t pTypeDescriptor;
+	uint32_t pClassHierarchyDescriptor;
+	uint32_t pSelf;
+};
+
+struct TypeDescriptor
+{
+    void* pVFTable;
+    void* pare;          
+    char name[256];
+};
+
+bool PatchUtils::IsAccessible(void *ptr)
+{
+	if (ptr == nullptr)
+		return false;
+	
+	MEMORY_BASIC_INFORMATION mbi;
+    if (VirtualQuery(ptr, &mbi, sizeof(mbi)))
+	{
+		bool accessible = (mbi.State == MEM_COMMIT) && !(mbi.Protect & (PAGE_NOACCESS | PAGE_GUARD));
+		return accessible;
+	}
+	
+	return false;
+}
 
 void *PatchUtils::GetPtr(size_t rel_address, const char *mod)
 {
@@ -482,6 +516,19 @@ void PatchUtils::HookVirtual(void *obj, size_t ofs, void **orig, void *new_addr)
 #endif
 }
 
+void PatchUtils::HookGenericCode(void *addr, void *new_addr, size_t whole_area_size)
+{
+	PatchUtils::Write8(addr, 0xE9);
+	PatchUtils::HookCall(addr, nullptr, new_addr);
+	
+	if (whole_area_size > 5)
+	{
+		uint8_t *addr8 = (uint8_t *)addr;
+		size_t fill_size = whole_area_size - 5;
+		Nop(addr8+5, fill_size);
+	}
+}
+
 #ifdef CPU_X86_64
 
 void *PatchUtils::AllocateIn32BitsArea(void *ref_addr, size_t size, bool executable)
@@ -489,14 +536,14 @@ void *PatchUtils::AllocateIn32BitsArea(void *ref_addr, size_t size, bool executa
     uint8_t *top_addr = (uint8_t *)ref_addr+GB_2;
     uint8_t *bottom_addr = (uint8_t *)ref_addr-GB_2;
 
-    for (uint8_t *test_addr = (uint8_t *)ref_addr + MB_1; test_addr < top_addr; test_addr += MB_1)
+    for (uint8_t *test_addr = (uint8_t *)ref_addr + MB_1; test_addr < top_addr; test_addr += KB_64)
     {
         void *buf = VirtualAlloc(test_addr, size, MEM_COMMIT|MEM_RESERVE, (executable) ? PAGE_EXECUTE_READWRITE : PAGE_READWRITE);
         if (buf)
             return buf;
     }
 
-    for (uint8_t *test_addr = (uint8_t *)ref_addr - MB_1; test_addr > bottom_addr; test_addr -= MB_1)
+    for (uint8_t *test_addr = (uint8_t *)ref_addr - MB_1; test_addr > bottom_addr; test_addr -= KB_64)
     {
         void *buf = VirtualAlloc(test_addr, size, MEM_COMMIT|MEM_RESERVE, (executable) ? PAGE_EXECUTE_READWRITE : PAGE_READWRITE);
         if (buf)
@@ -524,13 +571,15 @@ LONG CALLBACK mbp_handler(PEXCEPTION_POINTERS ExceptionInfo)
 {
     //DPRINTF("***mbp_handler %p\n", (void *)ExceptionInfo->ExceptionRecord->ExceptionAddress);
     static size_t last_index = 0;
+	//static DWORD tid = 0;
 
-    if (ExceptionInfo->ExceptionRecord->ExceptionCode == STATUS_SINGLE_STEP)
+    if (ExceptionInfo->ExceptionRecord->ExceptionCode == STATUS_SINGLE_STEP /*&& GetCurrentThreadId() == tid*/)
     {
         //DPRINTF("***mbp_handler single_step %p \n", (void *)ExceptionInfo->ExceptionRecord->ExceptionAddress);
 
         DWORD old;
         VirtualProtect((void *)mbps[last_index].page_address, (DWORD)mbps[last_index].page_size, PAGE_NOACCESS, &old);
+		//ExceptionInfo->ContextRecord->EFlags &= ~0x100;
         return EXCEPTION_CONTINUE_EXECUTION;
     }
 
@@ -556,7 +605,7 @@ LONG CALLBACK mbp_handler(PEXCEPTION_POINTERS ExceptionInfo)
 
                         if (addr >= mbp2.address && addr < (mbp2.address+mbp2.size))
                         {
-                            mbp2.handler(pc, (void *)addr);
+                            mbp2.handler(pc, (void *)addr, ExceptionInfo);
                             break;
                         }
                     }
@@ -566,6 +615,7 @@ LONG CALLBACK mbp_handler(PEXCEPTION_POINTERS ExceptionInfo)
 
                     ExceptionInfo->ContextRecord->EFlags |= 0x100;
                     last_index = i;
+					//tid = GetCurrentThreadId();
                     return EXCEPTION_CONTINUE_EXECUTION;
                }
            }
@@ -631,9 +681,49 @@ bool PatchUtils::UnsetMemoryBreakpoint(void *addr, size_t len)
 	return false;
 }
 
+void PatchUtils::StackTrace(PEXCEPTION_POINTERS ExceptionInfo)
+{
+	char path[MAX_PATH];
+	
+	STACKFRAME64 sf = { 0 };
+    sf.AddrPC.Offset    = ExceptionInfo->ContextRecord->Rip;
+    sf.AddrFrame.Offset = ExceptionInfo->ContextRecord->Rbp;
+    sf.AddrStack.Offset = ExceptionInfo->ContextRecord->Rsp;
+	sf.AddrPC.Mode    = AddrModeFlat;
+    sf.AddrFrame.Mode = AddrModeFlat;
+    sf.AddrStack.Mode = AddrModeFlat;
+	
+	HANDLE process = GetCurrentProcess();
+    HANDLE thread  = GetCurrentThread();
+	
+	for (int frame = 0; frame < 16; frame++)
+	{
+		if (!StackWalk64(IMAGE_FILE_MACHINE_AMD64, process, thread, &sf, ExceptionInfo->ContextRecord, nullptr, SymFunctionTableAccess64, SymGetModuleBase64, nullptr))
+			break;
+		
+		if (sf.AddrPC.Offset == 0 || !IsAccessible((void *)sf.AddrPC.Offset))
+			break;
+		
+		HMODULE mod = nullptr;
+		GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCTSTR)sf.AddrPC.Offset, &mod);	
+		
+		if (mod)
+		{
+			uintptr_t rel = (uintptr_t)sf.AddrPC.Offset - (uintptr_t)mod;
+			GetModuleFileNameA(mod, path, MAX_PATH);	
+			std::string fn = Utils::GetFileNameString(path);
+			DPRINTF("%p (%s+0x%I64x)\n", (void *)sf.AddrPC.Offset, fn.c_str(), rel);
+		}
+		else
+		{		
+			DPRINTF("%p\n", (void *)sf.AddrPC.Offset);			
+		}		
+	}
+}
+
 static std::unordered_map<void *, std::string> debug_addr_names;
 
-static void DebugMemoryHandler1(void *pc, void *addr)
+static void DebugMemoryHandler1(void *pc, void *addr, EXCEPTION_POINTERS *ExceptionInfo)
 {
 	// Avoid recursion due to own access
 	if ((uintptr_t)pc >= (uintptr_t)DebugMemoryHandler1 && (uintptr_t)pc <= (uintptr_t)DebugMemoryHandler1 + 0x200)
@@ -641,9 +731,10 @@ static void DebugMemoryHandler1(void *pc, void *addr)
 	
 	void *rel_pc = (void *)PatchUtils::RelAddress(pc);	
 	DPRINTF("%s accessed from %p. Value8: 0x%02X, Value16: 0x%04X, Value32: 0x%08x, Value 64: 0x%I64x\n", debug_addr_names[addr].c_str(), rel_pc, PatchUtils::Read8(addr), PatchUtils::Read16(addr), PatchUtils::Read32(addr), PatchUtils::Read64(addr));
+	//PatchUtils::StackTrace(ExceptionInfo);
 }
 
-static void DebugMemoryHandler2(void *pc, void *addr)
+static void DebugMemoryHandler2(void *pc, void *addr, EXCEPTION_POINTERS *ExceptionInfo)
 {
 	// Avoid recursion due to own access
 	if ((uintptr_t)pc >= (uintptr_t)DebugMemoryHandler2 && (uintptr_t)pc <= (uintptr_t)DebugMemoryHandler2 + 0x200)
@@ -658,6 +749,7 @@ static void DebugMemoryHandler2(void *pc, void *addr)
 	
 	void *rel_pc = (void *)PatchUtils::RelAddress(pc);	
 	DPRINTF("%s accessed from %p. Value8: 0x%02X, Value16: 0x%04X, Value32: 0x%08x, Value 64: 0x%I64x\n", debug_addr_names[addr].c_str(), rel_pc, PatchUtils::Read8(addr), PatchUtils::Read16(addr), PatchUtils::Read32(addr), PatchUtils::Read64(addr));
+	//PatchUtils::StackTrace(ExceptionInfo);
 }
 
 bool PatchUtils::SetGenericDebugMemoryBreakPoint(void *addr, size_t len, const std::string &name, bool only_once_per_pc)
@@ -692,6 +784,141 @@ void *PatchUtils::GetVirtualFunction(void *obj, size_t ofs)
 {
 	uintptr_t *vtable = (uintptr_t *) *(uintptr_t *)obj;
 	return (void *)vtable[ofs/sizeof(uintptr_t)];
+}
+
+static uint8_t *GetSection(HMODULE hMod, const std::string &name, size_t *psize) {
+    if (!hMod) 
+		return nullptr;
+
+    IMAGE_DOS_HEADER* dosHeader = (IMAGE_DOS_HEADER*)hMod;
+    if (dosHeader->e_magic != IMAGE_DOS_SIGNATURE) 
+		return nullptr;
+
+    IMAGE_NT_HEADERS* ntHeaders = (IMAGE_NT_HEADERS*)((BYTE*)hMod + dosHeader->e_lfanew);
+    if (ntHeaders->Signature != IMAGE_NT_SIGNATURE) 
+		return nullptr;
+
+    IMAGE_SECTION_HEADER* section = IMAGE_FIRST_SECTION(ntHeaders);
+    WORD numberOfSections = ntHeaders->FileHeader.NumberOfSections;
+
+    for (WORD i = 0; i < numberOfSections; i++, section++) 
+	{
+        if (strncmp((char*)section->Name, name.c_str(), IMAGE_SIZEOF_SHORT_NAME) == 0) 
+		{
+            *psize = (size_t)section->Misc.VirtualSize;
+            return (uint8_t *) (BYTE*)hMod + section->VirtualAddress;
+        }
+    }
+
+    return nullptr;
+}
+
+static void *Uint32ToPtr(HMODULE hMod, uint32_t ptr)
+{
+	if (ptr == 0)
+		return nullptr;
+	
+	return (void *)((uint8_t *)hMod + ptr);
+}
+
+static bool PtrInRange(const void* ptr, size_t ptr_size, const void *start, size_t size) 
+{
+	if (!ptr) 
+		return false;
+	
+	uintptr_t uptr = (uintptr_t)ptr;
+	uintptr_t ustart = (uintptr_t)start;
+	
+	return (uptr >= ustart && (uptr+ptr_size) < (ustart+size));
+}
+
+static std::unordered_map<void *, std::string> rtti_names;
+
+bool PatchUtils::ParseMsvcRTTI(const char *mod)
+{
+	size_t rdata_size;
+	HMODULE hMod = GetModuleHandleA(mod);
+	uint8_t *rdata = GetSection(hMod, ".rdata", &rdata_size);
+	if (!rdata)
+	{
+		DPRINTF("%s: Cannot find .rdata.\n", FUNCNAME);
+		return false;
+	}
+	
+	size_t data_size;
+	uint8_t *data = GetSection(hMod, ".data", &data_size);
+	if (!data)
+	{
+		DPRINTF("%s: Cannot find .data.\n", FUNCNAME);
+		return false;
+	}
+	
+	uint8_t *ptr = rdata;
+	uint8_t *end = rdata+rdata_size-sizeof(RTTICompleteObjectLocator);
+	
+	while (ptr < end)
+	{
+		RTTICompleteObjectLocator *ol =(RTTICompleteObjectLocator *)ptr;
+		if (ol->signature == 1)
+		{
+			if (Uint32ToPtr(hMod, ol->pSelf) == ptr)
+			{
+				//DPRINTF("Found candidate at %x\n", ol->pSelf);
+				TypeDescriptor *ptype = (TypeDescriptor *)Uint32ToPtr(hMod, ol->pTypeDescriptor);
+				if (PtrInRange(ptype, sizeof(TypeDescriptor), data, data_size))
+				{
+					//DPRINTF("Found %s\n", ptype->name);
+					rtti_names[(void *)ptr] = ptype->name;
+					//DPRINTF("Added %p->%s\n", ptr, ptype->name);
+					ptr += sizeof(RTTICompleteObjectLocator);
+					continue;
+				}
+				else
+				{
+					//DPRINTF("Bahhh %x\n", ol->pTypeDescriptor);
+				}
+			}
+		}		
+		
+		ptr += 8;
+	}
+	
+	return true;
+}
+
+bool PatchUtils::GetRTTISymbol(void *ptr, std::string &ret)
+{
+	if (!ptr)
+		return false;
+	
+	auto it = rtti_names.find(ptr);
+	if (it != rtti_names.end())
+	{
+		ret = it->second;
+		return true;
+	}
+	
+	return false;
+}
+
+bool PatchUtils::GetRTTISymbolObject(void *ptr, std::string &ret)
+{
+	if (!ptr)
+		return false;
+	
+	if (IsAccessible(ptr))
+	{
+		uint64_t *vtable_ptr = (uint64_t *)*(uintptr_t *)ptr;
+		if (IsAccessible(&vtable_ptr[-1]))
+		{
+			void *rtti_col = (void *)vtable_ptr[-1];
+			
+			//DPRINTF("+++Will check object at %p\n", rtti_col);
+			return GetRTTISymbol(rtti_col, ret);
+		}
+	}	
+	
+	return false;
 }
 
 #endif

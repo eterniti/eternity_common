@@ -18,7 +18,9 @@ enum QslPositionType
     QSL_POSITION_ICHAR = 1,
     QSL_POSITION_CHAR2 = 2,
     QSL_POSITION_CHAR3 = 3,
-    QSL_POSITION_CHAR5 = 5
+    QSL_POSITION_CHAR5 = 5,
+    QSL_POSITION_ICHAR2 = 6, // New in 1.25.1 (CTP_26_04.qsl): Used by Shenron.
+    QSL_POSITION_ICHAR3 = 7, // New in 1.25.1 (TMQ_4500.qsl). Used by Shenron. What's the difference with above, dunno.
 };
 
 struct PACKED QSLHeader
@@ -45,7 +47,7 @@ CHECK_STRUCT_SIZE(QSLStage, 0x10);
 struct PACKED QSLEntry
 {
     char position[QSL_POSITION_LENGTH]; // 0
-    uint16_t type; // 0x20 Known values: 0-3, 5 (only seen in a couple of legend patrol quests)
+    uint16_t type; // 0x20 Known values: 0-3, 5 (only seen in a couple of legend patrol quests). 1.25.1: 7 (Shenron, TMQ_4500)
     uint16_t qml_item_id; // 0x22
     uint16_t chance_idialogue; // 0x24  Known values: 0, 20, 30, 50, 60, -1
     uint16_t unk_26; // 0 or 0xffff

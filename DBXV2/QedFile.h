@@ -46,6 +46,8 @@ struct PACKED QEDNumberPrimitive
     {
         int32_t i;
         float f;
+        int16_t s1;
+        int16_t s2;
     } num;
 };
 CHECK_STRUCT_SIZE(QEDNumberPrimitive, 4);
@@ -153,6 +155,7 @@ enum QedConditions
     QED_COND_IN_STAGE = 11, // Param 1: qml_char, Param 2: stage_id, Param 3: b3  (an extra unknown check is done if b3 is true)
     QED_COND_RANDOM_INT = 12, //  Evaluates to true if a random int (0-99) is smaller than value specified. A specified value of 100 will always return true. Param 1: value (range 0-100)
     QED_COND_UNK_13 = 13, // This function is an alias of 10
+    QED_COND_UNK_15 = 15, // Used for the first time in 1.25.1 by some RBQ. Params: none.
     QED_COND_PLAYER_HEALTH = 16, // Param 1: <= / >=, Param 2: percent
     QED_COND_TEAM_HEALTH = 17, // Param 1: <= / >=, Param 2: team_type (integer, range 1-3), Param 3: percent (float)
     QED_COND_CLEAR_SCREEN_CLOSED = 19, // Params: none
@@ -202,6 +205,10 @@ enum QedConditions
     QED_COND_UNK_64 = 64, // Added in 1.21 Param 1: qml_char Param 2: boolean
     QED_COND_UNK_65 = 65, // Added in 1.21 Param 1: integer Param 2: integer Param 3: integer
     QED_COND_UNK_66 = 66, // Added in 1.23, used by some EVT quest. Param 1: integer
+    QED_COND_UNK_67 = 67, // Added in 1.25.1 Param 1: integer
+    QED_COND_UNK_68 = 68, // Added in 1.25.1 Param 1: integer Param 2: integer
+    QED_COND_UNK_69 = 69, // Added in 1.25.1 No params
+    QED_COND_UNK_70 = 70, // Added in 1.25.1 Param 1: integer
 };
 
 // There are 120 actions according to the exe (function 0x6AC380 in 1.09.01)
@@ -320,7 +327,7 @@ enum QedActions
     QED_ACT_UNK_103 = 103, // (Used in few CHQ quests, the art of battle ones it seems) Note: the game only sets a 64bit property of this char to -1. They may be two 32 bits ones if optimizations of compiler did their work) Param 1: qml_char
     QED_ACT_RESET_CAMERA = 104, // Restores camera to original position. Params: none
     // Worth to mention that all the functions below didn't exist in the first version released for PC (1.02 or whatever)
-    QED_ACT_UNK_105 = 105, // Related with demos (Only used in CTP_15_03  and CTP_15_04) Param 1: string (this gets things like "EFCT_sakeme" and "bnBFtwfDM00_D15", which can be found in some demo files), Param 2: i2 (unused by exe), Param 3: b3 Param 4: i4
+    QED_ACT_UNK_105 = 105, // Related with demos (Only used in CTP_15_03  and CTP_15_04) Param 1: string (this gets things like "EFCT_sakeme" and "bnBFtwfDM00_D15", which can be found in some demo files), Param 2: i2 (unused by exe), Param 3: i3 Param 4: i4
     QED_ACT_BODY_CHANGE = 106, // (Official name: SystemBodyChange) Swaps the bodies of the two chars, as the Ginyu skill would do (chars preserve their voice and portrait, it leads to same function called by the bac of ginyu skill). Cannot be used in all kind of quests (?), cannot be used online, cannot be used with gates around (not even if they are closed), function will do nothing in those circumstances.  Param 1: qml_char, Param 2: qml_char
     QED_ACT_HERO_COLOSSEUM = 107, // Note: vanilla game quests don't use the figure params, they set to -1, but from game code, they are definitely qml_id) Param i:"enemy_master_id" (official param name). qml_char of AI enemy master (canNOT be -1),  Param 2: qml_char (this one can be -1, proably figure 1), Param 3: qml_char (probably figure 2), Param 4: qml_char (can be -1, probably figure 3), Param 5: qml_char (can be -1, probably figure 4), Param 6: qml_char (can be -1, probably figure 5), Param 7: i7 (operation?), Param 8: i8 (not used by game)
     QED_ACT_UNK_108 = 108, // (Used in OSQ, and a couple of TPQ) Param 1: i1 (0-2) Param 2: b2
@@ -343,6 +350,20 @@ enum QedActions
     QED_ACT_UNK_126 = 126, // (Added in 1.21) Param 1: integer
     QED_ACT_UNK_127 = 127, // (Added in 1.21) Param 1: integer Param 2: boolean Param 3: string (12 chars), Param 4: string (12 chars)
     QED_ACT_PLAY_BGM2 = 128, // (Added in 1.23) Param 1: i1 (range 0-3). It's an index to an array with following values {1, 0x8C, 0xB, 0x22A}, Param 2: cue_id, Param 3: fade time (milisecs integer)
+    QED_ACT_UNK_129 = 129, // (Added in 1.25.1) Param 1: integer (range 0-2)
+    QED_ACT_UNK_130 = 130, // (Added in 1.25.1) No params.
+    QED_ACT_UNK_131 = 131, // (Added in 1.25.1) RTTI of some functions called suggests this is related with Shenron. Param 1: i1 Param 2: i2 (it is the upper limit of some loop) Param 3: i3 Param 4: f4 Param5: short string (12)
+    QED_ACT_UNK_132 = 132, // (Added in 1.25.1) Param 1: b1
+    QED_ACT_UNK_133 = 133, // (Added in 1.25.1) Param 1: string Param2: a 7 byte string in an odd position (sigh). Param 3: boolean
+    QED_ACT_UNK_134 = 134, // (Added in 1.25.1) Param 1: i1
+    QED_ACT_PLAY_SHENRON_EVENT = 135, // (Added in 1.25.1). Param 1: integer Param 2: integer or boolean -> this param is not being used by the exe, let's default to integer
+    QED_ACT_UNK_136 = 136, // (Added in 1.25.1) Params are complex. There is uses of 16bits qml_char that currently the quest compiler doesn't support and some other shit. Atm, we'll treat it as 7 integer params.
+    QED_ACT_UNK_138 = 138, // (Added in 1.25.1) Param 1: integer (range 0-3) Param 2, 3, 4: integer
+    QED_ACT_UNK_139 = 139, // (Added in 1.25.1) Param 1: integer (index to an internal integer array of 4 elements, but boundaries are not even checked). Param 2: integer
+    QED_ACT_UNK_140 = 140, // (Added in 1.25.1) Param 1,2,3: integer
+    QED_ACT_UNK_141 = 141, // (Added in 1.25.1) This function has a lot of ressemblance to the previous one in the exe. Param 1,2,3: integer
+    QED_ACT_UNK_142 = 142, // (Added in 1.25.1) No params.
+    QED_ACT_UNK_143 = 143, // (Added in 1.25.1) Param 1: integer (range 0-2) Param 2: boolean
 };
 
 // Condition extensions of xv2 patcher

@@ -9,7 +9,7 @@
 #include "Utils.h"
 
 #define XV2_ORIGINAL_NUM_STAGES         0x49 /* updated in 1.20 (0x44->0x49) */
-#define XV2_ORIGINAL_NUM_SS_STAGES      0x25 /* updated in 1.20.1 (0x24->0x25) */
+#define XV2_ORIGINAL_NUM_SS_STAGES      0x26 /* updated in 1.25.1 (0x25->0x26) */
 #define XV2_MAX_STAGES                  0x7FFFFFFF
 
 #define XV2_STA_NUM_GATES   9	/* Updated in 1.11 */
@@ -76,6 +76,14 @@ struct XV2StageDef2
 } PACKED;
 CHECK_STRUCT_SIZE(XV2StageDef2, 0x120);
 
+// New in 1.25.1 (Reference: the array accessed at 1.25.1:0x3B889D
+struct XV2StageMusic
+{
+    uint32_t bgm_cue_id;
+    int bgm_unk1;
+} PACKED;
+CHECK_STRUCT_SIZE(XV2StageMusic, 8);
+
 #ifdef _MSC_VER
 #pragma pack(pop)
 #endif
@@ -120,6 +128,7 @@ struct Xv2Stage
     std::string se;
     // /////////////////
     uint32_t bgm_cue_id;
+    int32_t bgm_unk1; // New in 1.25.1
     // /////////////////
     std::vector<std::string> name; // Don't add to the build strings thing
     // /////////////////
@@ -132,7 +141,8 @@ struct Xv2Stage
         unk5 = 0;
         ssid = -1;
         ki_blast_size_limit = 200.0f;
-        bgm_cue_id = 0;        
+        bgm_cue_id = 0;
+        bgm_unk1 = -1;
         name.resize(XV2_NATIVE_LANG_NUM);
         override_far_clip = 0.0f;
         limit = 500.0f;

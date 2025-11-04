@@ -12,7 +12,7 @@ struct PACKED KTSRHeader
     uint32_t unk_04; // Unknown hash or whatever. 0x1A487B77 (unused?)
     uint16_t unk_08; // Must be 01
     uint16_t unk_0A; // saw 0x100. (unused ?)
-    uint32_t unk_0C; // other hash or whatever. 0x9CC9E1D1 (unused?)
+    uint32_t key; // used as key for name decrypting
     uint32_t unk_10; // Saw 0 (unused ?)
     uint32_t unk_14; // saw 0 (unused ?)
     uint32_t size; // 0x18 - Size of KTSR, should be equal to SRSA size - 0x10

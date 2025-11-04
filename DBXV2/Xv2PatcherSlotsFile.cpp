@@ -116,7 +116,15 @@ static std::string DlcToString(uint64_t dlc)
 
         case 0x80000000000ULL:
             ret = "Dlc_18";
-         break;
+        break;
+
+        case 0x100000000000ULL:
+            ret = "Dlc_19";
+        break;
+
+        case 0x200000000000ULL:
+            ret = "Dlc_20";
+        break;
 
         default:
             DPRINTF("%s: Unknown dlc 0x%016I64X.\n", FUNCNAME, dlc);
@@ -175,6 +183,10 @@ static uint64_t StringToDlc(const std::string &dlc)
         return 0x20000000000ULL;
     else if (dlc == "Dlc_18")
         return 0x80000000000ULL;
+    else if (dlc == "Dlc_19")
+        return 0x100000000000ULL;
+    else if (dlc == "Dlc_20")
+        return 0x200000000000ULL;
     else
     {
         DPRINTF("%s: Unknown DLC: %s\n", FUNCNAME, dlc.c_str());
@@ -257,7 +269,7 @@ bool Xv2PatcherSlotsFile::Load(const uint8_t *buf, size_t size)
                 dlc_high = Utils::GetSigned(fields[8]);
             }
 
-            entry.flag_cgk2 = (fields.size() >= 10) ? (Utils::GetSigned(fields[9]) != 0) : false;
+            entry.flag_cgk = (fields.size() >= 10) ? (Utils::GetSigned(fields[9]) != 0) : false;
 
             uint64_t dlc = dlc_low | ((uint64_t)dlc_high << 32);
             entry.dlc = DlcToString(dlc);
@@ -334,7 +346,7 @@ uint8_t *Xv2PatcherSlotsFile::Save(size_t *psize)
             raw_string += Utils::ToString(dlc >> 32);
 
             raw_string.push_back(',');
-            raw_string += ((entry.flag_cgk2) ? "1" : "0");
+            raw_string += ((entry.flag_cgk) ? "1" : "0");
             raw_string.push_back(']');
         }
 
@@ -414,7 +426,7 @@ bool Xv2PatcherSlotsFile::LoadFromCst(const uint8_t *buf, size_t size, const uin
             return false;
         }
 
-        s_entry.flag_cgk2 = (entry->flag_cgk2 != 0);
+        s_entry.flag_cgk = (entry->flag_cgk2 != 0);
 
         chara_slots[pos].entries.push_back(s_entry);
     }

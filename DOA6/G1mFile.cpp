@@ -51,7 +51,19 @@ bool G1MFChunk::Read(FixedMemoryStream &in, uint32_t chunk_version, uint32_t chu
     {
         size = 0x188;
     }
+    else if (version == 37)
+    {
+        size = 0x1A4;
+    }
+    else if (version == 38)
+    {
+        size = 0x1A8;
+    }
     else if (version == 40)
+    {
+        size = 0x1B0;
+    }
+    else if (version == 41)
     {
         size = sizeof(G1MFData);
     }
@@ -118,7 +130,19 @@ bool G1MFChunk::Write(MemoryStream &out) const
     {
         size = 0x188;
     }
+    else if (version == 37)
+    {
+        size = 0x1A4;
+    }
+    else if (version == 38)
+    {
+        size = 0x1A8;
+    }
     else if (version == 40)
+    {
+        size = 0x1B0;
+    }
+    else if (version == 41)
     {
         size = sizeof(G1MFData);
     }
@@ -248,8 +272,28 @@ TiXmlElement *G1MFChunk::Decompile(TiXmlNode *root) const
                         {
                             size = 0x148;
                         }
+                        else if (version == 33)
+                        {
+                            size = 0x188;
+                        }
+                        else if (version == 37)
+                        {
+                            size = 0x1A4;
+                        }
+                        else if (version == 38)
+                        {
+                            size = 0x1A8;
+                        }
+                        else if (version == 40)
+                        {
+                            size = 0x1B0;
+                        }
+                        else if (version == 41)
+                        {
+                            size = sizeof(G1MFData);
+                        }
 
-                        size = (size - 0x130) / 4;
+                        size = (size - 0x130) / 4;                        
 
                         Utils::WriteParamMultipleUnsigned(entry_root, "MU_130", std::vector<uint32_t>(data.unk_130, data.unk_130+size));
                     }
@@ -428,7 +472,19 @@ bool G1MFChunk::Compile(const TiXmlElement *root, bool *g1mf_auto)
     {
         size = 0x188;
     }
+    else if (version == 37)
+    {
+        size = 0x1A4;
+    }
+    else if (version == 38)
+    {
+        size = 0x1A8;
+    }
     else if (version == 40)
+    {
+        size = 0x1B0;
+    }
+    else if (version == 41)
     {
         size = sizeof(G1MFData);
     }
@@ -442,7 +498,7 @@ bool G1MFChunk::Compile(const TiXmlElement *root, bool *g1mf_auto)
 
     if (version >= 30)
     {
-        size = (size - 0x130) / 4;
+        size = (size - 0x130) / 4;        
         if (!Utils::GetParamMultipleUnsigned(root, "MU_130", data.unk_130, size)) return false;
     }
 
@@ -1702,18 +1758,35 @@ bool G1MGVertexBuffer::Read(FixedMemoryStream &in)
     G1MGVertexBufHeader *hdr;
 
     if (!in.FastRead((uint8_t **)&hdr, sizeof(G1MGVertexBufHeader)))
+    {
+        DPRINTF("Header read failed.\n");
         return false;
+    }
 
-    unk_00 = hdr->unk_00;
+    if (hdr->vertex_size == 1)
+        is_group = true;
+
+    flags = hdr->flags;
     vertex_size = hdr->vertex_size;
+    num_vertex = hdr->num_vertex;
     unk_0C = hdr->unk_0C;
 
-    //DPRINTF("Vertex size: %x\n", vertex_size);
+    //DPRINTF("Vertex size: 0x%x (file pos = 0x%I64x), num_vertex = 0x%x\n", vertex_size, (in.Tell()-sizeof(G1MGVertexBufHeader)), hdr->num_vertex);
+
+    if (flags == 0x80000000)
+    {
+        is_group_part = true;
+        vertex.clear();
+        return true;
+    }
 
     vertex.resize(vertex_size*hdr->num_vertex);
 
     if (!in.Read(vertex.data(), vertex.size()))
+    {
+        DPRINTF("%s: Vertex read failed.\n", FUNCNAME);
         return false;   
+    }
 
     return true;
 }
@@ -1722,7 +1795,7 @@ bool G1MGVertexBuffer::Write(MemoryStream &out) const
 {
     G1MGVertexBufHeader hdr;
 
-    hdr.unk_00 = unk_00;
+    hdr.flags = flags;
     hdr.vertex_size = vertex_size;
     hdr.num_vertex = GetNumVertex();
     hdr.unk_0C = unk_0C;
@@ -1743,13 +1816,21 @@ TiXmlElement *G1MGVertexBuffer::Decompile(TiXmlNode *root, const std::string &at
 
     entry_root->SetAttribute("idx", idx);
     entry_root->SetAttribute("vertex_size", vertex_size);
-    entry_root->SetAttribute("u_00", unk_00);
+    entry_root->SetAttribute("u_00", flags);
     entry_root->SetAttribute("u_0c", unk_0C);
-    entry_root->SetAttribute("binary", fn);
 
-    std::string path = Utils::MakePathString(att_dir, fn);
-    if (!Utils::WriteFileBool(path, vertex.data(), vertex.size(), true, true))
-        return nullptr;
+    if (vertex.size() > 0)
+    {
+        entry_root->SetAttribute("binary", fn);
+
+        std::string path = Utils::MakePathString(att_dir, fn);
+        if (!Utils::WriteFileBool(path, vertex.data(), vertex.size(), true, true))
+            return nullptr;
+    }
+    else
+    {
+        entry_root->SetAttribute("num_vertex", num_vertex);
+    }
 
     root->LinkEndChild(entry_root);
     return entry_root;
@@ -1763,7 +1844,7 @@ bool G1MGVertexBuffer::Compile(const TiXmlElement *root, const std::string &att_
         return false;
     }
 
-    if (!Utils::ReadAttrUnsigned(root, "u_00", &unk_00))
+    if (!Utils::ReadAttrUnsigned(root, "u_00", &flags))
     {
         DPRINTF("Cannot read parameter \"u_00\" (object at line %d).\n", root->Row());
         return false;
@@ -1775,32 +1856,124 @@ bool G1MGVertexBuffer::Compile(const TiXmlElement *root, const std::string &att_
         return false;
     }
 
-    std::string fn, path;
-    size_t size;
+    is_group = false;
+    is_group_part = false;
 
-    if (!Utils::ReadAttrString(root, "binary", fn))
+    if (vertex_size == 1)
     {
-        DPRINTF("Cannot read parameter \"binary\" (object at line %d).\n", root->Row());
-        return false;
+        is_group = true;
+    }
+    else if (flags == 0x80000000)
+    {
+        is_group_part = true;
     }
 
-    path = Utils::MakePathString(att_dir, fn);
-    uint8_t *buf = Utils::ReadFile(path, &size);
-    if (!buf)
-        return false;
-
-    if ((size % vertex_size) != 0)
+    if (!is_group_part)
     {
-        DPRINTF("Size of file \"%s\" is not multiple of vertex_size (object at line %d).\n", path.c_str(), root->Row());
+        std::string fn, path;
+        size_t size;
+
+        if (!Utils::ReadAttrString(root, "binary", fn))
+        {
+            DPRINTF("Cannot read parameter \"binary\" (object at line %d).\n", root->Row());
+            return false;
+        }
+
+        path = Utils::MakePathString(att_dir, fn);
+        uint8_t *buf = Utils::ReadFile(path, &size);
+        if (!buf)
+            return false;
+
+        if ((size % vertex_size) != 0)
+        {
+            DPRINTF("Size of file \"%s\" is not multiple of vertex_size (object at line %d).\n", path.c_str(), root->Row());
+            delete[] buf;
+            return false;
+        }
+
+        vertex.resize(size);
+        memcpy(vertex.data(), buf, size);
         delete[] buf;
-        return false;
-    }
 
-    vertex.resize(size);
-    memcpy(vertex.data(), buf, size);
-    delete[] buf;
+        num_vertex = GetNumVertex();
+    }
+    else
+    {
+        if (!Utils::ReadAttrUnsigned(root, "num_vertex", &num_vertex))
+        {
+            DPRINTF("Cannot read parameter \"num_vertex\" (object at line %d).\n", root->Row());
+            return false;
+        }
+
+        vertex.clear();
+    }
 
     return true;
+}
+
+bool G1MGVertexSection::ResolveGroups()
+{
+    int prev_group = -1;
+    size_t group_offset = 0;
+
+    vertex_bufs.clear();
+
+    for (size_t i = 0; i < vertex_bufs_pure.size(); i++)
+    {
+        const G1MGVertexBuffer &vbp = vertex_bufs_pure[i];
+
+        if (vbp.is_group)
+        {
+            prev_group = (int)i;
+            group_offset = 0;
+        }
+        else if (vbp.is_group_part)
+        {
+            if (prev_group < 0)
+            {
+                DPRINTF("%s: BAHHHHHHHHHHHH\n", FUNCNAME);
+                return false;
+            }
+
+            const G1MGVertexBuffer &vg = vertex_bufs_pure[(size_t)prev_group];
+            size_t byte_size = vbp.num_vertex * vbp.vertex_size;
+
+            if (group_offset + byte_size > vg.vertex.size())
+            {
+                DPRINTF("%s: buffer crosses boundary.\n", FUNCNAME);
+                return false;
+            }
+
+            G1MGVertexBuffer vb = vbp; // Copy
+            vb.vertex.resize(byte_size);
+            memcpy(vb.vertex.data(), vg.vertex.data()+group_offset, byte_size);
+            group_offset += byte_size;
+            vertex_bufs.push_back(vb);
+
+            //DPRINTF("group offset = 0x%x, group size = 0x%x\n", group_offset, vg.vertex.size());
+        }
+        else
+        {
+            vertex_bufs.push_back(vbp);
+        }
+    }
+
+    return true;
+}
+
+void G1MGVertexSection::UnifyGroups()
+{
+    // Remove groups thing added in DWO
+    if (vertex_bufs.size() != vertex_bufs_pure.size())
+    {
+        for (G1MGVertexBuffer &vb : vertex_bufs)
+        {
+            vb.is_group_part = false;
+            vb.flags = 0;
+        }
+    }
+
+    vertex_bufs_pure = vertex_bufs; // Copy
 }
 
 bool G1MGVertexSection::Read(FixedMemoryStream &in, uint32_t)
@@ -1813,21 +1986,23 @@ bool G1MGVertexSection::Read(FixedMemoryStream &in, uint32_t)
     if (!in.Read32(&num_submeshes))
         return false;
 
-    vertex_bufs.resize(num_submeshes);
+    vertex_bufs_pure.resize(num_submeshes);
 
-    //DPRINTF("Num submeshes: %Ix\n", vertex_bufs.size());
-
-    for (G1MGVertexBuffer &vb : vertex_bufs)
+    for (G1MGVertexBuffer &vb : vertex_bufs_pure)
     {
         if (!vb.Read(in))
             return false;
     }
 
+    if (!ResolveGroups())
+        return false;
+
+    //DPRINTF("Num of pure = %Id, num normal = %Id\n", vertex_bufs_pure.size(), vertex_bufs.size());
     valid = true;
     return true;
 }
 
-bool G1MGVertexSection::Write(MemoryStream &out) const
+bool G1MGVertexSection::Write(MemoryStream &out)
 {
     if (!valid)
         return false;
@@ -1840,12 +2015,12 @@ bool G1MGVertexSection::Write(MemoryStream &out) const
     if (!out.Write32(0))
         return false;
 
-    if (!out.Write32((uint32_t)vertex_bufs.size()))
+    if (!out.Write32((uint32_t)vertex_bufs_pure.size()))
         return false;
 
-    for (const G1MGVertexBuffer &vb : vertex_bufs)
+    for (const G1MGVertexBuffer &vbp : vertex_bufs_pure)
     {
-        if (!vb.Write(out))
+        if (!vbp.Write(out))
             return false;
     }
 
@@ -1867,9 +2042,9 @@ TiXmlElement *G1MGVertexSection::Decompile(TiXmlNode *root, const std::string &a
 
     TiXmlElement *entry_root = new TiXmlElement("VertexSection");
 
-    for (uint32_t i = 0; i < (uint32_t)vertex_bufs.size(); i++)
+    for (uint32_t i = 0; i < (uint32_t)vertex_bufs_pure.size(); i++)
     {
-        if (!vertex_bufs[i].Decompile(entry_root, att_dir, i))
+        if (!vertex_bufs_pure[i].Decompile(entry_root, att_dir, i))
             return nullptr;
     }
 
@@ -1882,7 +2057,8 @@ bool G1MGVertexSection::Compile(const TiXmlElement *root, const std::string &att
     size_t count = Utils::GetElemCount(root, "VB");
 
     vertex_bufs.clear();
-    vertex_bufs.resize(count);
+    vertex_bufs_pure.clear();
+    vertex_bufs_pure.resize(count);
 
     std::vector<bool> defined;
     defined.resize(count, false);
@@ -1899,9 +2075,9 @@ bool G1MGVertexSection::Compile(const TiXmlElement *root, const std::string &att
                 return false;
             }
 
-            if (idx >= (uint32_t)vertex_bufs.size())
+            if (idx >= (uint32_t)vertex_bufs_pure.size())
             {
-                DPRINTF("idx %d is out of bounds (there are %Id VB) (in object at line %d).\n", idx, vertex_bufs.size(), elem->Row());
+                DPRINTF("idx %d is out of bounds (there are %Id VB) (in object at line %d).\n", idx, vertex_bufs_pure.size(), elem->Row());
                 return false;
             }
 
@@ -1913,10 +2089,13 @@ bool G1MGVertexSection::Compile(const TiXmlElement *root, const std::string &att
 
             defined[idx] = true;
 
-            if (!vertex_bufs[idx].Compile(elem, att_dir))
+            if (!vertex_bufs_pure[idx].Compile(elem, att_dir))
                 return false;
         }
     }
+
+    if (!ResolveGroups())
+        return false;
 
     valid = true;
     return true;
@@ -3966,7 +4145,7 @@ bool G1MGChunk::Read(FixedMemoryStream &in, uint32_t chunk_version, uint32_t)
     return true;
 }
 
-bool G1MGChunk::Write(MemoryStream &out) const
+bool G1MGChunk::Write(MemoryStream &out)
 {
     uint64_t start = out.Tell();
     G1MGChunkHeader hdr;
@@ -5519,7 +5698,7 @@ bool NUNOChunk::Read(FixedMemoryStream &in, uint32_t chunk_version, uint32_t)
 {
     version = Utils::GetShortVersion(chunk_version);
 
-    if (version != 29 && version != 30 && version != 32 && version != 35)
+    if (version != 29 && version != 30 && version != 32 && version != 35 && version != 36)
     {
         DPRINTF("NUNO: cannot understand this version of chunk (0x%08X, aka %d)\n", chunk_version, version);
         return false;
@@ -5844,7 +6023,7 @@ bool NUNOChunk::Compile(const TiXmlElement *root, const G1mFile &g1m)
     if (!Utils::ReadAttrUnsigned(root, "version", &version))
         version = 29;
 
-    if (version != 29 && version != 30 && version != 32 && version != 35)
+    if (version != 29 && version != 30 && version != 32 && version != 35 && version != 36)
     {
         DPRINTF("Cannot understand NUNO version %d.\n", version);
         return false;
@@ -6512,7 +6691,7 @@ bool G1mFile::Load(const uint8_t *buf, size_t size)
 
     version = Utils::GetShortVersion(hdr->version);
 
-    if (version != 37 && version != 36 && version != 34 && version != 39)
+    if (version != 37 && version != 36 && version != 34 && version != 38 && version != 39)
     {
         DPRINTF("Not supported version of g1m format (0x%08x, aka %d)\n", hdr->version, version);
         return false;
@@ -6539,8 +6718,6 @@ bool G1mFile::Load(const uint8_t *buf, size_t size)
             return false;
 
         in.Seek(chunk_start, SEEK_SET);
-
-        //DPRINTF("Chunk %08x\n", chunk_type);
 
         if (chunk_type == G1MF_SIGNATURE)
         {
@@ -6744,7 +6921,7 @@ void G1mFile::UpdateG1MF()
         g1mf.num_layouts = 0;
 
         if (g1mgs[0].vert_section.valid)
-            g1mf.num_vb = (uint32_t)g1mgs[0].vert_section.vertex_bufs.size();
+            g1mf.num_vb = (uint32_t)g1mgs[0].vert_section.vertex_bufs_pure.size();
 
         if (g1mgs[0].layout_section.valid)
             g1mf.num_layouts = (uint32_t)g1mgs[0].layout_section.entries.size();        
@@ -6897,7 +7074,7 @@ uint8_t *G1mFile::Save(size_t *psize)
         hdr.num_chunks++;
     }
 
-    for (const G1MGChunk &g1mg : g1mgs)
+    for (G1MGChunk &g1mg : g1mgs)
     {
         if (!g1mg.Write(out))
             return nullptr;
@@ -7124,7 +7301,7 @@ bool G1mFile::Compile(TiXmlDocument *doc, bool)
     if (!Utils::ReadAttrUnsigned(root, "version", &version))
         version = 37; 
 
-    if (version != 37 && version != 36 && version != 34 && version != 39)
+    if (version != 37 && version != 36 && version != 34 && version != 38 && version != 39)
     {
         DPRINTF("Not supported version of g1m format (%d)\n", version);
         return false;
@@ -7374,11 +7551,11 @@ bool G1mFile::ExportTo3DM(const std::string &out_path, bool vgmaps)
     if (!g1mg.submeshes_section.valid)
         return true;
 
-    if (g1mg.vert_section.vertex_bufs.size() != g1mg.index_buf_section.buffers.size() || g1mg.vert_section.vertex_bufs.size() != g1mg.layout_section.entries.size())
+    /*if (g1mg.vert_section.vertex_bufs.size() != g1mg.index_buf_section.buffers.size() || g1mg.vert_section.vertex_bufs.size() != g1mg.layout_section.entries.size())
     {
         DPRINTF("Mismatch in VB/IB/Layout (%Id vs %Id vs %Id).\n", g1mg.vert_section.vertex_bufs.size(), g1mg.index_buf_section.buffers.size(), g1mg.layout_section.entries.size());
         return false;
-    }
+    }*/
 
     if (vgmaps)
     {
@@ -8033,11 +8210,11 @@ bool G1mFile::ImportSubmeshFrom3DM(size_t idx, const std::string &vb_file, const
     if (idx >= num_sm)
         return false;
 
-    if (g1mg.vert_section.vertex_bufs.size() != g1mg.index_buf_section.buffers.size())
+    /*if (g1mg.vert_section.vertex_bufs.size() != g1mg.index_buf_section.buffers.size())
     {
         DPRINTF("Mismatch number of VB/IB (%Id vs %Id).\n", g1mg.vert_section.vertex_bufs.size(), g1mg.index_buf_section.buffers.size());
         return false;
-    }
+    }*/
 
     G1MGSubmesh &surf = g1mg.submeshes_section.submeshes[idx];
     G1MGVertexBuffer &vb = g1mg.vert_section.vertex_bufs[surf.vertex_buf_ref];
@@ -8209,6 +8386,7 @@ bool G1mFile::ImportSubmeshFrom3DM(size_t idx, const std::string &vb_file, const
     }
 
     update_g1mf = true;
+    g1mg.vert_section.UnifyGroups();
     return true;
 }
 

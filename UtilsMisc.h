@@ -79,7 +79,7 @@ namespace Utils
 
     inline uint64_t Make64(uint32_t low, uint32_t high)
     {
-        return ((uint64_t)high << 32ULL) | (uint64_t)low;
+        return (static_cast<uint64_t>(high) << 32) | low;
     }
 
     inline void Split64(uint64_t q, uint32_t &low, uint32_t &high)

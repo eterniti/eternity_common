@@ -4,6 +4,9 @@
 #include "small_dictionary.h"
 
 #include <algorithm>
+#include <unordered_map>
+
+static std::unordered_map<uint32_t, std::string> names_map;
 
 enum class Hint
 {
@@ -89,9 +92,10 @@ static bool crack_hash_full(uint32_t hash, std::string &ret, const std::string &
         types.push_back("FACE");
     else
     {
-        types.push_back("COS");
+        /*types.push_back("COS");
         types.push_back("HAIR");
-        types.push_back("FACE");
+        types.push_back("FACE");*/
+        return false;
     }
 
     static std::string saved_char;
@@ -357,17 +361,25 @@ bool KtidFile::SaveToTextFile(const std::string &path, bool *crack_success, bool
         std::string fail_name = "HASH_" + Utils::UnsignedToString(it.second, true);
         std::string cracked_name;
 
-        if (!crack_hash(path, it.second, cracked_name, fail_name))
+        auto it2 = names_map.find(it.second);
+        if (it2 == names_map.end())
         {
-            if (full_crack)
+            if (!crack_hash(path, it.second, cracked_name, fail_name))
             {
-                if (!crack_hash_full(it.second, cracked_name, fail_name, hint) && crack_success)
+                if (full_crack)
+                {
+                    if (!crack_hash_full(it.second, cracked_name, fail_name, hint) && crack_success)
+                        *crack_success = false;
+                }
+                else if (crack_success)
+                {
                     *crack_success = false;
+                }
             }
-            else if (crack_success)
-            {
-                *crack_success = false;
-            }
+        }
+        else
+        {
+            cracked_name = it2->second;
         }
 
         fprintf(f, "%d,%s\n", it.first, cracked_name.c_str());
@@ -378,4 +390,181 @@ bool KtidFile::SaveToTextFile(const std::string &path, bool *crack_success, bool
 
     fclose(f);
     return true;
+}
+
+static bool get_hex_name(const std::string &fn, uint32_t *ret)
+{
+    if (!Utils::BeginsWith(fn, "0x", false))
+        return false;
+
+    if (fn.length() == 2)
+        return false;
+
+    for (size_t i = 2; i < fn.length(); i++)
+    {
+        char ch = (char)tolower(fn[i]);
+
+        if (ch == '.')
+            break;
+
+        bool ok = false;
+
+        if (ch >= '0' && ch <= '9')
+            ok = true;
+        else if (ch >= 'a' && ch <= 'f')
+            ok = true;
+
+        if (!ok)
+            return false;
+    }
+
+    *ret = Utils::GetUnsigned(fn);
+    return true;
+}
+
+bool KtidFile::LoadNamesFileBuf(const char *buf)
+{
+    // New implementaton asumes there are no inner spaces in filenames
+    char comp1[32], comp2[256];
+    bool in_comment = false;
+    bool in_c2 = false;
+
+    size_t len = strlen(buf);
+    size_t c1 = 0, c2 = 0;
+    int line_num = 1;
+
+
+    for (size_t i = 0; i < len; i++)
+    {
+        char ch = buf[i];
+
+        if (ch == '\n')
+        {
+            if (in_comment)
+            {
+                in_comment = false;
+            }
+            else if (c1 != 0)
+            {
+                if (!in_c2)
+                    DPRINTF("%s: Faulty line %d.\n", FUNCNAME, line_num);
+
+                comp1[c1] = 0;
+                comp2[c2] = 0;
+
+                uint32_t id;
+
+                if (!get_hex_name(comp1, &id))
+                {
+                    DPRINTF("%s: parse error: \"%s\" is not a valid hash. (line %d)\n", FUNCNAME, comp1, line_num);
+                    return false;
+                }
+
+                names_map[id] = comp2;
+            }
+
+            c1 = c2 = 0;
+            in_c2 = false;
+            line_num++;
+            continue;
+        }
+
+        if (in_comment)
+            continue;
+
+        if (ch >= 0 && ch <= ' ')
+            continue;
+
+        if (c1 == 0 && (ch == ';' || ch == '#'))
+        {
+            in_comment = true;
+            continue;
+        }
+
+        if (!in_c2 && ch == ',')
+        {
+            in_c2 = true;
+            continue;
+        }
+
+        if (in_c2)
+            comp2[c2++] = ch;
+        else
+            comp1[c1++] = ch;
+    }
+
+    UPRINTF("Map loaded with %Id values.\n", names_map.size());
+    return true;
+}
+
+bool KtidFile::LoadNamesFile(const std::string &path)
+{
+    size_t size = Utils::GetFileSize(path);
+    if (size == (size_t)-1)
+    {
+        DPRINTF("Cannot stat file \"%s\"", path.c_str());
+        return false;
+    }
+
+    uint8_t *buf = new uint8_t[size+1];
+    buf[size] = 0;
+
+    FILE *f = fopen(path.c_str(), "rb");
+    bool ret = false;
+
+    if (f)
+    {
+        ret = (fread(buf, 1, size, f) == size);
+        if (ret)
+        {
+            ret = LoadNamesFileBuf((const char *)buf);
+        }
+
+        fclose(f);
+    }
+    else
+    {
+        DPRINTF("Cannot open file \"%s\"", path.c_str());
+    }
+
+    delete[] buf;
+    return ret;
+}
+
+bool KtidFile::LoadNamesFileBinBuf(const uint8_t *buf)
+{
+    const uint8_t *ptr = buf;
+    uint32_t num = *(const uint32_t *)ptr;
+
+    names_map.reserve(num);
+    ptr += 4;
+
+    for (size_t i = 0; i < (size_t)num; i++)
+    {
+        std::string str;
+
+        uint32_t hash = *(const uint32_t *)ptr;
+        ptr += 4;
+
+        names_map[hash] = (const char *)ptr;
+        ptr += strlen((const char *)ptr) + 1;
+    }
+
+
+    UPRINTF("Map loaded with %Id values.\n", names_map.size());
+
+    return true;
+}
+
+bool KtidFile::LoadNamesFileBin(const std::string &path)
+{
+    size_t size;
+    uint8_t *buf = Utils::ReadFile(path, &size);
+    if (!buf)
+        return false;
+
+    bool ret = LoadNamesFileBinBuf(buf);
+
+    delete[] buf;
+    return ret;
 }

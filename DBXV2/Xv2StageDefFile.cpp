@@ -214,6 +214,7 @@ TiXmlElement *Xv2Stage::Decompile(TiXmlNode *root, uint32_t idx) const
 
     Utils::WriteParamString(entry_root, "SE", se);
     Utils::WriteParamUnsigned(entry_root, "BGM_CUE_ID", bgm_cue_id);
+    Utils::WriteParamSigned(entry_root, "BGM_UNK1", bgm_unk1);
 
     if (idx >= XV2_ORIGINAL_NUM_STAGES && ssid >= XV2_ORIGINAL_NUM_SS_STAGES)
     {
@@ -275,6 +276,10 @@ bool Xv2Stage::Compile(const TiXmlElement *root)
 
     if (!Utils::GetParamUnsigned(root, "BGM_CUE_ID", &bgm_cue_id))
         return false;
+
+    // New in 1.25.1
+    if (!Utils::ReadParamSigned(root, "BGM_UNK1", &bgm_unk1))
+        bgm_unk1 = -1;
 
     for (int i = 0; i < XV2_NATIVE_LANG_NUM; i++)
     {
@@ -561,13 +566,15 @@ bool Xv2StageDefFile::LoadFromDump(size_t stage_num, size_t base_addr, const voi
         }
     }
 
-    const uint32_t *music = (const uint32_t *)music_buf;
+    //const uint32_t *music = (const uint32_t *)music_buf;
+    const XV2StageMusic *music = (const XV2StageMusic *)music_buf;
 
     for (size_t i = 0; i < stage_num; i++)
     {
         Xv2Stage &stage = stages[i];
 
-        stage.bgm_cue_id = music[i];
+        stage.bgm_cue_id = music[i].bgm_cue_id;
+        stage.bgm_unk1 = music[i].bgm_unk1;
     }
 
     return true;

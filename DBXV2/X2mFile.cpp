@@ -34,10 +34,12 @@ void X2mSlotEntry::CopyFrom(const CharaListSlotEntry &entry, bool name)
     costume_index = entry.costume_index;
     model_preset = entry.model_preset;
     flag_gk2 = entry.flag_gk2;
+    flag_cgk = entry.flag_cgk;
     voices_id_list[0] = entry.voices_id_list[0];
     voices_id_list[1] = entry.voices_id_list[1];
     audio_files[0].clear();
     audio_files[1].clear();
+    hidden = false;
 
     if (name)
     {
@@ -72,6 +74,7 @@ void X2mSlotEntry::CopyTo(CharaListSlotEntry &entry, const std::string &code) co
     entry.model_preset = model_preset;
     entry.unlock_index = 0;
     entry.flag_gk2 = flag_gk2;
+    entry.flag_cgk = flag_cgk;
     entry.voices_id_list[0] = voices_id_list[0];
     entry.voices_id_list[1] = voices_id_list[1];
     entry.dlc = "Dlc_Def";
@@ -82,8 +85,13 @@ TiXmlElement *X2mSlotEntry::Decompile(TiXmlNode *root, bool new_format) const
     TiXmlElement *entry_root = new TiXmlElement("SlotEntry");
 
     entry_root->SetAttribute("costume_index", costume_index);
+
+    if (hidden)
+        entry_root->SetAttribute("hidden", "true");
+
     Utils::WriteParamUnsigned(entry_root, "MODEL_PRESET", (int64_t)model_preset, true);
     Utils::WriteParamString(entry_root, "FLAG_GK2", (flag_gk2) ? "true" : "false");
+    Utils::WriteParamString(entry_root, "FLAG_CGK", (flag_cgk) ? "true" : "false");
 
     std::vector<uint32_t> voices = { (uint32_t)voices_id_list[0], (uint32_t)voices_id_list[1] };
     Utils::WriteParamMultipleUnsigned(entry_root, "VOICES_ID_LIST", voices, true);
@@ -123,6 +131,9 @@ bool X2mSlotEntry::Compile(const TiXmlElement *root, bool new_format)
         return false;
     }
 
+    if (!Utils::ReadAttrBoolean(root, "hidden", &hidden))
+        hidden = false;
+
     if (!Utils::GetParamUnsigned(root, "MODEL_PRESET", (uint32_t *)&model_preset))
         return false;
 
@@ -144,6 +155,28 @@ bool X2mSlotEntry::Compile(const TiXmlElement *root, bool new_format)
     {
         DPRINTF("%s: Cannot parse FLAG_GK2 param (%s).\n", FUNCNAME, flag.c_str());
         return false;
+    }
+
+    if (Utils::ReadParamString(root, "FLAG_CGK", flag))
+    {
+        flag = Utils::ToLowerCase(flag);
+        if (flag == "true" || flag == "1")
+        {
+            flag_cgk = true;
+        }
+        else if (flag == "false" || flag == "0")
+        {
+            flag_cgk = false;
+        }
+        else
+        {
+            DPRINTF("%s: Cannot parse FLAG_CGK param (%s).\n", FUNCNAME, flag.c_str());
+            return false;
+        }
+    }
+    else
+    {
+        flag_cgk = false;
     }
 
     if (!Utils::GetParamMultipleUnsigned(root, "VOICES_ID_LIST", (uint32_t *)voices_id_list, 2))
@@ -1543,6 +1576,7 @@ void X2mFile::Reset()
     skill_bodies.clear();
     blast_ss_intended = false;
     skill_chara_depend.id = X2M_INVALID_ID;
+    auto_int2 = true;
 
     costume_items.clear();
     costume_partsets.clear();
@@ -2512,6 +2546,9 @@ bool X2mFile::Decompile()
     if (format_version >= X2M_MIN_VERSION_UDATA)
         Utils::WriteParamString(root, "UDATA", Utils::Base64Encode(udata, sizeof(udata), false));
 
+    if (type == X2mType::NEW_CHARACTER && !invisible && GetNumNonHiddenSlotEntries() == 0)
+        invisible = true;
+
     if (type == X2mType::NEW_CHARACTER)
     {
         Utils::WriteParamString(root, "ENTRY_NAME", entry_name);
@@ -2879,6 +2916,9 @@ bool X2mFile::Decompile()
 
         if (skill_type == X2mSkillType::BLAST)
             Utils::WriteParamBoolean(root, "BLAST_SS_INTENDED", blast_ss_intended);
+
+        else if (skill_type == X2mSkillType::AWAKEN)
+            Utils::WriteParamBoolean(root, "AUTO_INT2", auto_int2);
     }
     else if (type == X2mType::NEW_COSTUME)
     {
@@ -3150,8 +3190,16 @@ bool X2mFile::Compile()
         }
 
         if (skill_type == X2mSkillType::BLAST)
+        {
             if (!Utils::ReadParamBoolean(root, "BLAST_SS_INTENDED", &blast_ss_intended))
                 blast_ss_intended = false;
+        }
+
+        else if (skill_type == X2mSkillType::AWAKEN)
+        {
+            if (!Utils::ReadParamBoolean(root, "AUTO_INT2", &auto_int2))
+                auto_int2 = (format_version >= X2M_MIN_VERSION_SKILL_KI_REQUIREMENT);
+        }
 
         if (skill_type != X2mSkillType::BLAST || blast_ss_intended)
         {
@@ -3199,6 +3247,8 @@ bool X2mFile::Compile()
                 stage_eepk.clear();
         }
     }
+
+    uint32_t int2_counter=0;
 
     for (const TiXmlElement *elem = root->FirstChildElement(); elem; elem = elem->NextSiblingElement())
     {
@@ -3498,6 +3548,9 @@ bool X2mFile::Compile()
                 aura.data.cus_aura_id = X2M_DUMMY_ID16;
                 aura.aura.id = X2M_DUMMY_ID;
 
+                if (auto_int2)
+                    aura.data.integer_2 = int2_counter++;
+
                 skill_aura_entries.push_back(aura);
             }
             else if (param_name == "X2mDepends" && format_version >= X2M_MIN_VERSION_COSTUME)
@@ -3578,6 +3631,9 @@ bool X2mFile::Compile()
         } // END NEW SUPERSOUL
     }
 
+    if (type == X2mType::NEW_CHARACTER && !invisible && GetNumNonHiddenSlotEntries() == 0)
+        invisible = true;
+
     return Validate(false);
 }
 
@@ -3613,6 +3669,32 @@ void X2mFile::DeleteCharaDirectory()
         return;
 
     DeleteDir(entry_name);
+}
+
+size_t X2mFile::GetNumNonHiddenSlotEntries() const
+{
+    size_t ret = 0;
+
+    for (const X2mSlotEntry &entry : slot_entries)
+    {
+        if (!entry.hidden)
+            ret++;
+    }
+
+    return ret;
+}
+
+size_t X2mFile::GetNonHiddenSlotEntries(std::vector<X2mSlotEntry *> &entries)
+{
+    entries.clear();
+
+    for (X2mSlotEntry &entry : slot_entries)
+    {
+        if (!entry.hidden)
+            entries.push_back(&entry);
+    }
+
+    return entries.size();
 }
 
 X2mSlotEntry *X2mFile::FindSlotEntry(uint32_t costume_index, uint32_t model_preset)
@@ -3715,6 +3797,7 @@ X2mFile *X2mFile::CreateDummyPackage()
     dummy->skill_bodies = skill_bodies;
     dummy->blast_ss_intended = blast_ss_intended;
     dummy->skill_chara_depend = skill_chara_depend;
+    dummy->auto_int2 = auto_int2;
 
     dummy->costume_items = costume_items;
     dummy->costume_partsets = costume_partsets;
@@ -6439,12 +6522,15 @@ bool X2mFile::InstallSlots(bool update)
     installed_css_audio.clear();
     installed_css_cue.clear();
 
+    std::vector<X2mSlotEntry *> nh_slots;
+    GetNonHiddenSlotEntries(nh_slots);
+
     if (update)
     {
         std::vector<CharaListSlotEntry *> l_entries;
         chara_list->FindSlotsByCode(std::string("\"") + entry_name + std::string("\""), l_entries);
 
-        if (l_entries.size() != slot_entries.size())
+        if (l_entries.size() != nh_slots.size())
         {
             DPRINTF("%s: Update mode failed because there are different num of slots in the list than in the mod. Try uninstalling the mod and install it again.\n", FUNCNAME);
             return false;
@@ -6452,7 +6538,7 @@ bool X2mFile::InstallSlots(bool update)
 
         for (size_t i = 0; i < l_entries.size(); i++)
         {
-            X2mSlotEntry &x_entry = slot_entries[i];
+            X2mSlotEntry &x_entry = *nh_slots[i];
 
             if (!InstallCssAudio(x_entry))
                 return false;
@@ -6470,11 +6556,11 @@ bool X2mFile::InstallSlots(bool update)
 
     CharaListSlot slot;
 
-    slot.entries.resize(slot_entries.size());
+    slot.entries.resize(nh_slots.size());
 
-    for (size_t i = 0; i < slot_entries.size(); i++)
+    for (size_t i = 0; i < nh_slots.size(); i++)
     {
-        X2mSlotEntry &x_entry = slot_entries[i];
+        X2mSlotEntry &x_entry = *nh_slots[i];
         CharaListSlotEntry l_entry = slot.entries[i]; // Copy
 
         if (!InstallCssAudio(x_entry))
@@ -6500,7 +6586,10 @@ bool X2mFile::InstallSlots(const std::vector<size_t> &positions)
     installed_css_audio.clear();
     installed_css_cue.clear();
 
-    if (positions.size() != slot_entries.size())
+    std::vector<X2mSlotEntry *> nh_slots;
+    GetNonHiddenSlotEntries(nh_slots);
+
+    if (positions.size() != nh_slots.size())
         return false;
 
     std::vector<CharaListSlot> &chara_slots = chara_list->GetSlots();
@@ -6515,9 +6604,9 @@ bool X2mFile::InstallSlots(const std::vector<size_t> &positions)
             return false;
     }
 
-    for (size_t i = 0; i < slot_entries.size(); i++)
+    for (size_t i = 0; i < nh_slots.size(); i++)
     {
-        X2mSlotEntry &x_entry = slot_entries[i];
+        X2mSlotEntry &x_entry = *nh_slots[i];
         CharaListSlotEntry l_entry;
 
         if (!InstallCssAudio(x_entry))
@@ -9944,6 +10033,7 @@ bool X2mFile::InstallAuraSkill()
             CusAuraData &data = skill_aura_entries[i].data;
 
             data.cus_aura_id = update_data->cus_aura_id;
+            data.trans_stage = (uint32_t)i;
             *update_data = data;
         }
 
@@ -10045,6 +10135,14 @@ bool X2mFile::InstallCusSkill(uint32_t depends_cms)
         }
 
         *skill = skill_entry; // Update
+    }
+
+    if (HasSkillAura())
+    {
+        for (size_t i = 0; i < skill_aura_entries.size(); i++)
+        {
+            game_prebaked->SetAuraDataOwner(skill_aura_entries[i].data.cus_aura_id, skill_entry.id2);
+        }
     }
 
     return true;

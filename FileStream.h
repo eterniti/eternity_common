@@ -43,6 +43,8 @@ public:
 
     virtual bool LoadFromFile(const std::string &path, bool show_error=true) override;
     virtual bool SaveToFile(const std::string &path, bool show_error=true, bool build_path=false) override;
+
+    HANDLE GetWindowsHandle();
 };
 
 

@@ -88,6 +88,15 @@ static const std::unordered_map<int, std::string> files_extensions
     { 0x2bcc0c02, ".g1frani" },
     { 0x6dbd6ea6, ".mit" },
     { 0x1a6300fd, ".g1es" },
+
+    // Dynasty Warriors Origins
+    { 0x193d2e44, ".grbf" },
+    { 0x7461c7ca, ".g1h" },
+
+    // Rise of Ronin
+    { 0xad57ebba, ".g1t" }, // Not sure what the difference with the other g1t is...
+    { 0xcbfd49b2, ".mmdb" },
+    { 0xdb0ae0aa, ".gii" },
 };
 
 RdbFile::RdbFile()
@@ -344,19 +353,48 @@ bool RdbFile::LoadAndBuildMap(const uint8_t *buf, size_t size, std::vector<RDBEn
             // Welcome to a world where it is difficult to tell between external and internal files *sigh*
             new_entry.is_new_format = true;
 
-            if (entry->c_size != 0xD)
+            if (entry->c_size != 0xD && entry->c_size != 0x11)
             {
                // These files are neither in the .fdata nor in the data folder
                add = false;
             }
-            else
+            else if (entry->c_size == 0xD)
             {
-                const RDBEntryEx *entry_ex = (const RDBEntryEx *)GetOffsetPtr(entry, entry->entry_size-0xD, true);                
+                const RDBEntryEx *entry_ex = (const RDBEntryEx *)GetOffsetPtr(entry, (uint32_t)entry->entry_size-0xD, true);
 
                 if (entry_ex->flags == RDB_NEW_TYPE_INTERNAL)
                 {
                     new_entry.external = false;
                     new_entry.offset = entry_ex->fdata_offset;
+                }
+                else if (entry_ex->flags == RDB_NEW_TYPE_EXTERNAL)
+                {
+                    new_entry.external = true;
+                }
+                else
+                {
+                    DPRINTF("%s: Unknown extended flags 0x%04x for file 0x%08x\n", FUNCNAME, entry_ex->flags, entry->file_id);
+                }
+
+                new_entry.fdata_id = entry_ex->file_id;
+                auto it = rdx_map.find(entry_ex->file_id);
+                if (it != rdx_map.end())
+                {
+                    new_entry.fdata_hash = it->second;
+                }
+                else if (!new_entry.external)
+                {
+                    DPRINTF("%s: Warning, file_id 0x%x not found in rdx map.\n", FUNCNAME, new_entry.fdata_id);
+                }
+            }
+            else // c_size == 0x11 (Rise of Ronin, files that are beyond 32bit limit in fdata)
+            {
+                const RDBEntryExBig *entry_ex = (const RDBEntryExBig *)GetOffsetPtr(entry, (uint32_t)entry->entry_size-0x11, true);
+
+                if (entry_ex->flags == RDB_NEW_TYPE_INTERNAL)
+                {
+                    new_entry.external = false;
+                    new_entry.offset = Utils::Make64(entry_ex->fdata_offset, entry_ex->higher_byte_offset);
                 }
                 else if (entry_ex->flags == RDB_NEW_TYPE_EXTERNAL)
                 {
@@ -412,7 +450,7 @@ bool RdbFile::LoadAndBuildMap(const uint8_t *buf, size_t size, std::vector<RDBEn
         MemoryStream mem;
 
         if (entry.file_id == hdr->name_db_file && entry.type_id == 0xbf6b52c7 && ExtractFile(i, &mem, true))
-        {
+        {           
             RnkFile rnk;
 
             if (rnk.Load(mem.GetMemory(false), (size_t)mem.GetSize()))
@@ -448,7 +486,7 @@ bool RdbFile::LoadAndBuildMap(const uint8_t *buf, size_t size, std::vector<RDBEn
                     }
                     else
                     {
-                        it->second += it2->second;
+                        it->second += it2->second;                        
                     }
                 }
             }
@@ -463,7 +501,7 @@ bool RdbFile::LoadAndBuildMap(const uint8_t *buf, size_t size, std::vector<RDBEn
                 }
             }
         }
-    }
+    }    
 
     if (IsCharacterEditor())
     {
@@ -504,6 +542,112 @@ bool RdbFile::LoadAndBuildMap(const uint8_t *buf, size_t size, std::vector<RDBEn
 
     //DPRINTF("Num files = %Id\n", entries.size());
     return true;
+}
+
+uint8_t *RdbFile::Convert32To40Bits(const uint8_t *buf, size_t size, size_t *ret_size, std::vector<RDBEntry *> *ret_entries)
+{
+    if (!IsRdxMode())
+        return nullptr;
+
+    MemoryStream out((uint32_t)size + 8000000); // Big enough so that there aren't realloc
+
+    const uint8_t *p = buf;
+    const uint8_t *end = p + size;
+
+    const RDBHeader *hdr = (const RDBHeader *)p;
+    if (size < sizeof(RDBHeader) || memcmp(hdr->signature, RDB_SIGNATURE, sizeof(hdr->signature)) != 0)
+    {
+        DPRINTF("Invalid RDB file.\n");
+        return nullptr;
+    }
+
+    out.Write(p, hdr->header_size);
+    p += hdr->header_size;
+
+    if (ret_entries)
+    {
+        ret_entries->clear();
+        ret_entries->reserve(hdr->num_files);
+    }
+
+    while (p < end)
+    {
+        while ((uintptr_t)(p - buf) & 3)
+        {
+            p++;
+        }
+
+        if (p >= end)
+            break;
+
+        const RDBEntry *entry = (const RDBEntry *)p;
+
+        if (memcmp(entry->signature, RDB_ENTRY_SIGNATURE, sizeof(entry->signature)))
+        {
+            DPRINTF("%s: Unknown signature at offset %Ix\n", FUNCNAME, (size_t)Utils::DifPointer64(entry, buf));
+            return nullptr;
+        }
+
+        int address_offset = (int)entry->entry_size - (int)entry->c_size;
+        if (address_offset < 0)
+        {
+            DPRINTF("%s: Something wrong at offset %Ix\n", FUNCNAME, (size_t)Utils::DifPointer64(entry, buf));
+            return nullptr;
+        }
+
+        if (ret_entries)
+        {
+            ret_entries->push_back((RDBEntry *)(out.GetMemory(false)+out.GetSize()));
+        }
+
+        if (entry->c_size == 0xD)
+        {
+            const RDBEntryEx *entry_ex = (const RDBEntryEx *)GetOffsetPtr(entry, (uint32_t)entry->entry_size-0xD, true);
+            RDBEntryExBig entry_ex40;
+
+            entry_ex40.fdata_offset = entry_ex->fdata_offset;
+            entry_ex40.file_id = entry_ex->file_id;
+            entry_ex40.flags = entry_ex->flags;
+            entry_ex40.full_size = entry_ex->full_size;
+            entry_ex40.higher_byte_offset = 0;
+            entry_ex40.unk_03[0] = 0; entry_ex40.unk_03[1] = 0; entry_ex40.unk_03[2] = 0x80;
+            entry_ex40.unk_10 = entry_ex->unk_0C;
+
+            // First 8 bytes of header
+            out.Write(p, 8);
+
+            // New size
+            out.Write64(entry->entry_size+4);
+
+            // Write new type
+            out.Write32(0x11);
+
+            // Remaining part of header without the ex
+            size_t normal_header_size = entry->entry_size - 0xD;
+
+            if (normal_header_size > 0x14)
+            {
+                out.Write(p + 0x14, normal_header_size-0x14);
+            }
+            else
+            {
+                DPRINTF("%s: Mmmmmmm\n", FUNCNAME);
+                return nullptr;
+            }
+
+            out.Write(&entry_ex40, sizeof(RDBEntryExBig));
+            out.Align(4);
+            p += entry->entry_size;
+            continue;
+        }
+
+        out.Write(p, entry->entry_size);
+        out.Align(4);
+        p += entry->entry_size;
+    }
+
+    *ret_size = (size_t)out.GetSize();
+    return out.GetMemory(true);
 }
 
 
@@ -704,7 +848,45 @@ bool RdbFile::ExtractFileFData(const RdbEntry &entry, Stream *out, bool omit_ext
     std::string in_path = Utils::MakePathString(base_path, Utils::UnsignedToHexString(entry.fdata_hash, true) + ".fdata");
     if (!Utils::FileExists(in_path))
     {
-        in_path = Utils::MakePathString(base_path, "jaJP/" + Utils::UnsignedToHexString(entry.fdata_hash, true) + ".fdata");
+        static const std::vector<std::string> add_paths =
+        {
+            "jaJP/",
+            "enEN/",
+            "zhCN/",
+
+            // /// Dynasty Warriors Origins
+            "../../../3319840/",
+            "../../../3319850/",
+            "../../../3319860/",
+            "../../../3319870/",
+            "../../../3319890/",
+
+            // Ronin
+            "../shader_dx12/",
+            "AjaJ/",
+            "CjaJ/",
+            "AenU/",
+            "CenU/"
+        };
+
+        bool found = false;
+        for (const std::string &ap : add_paths)
+        {
+            in_path = Utils::MakePathString(base_path, ap + Utils::UnsignedToHexString(entry.fdata_hash, true) + ".fdata");
+            if (Utils::FileExists(in_path))
+            {
+                found = true;
+                break;
+            }
+        }
+
+        if (!found)
+        {
+            if (!omit_external_error)
+                DPRINTF("%s: Cannot find the container of this file, it may have been deleted by devs or its location is unknown.\n", FUNCNAME);
+
+            return external_error_is_success;
+        }
     }
 
     if (!in.LoadFromFile(in_path, !omit_external_error))
@@ -853,6 +1035,12 @@ bool RdbFile::ExtractFile(size_t idx, Stream *out, bool omit_external_error, boo
             dir = ".";
 
         std::string external_path = Utils::MakePathString(dir, "data/" + Utils::UnsignedToHexString(entry.file_id, true) + ".file");
+
+        if (!Utils::FileExists(external_path))
+        {
+            // Roning
+            external_path = Utils::MakePathString(dir, "data/" + Utils::UnsignedToHexString((uint8_t)entry.file_id, true, false) + "/" + Utils::UnsignedToHexString(entry.file_id, true) + ".file");
+        }
 
         stream = new FileStream("rb");
         if (!stream->LoadFromFile(external_path, !omit_external_error))
@@ -1710,6 +1898,12 @@ bool RdbFile::GetNewFormatData(size_t idx, std::string &pkg) const
     if (entry.external)
     {
         pkg =  Utils::MakePathString(base_path, "data/" + Utils::UnsignedToHexString(entry.file_id, true) + ".file");
+        if (!Utils::FileExists(pkg))
+        {
+            // Ronin
+            pkg =  Utils::MakePathString(base_path, "data/" + Utils::UnsignedToHexString((uint8_t)entry.file_id, true, false) + "/" + Utils::UnsignedToHexString(entry.file_id, true) + ".file");
+        }
+
         return Utils::FileExists(pkg);
     }
     else
@@ -1747,4 +1941,38 @@ bool RdbFile::GetNewFormatData(size_t idx, std::string &pkg) const
     }
 
     return true;
+}
+
+uint8_t *RdbFile::CreateRdx(size_t *psize)
+{
+    if (rdx_entries.size() == 0)
+        return nullptr;
+
+    *psize = rdx_entries.size() * sizeof(RDXEntry);
+    uint8_t *buf = new uint8_t[*psize];
+    memcpy(buf, rdx_entries.data(), *psize);
+    return buf;
+}
+
+uint16_t RdbFile::GetNewFDataId()
+{
+    uint16_t max = 0;
+
+    for (const RDXEntry &entry : rdx_entries)
+    {
+        if (entry.file_id > max)
+            max = entry.file_id;
+    }
+
+    return max+1;
+}
+
+void RdbFile::AddRdxEntry(uint16_t file_id, uint32_t filename_hash, uint16_t unk)
+{
+    RDXEntry entry;
+    entry.file_id = file_id;
+    entry.filename_hash = filename_hash;
+    entry.unk_02 = unk;
+
+    rdx_entries.push_back(entry);
 }

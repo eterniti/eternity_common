@@ -161,10 +161,18 @@ struct PACKED G1MFData
     uint32_t unk_12C;
     // If version >= 30
     uint32_t unk_130[22]; // TODO
-    uint32_t unk_188[10]; // TODO
+    // If version >= 37
+    uint32_t unk_188[7];
+    // If version >= 38
+    uint32_t unk_1A4;
+    // If version >= 40
+    uint32_t unk_1A8[2]; // TODO
+    // 41
+    uint32_t unk_1B0;
 };
 //CHECK_STRUCT_SIZE(G1MFData, 0x188); // Currently updated for version 33 (OPPW4)
-CHECK_STRUCT_SIZE(G1MFData, 0x1B0); // Currently updated for version 40 (Fairy Tail 2)
+//CHECK_STRUCT_SIZE(G1MFData, 0x1B0); // Currently updated for version 40 (Fairy Tail 2)
+CHECK_STRUCT_SIZE(G1MFData, 0x1B4); // Currently updated for version 41 (DW Origins)
 CHECK_FIELD_OFFSET(G1MFData, num_bone_maps, 0x40);
 CHECK_FIELD_OFFSET(G1MFData, num_individual_bone_maps, 0x44);
 CHECK_FIELD_OFFSET(G1MFData, num_bones, 0x10);
@@ -245,7 +253,7 @@ CHECK_STRUCT_SIZE(G1MGAttributeHeader, 0x10);
 
 struct PACKED G1MGVertexBufHeader
 {
-    uint32_t unk_00; // always 0?
+    uint32_t flags; // always 0?
     uint32_t vertex_size;
     uint32_t num_vertex;
     uint32_t unk_0C; // always 0?
@@ -530,17 +538,29 @@ struct G1MGAttributesSection
 
 struct G1MGVertexBuffer
 {
-    uint32_t unk_00;
+    uint32_t flags;
     uint32_t vertex_size;
     uint32_t unk_0C;
+    bool is_group;
+    bool is_group_part;
 
     std::vector<uint8_t> vertex;
+    size_t num_vertex; // Needed for is_group_part
+
+    G1MGVertexBuffer()
+    {
+        is_group = false;
+        is_group_part = false;
+    }
 
     bool Read(FixedMemoryStream &in);
     bool Write(MemoryStream &out) const;
 
     inline uint32_t GetNumVertex() const
     {
+        if (is_group_part && vertex.size() == 0)
+            return num_vertex;
+
         return (uint32_t)(vertex.size() / vertex_size);
     }
 
@@ -552,14 +572,19 @@ struct G1MGVertexSection
 {
     bool valid;
     std::vector<G1MGVertexBuffer> vertex_bufs;
+    // For DWO and up  (G1MF format 41)
+    std::vector<G1MGVertexBuffer> vertex_bufs_pure;
 
     G1MGVertexSection()
     {
-        valid = false;
+        valid = false;        
     }
 
+    bool ResolveGroups();
+    void UnifyGroups();
+
     bool Read(FixedMemoryStream &in, uint32_t section_size);
-    bool Write(MemoryStream &out) const;
+    bool Write(MemoryStream &out);
 
     TiXmlElement *Decompile(TiXmlNode *root, const std::string &att_dir) const;
     bool Compile(const TiXmlElement *root, const std::string &att_dir);
@@ -872,7 +897,7 @@ struct G1MGChunk
     G1MGMeshesSection meshes_section;
 
     bool Read(FixedMemoryStream &in, uint32_t chunk_version, uint32_t chunk_size);
-    bool Write(MemoryStream &out) const;
+    bool Write(MemoryStream &out);
 
     TiXmlElement *Decompile(TiXmlNode *root, const std::string &att_dir, const std::vector<std::string> &bone_names) const;
     bool Compile(const TiXmlElement *root, const std::string &att_dir, const std::vector<std::string> &bone_names,  std::vector<bool> &auto_meshes);

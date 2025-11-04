@@ -20,9 +20,10 @@ TiXmlElement *TnlCharacter::Decompile(TiXmlNode *root, const char *entry_name) c
     TiXmlElement *entry_root = new TiXmlElement(entry_name);
     entry_root->SetAttribute("id", Utils::UnsignedToString(id, true));
 
-    if (lobby_name.length() > 0 && game_lobby_texts.size() > XV2_LANG_ENGLISH)
+    if (lobby_name.length() > 0 && game_lobby_texts.size() > 0)
     {
-        MsgEntry *msg = game_lobby_texts[XV2_LANG_ENGLISH]->FindEntryByName(lobby_name);
+        int lang = (global_lang >= 0) ? global_lang : XV2_LANG_ENGLISH;
+        MsgEntry *msg = game_lobby_texts[lang]->FindEntryByName(lobby_name);
 
         if (msg)
         {

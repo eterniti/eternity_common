@@ -1,3 +1,5 @@
+#include <io.h>
+
 #include "FileStream.h"
 #include "debug.h"
 
@@ -208,4 +210,12 @@ bool FileStream::SaveToFile(const std::string &path, bool show_error, bool build
 
     Seek(save_pos, SEEK_SET);
     return ret;
+}
+
+HANDLE FileStream::GetWindowsHandle()
+{
+    if (!handle)
+        return nullptr;
+
+    return (HANDLE)_get_osfhandle(_fileno(handle));
 }

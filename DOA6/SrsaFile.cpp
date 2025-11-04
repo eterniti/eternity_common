@@ -104,7 +104,7 @@ static uint32_t GetAproximateSR(uint32_t sample_rate)
     return ret;
 }
 
-bool SrsaEntry::Decode()
+bool SrsaEntry::Decode(uint32_t key)
 {
     if (decoded)
         return true;
@@ -115,7 +115,7 @@ bool SrsaEntry::Decode()
     if (entry->type_signature == SUBP_SIGNATURE)
     {
         SUBPEntry *subp_entry = (SUBPEntry *)entry;
-        name = subp_entry->GetName() + ".subd";
+        name = subp_entry->GetName(key) + ".subd";
 
         type = Type::SUBP;
         raw_data = buf.data();
@@ -124,7 +124,7 @@ bool SrsaEntry::Decode()
     else if (entry->type_signature == AUDIO_SIGNATURE)
     {
         AUDIOEntry *audio_entry = (AUDIOEntry *)entry;
-        name = audio_entry->GetName();
+        name = audio_entry->GetName(key);
 
         uint8_t *data = audio_entry->GetDataPtr();
         fmt_adpcm1 = (AUDIOFmtAdpcm1 *)data;
@@ -132,7 +132,9 @@ bool SrsaEntry::Decode()
         fmt_ogg1 = (AUDIOFmtOgg1 *)data;
         fmt_ogg2 = (AUDIOFmtOgg2 *)data;
 
-        if (fmt_adpcm1->fmt == AUDIO_FMT_ADPCM1 || fmt_adpcm2->fmt == AUDIO_FMT_ADPCM2)
+        //DPRINTF("0x%08x\n", fmt_adpcm1->fmt);
+
+        if (fmt_adpcm1->fmt == AUDIO_FMT_ADPCM1 || fmt_adpcm2->fmt == AUDIO_FMT_ADPCM2 || fmt_adpcm1->fmt == AUDIO_FMT_ADPCM3)
         {
             name += ".wav";
             type = Type::ADPCM;
@@ -145,7 +147,7 @@ bool SrsaEntry::Decode()
             raw_data_size = fmt_adpcm1->GetDataSize();
             raw_data = fmt_adpcm1->GetDataPtr();
         }
-        else if (fmt_ogg1->fmt == AUDIO_FMT_OGG1 || fmt_ogg2->fmt == AUDIO_FMT_OGG2)
+        else if (fmt_ogg1->fmt == AUDIO_FMT_OGG1 || fmt_ogg2->fmt == AUDIO_FMT_OGG2 || fmt_ogg1->fmt == AUDIO_FMT_OGG3)
         {
             uint8_t *kovs_start;
 
@@ -159,6 +161,7 @@ bool SrsaEntry::Decode()
             }
 
             uintptr_t hdr_size = Utils::Align2((uintptr_t)kovs_start - (uintptr_t)buf.data(), 0x10);
+            //DPRINTF("hdr_size = 0x%x\n", hdr_size);
 
             kovs = (KOVSEntry *)(buf.data() + hdr_size);
             if (kovs->signature != KOVS_SIGNATURE)
@@ -189,7 +192,7 @@ bool SrsaEntry::Decode()
         }
         else
         {
-            DPRINTF("SRSA: Unrecognized format 0x%08x for %s\n", fmt_adpcm1->fmt, name.c_str());
+            DPRINTF("SRSA: Unrecognized audio format 0x%08x for %s (file id = 0x%08x)\n", fmt_adpcm1->fmt, name.c_str(), entry->id);
         }
     }
     else if (entry->type_signature == UNK_SIGNATURE3)
@@ -203,7 +206,7 @@ bool SrsaEntry::Decode()
     }
     else
     {
-       DPRINTF("Unknown SRSA entry type signature (0x%08x)\n", entry->type_signature);
+       DPRINTF("Unknown SRSA entry type signature (0x%08x) (file id = 0x%08x)\n", entry->type_signature, entry->id);
        return false;
     }
 
@@ -335,7 +338,7 @@ bool SrsaEntry::Extract(const std::string &dir) const
     return ret;
 }
 
-bool SrsaEntry::Replace(const std::string &file)
+bool SrsaEntry::Replace(const std::string &file, uint32_t key)
 {
     uint32_t signature;
     FileStream stream;
@@ -357,7 +360,7 @@ bool SrsaEntry::Replace(const std::string &file)
         if (!stream.Read(buf.data(), buf.size()))
             return false;
 
-        if (!Decode())
+        if (!Decode(key))
             return false;
     }
     else if (type == Type::OGG)
@@ -412,7 +415,7 @@ bool SrsaEntry::Replace(const std::string &file)
         decoded = false;
         buf = new_buf;
 
-        if (!Decode())
+        if (!Decode(key))
             return false;
     }
     else if (type == Type::ADPCM)
@@ -452,7 +455,7 @@ bool SrsaEntry::Replace(const std::string &file)
 
         uint16_t f = *(uint16_t *)(fmt_adpcm1->GetFormatPtr());
         fmt_adpcm1->sample_rate = wav.GetSampleRate();
-        fmt_adpcm1->num_blocks = ((uint32_t)samples_stream->GetSize() / (uint32_t)wav.GetBlockAlign()) * f;
+        fmt_adpcm1->num_blocks = ((uint32_t)samples_stream->GetSize() / (uint32_t)wav.GetBlockAlign()) * f; // ***
         *(uint16_t *)(fmt_adpcm1->GetFormatPtr() + 2) = wav.GetBlockAlign();
 
         fmt_adpcm1->SetDataSize(samples_stream->GetSize());
@@ -467,7 +470,7 @@ bool SrsaEntry::Replace(const std::string &file)
         decoded = false;
         buf = new_buf;
 
-        if (!Decode())
+        if (!Decode(key))
             return false;
     }
 
@@ -556,7 +559,7 @@ void SrsaFile::Reset()
 {
     entries.clear();
     unk_hash1 = 0x1A487B77;
-    unk_hash2 = 0x9CC9E1D1;
+    key = 0x9CC9E1D1;
 }
 
 
@@ -585,7 +588,7 @@ bool SrsaFile::Load(const uint8_t *buf, size_t size)
     }
 
     unk_hash1 = hdr->ktsr.unk_04;
-    unk_hash2 = hdr->ktsr.unk_0C;
+    key = hdr->ktsr.key;
 
     uint32_t entry_sig;
 
@@ -615,7 +618,7 @@ bool SrsaFile::Load(const uint8_t *buf, size_t size)
 
     for (SrsaEntry &entry : entries)
     {
-        if (!entry.Decode())
+        if (!entry.Decode(key))
             return false;
     }
 
@@ -635,7 +638,7 @@ uint8_t *SrsaFile::Save(size_t *psize)
     hdr->ktsr.unk_04 = unk_hash1;
     hdr->ktsr.unk_08 = 1;
     hdr->ktsr.unk_0A = 0x100;
-    hdr->ktsr.unk_0C = unk_hash2;
+    hdr->ktsr.key = key;
     hdr->ktsr.size = hdr->ktsr.size2 = *psize - 0x10;
 
     uint8_t *ptr = buf + sizeof(SRSAHeader);
