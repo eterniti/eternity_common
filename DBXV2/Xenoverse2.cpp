@@ -2247,8 +2247,8 @@ bool Xenoverse2::IsForbiddenNewStageName(const std::string &name)
         return false;
     }
 
-    std::string upper_name = Utils::ToUpperCase(name);
-    return xv2fs->DirExists("/data/stage/" + upper_name, true, false);
+    //std::string upper_name = Utils::ToUpperCase(name);
+    return xv2fs->DirExists("/data/stage/" + name, true, false);
 }
 
 static bool InjectSwfAndDelete(const std::string &path)
