@@ -159,9 +159,10 @@ TiXmlElement *CusSkill::Decompile(TiXmlNode *root) const
     Utils::WriteParamUnsigned(entry_root, "MODEL2", model2, true);
     Utils::WriteParamUnsigned(entry_root, "MODEL3", model3, true);
     Utils::WriteParamUnsigned(entry_root, "CHANGE_SKILLSET", change_skillset);
+    Utils::WriteParamUnsigned(entry_root, "CHANGE_SKILLSET2", change_skillset2);
+    Utils::WriteParamUnsigned(entry_root, "CHANGE_SKILLSET3", change_skillset3);
 
-    Utils::WriteParamUnsigned(entry_root, "NU_4E", new_unk_4E, true);
-    Utils::WriteParamUnsigned(entry_root, "U_50", unk_50, true);
+    Utils::WriteParamUnsigned(entry_root, "U_52", unk_52, true);
     Utils::WriteParamUnsigned(entry_root, "U_44", old_unk_44, true);
     Utils::WriteParamUnsigned(entry_root, "U_48", old_unk_48, true);
 
@@ -272,11 +273,14 @@ bool CusSkill::Compile(const TiXmlElement *root, int *version)
         return false;
     //
 
-    if (!Utils::ReadParamUnsigned(root, "NU_4E", &new_unk_4E))
-        new_unk_4E = 0xFFFF;
+    if (!Utils::ReadParamUnsigned(root, "CHANGE_SKILLSET2", &change_skillset2))
+        change_skillset2 = 0xFFFF;
 
-    if (!Utils::ReadParamUnsigned(root, "U_50", &unk_50))
-        unk_50 = 0xFFFFFFFF;
+    if (!Utils::ReadParamUnsigned(root, "CHANGE_SKILLSET3", &change_skillset3))
+        change_skillset3 = 0xFFFF;
+
+    if (!Utils::ReadParamUnsigned(root, "U_52", &unk_52))
+        unk_52 = 0xFFFF;
 
     if (Utils::ReadParamUnsigned(root, "U_44", &old_unk_44))
     {
@@ -497,14 +501,20 @@ bool CusFile::LoadSkills125(const uint8_t *top, const CUSSkill125 *sets_in, std:
         skill.model2 = sets_in[i].model2;
         skill.model3 = sets_in[i].model3;
         skill.change_skillset = sets_in[i].change_skillset;
+        skill.change_skillset2 = sets_in[i].change_skillset2;
+        skill.change_skillset3 = sets_in[i].change_skillset3;
 
-        skill.new_unk_4E = sets_in[i].new_unk_4E;
-        skill.unk_50 = sets_in[i].unk_50;
+        skill.unk_52 = sets_in[i].unk_52;
         skill.old_unk_44 = sets_in[i].old_unk_44;
         skill.old_unk_48 = sets_in[i].old_unk_48;
     }
 
     return true;
+}
+
+static bool version_offset_check(uint32_t offset_next, uint32_t offset, size_t size)
+{
+    return ((offset_next-offset) % size) == 0;
 }
 
 bool CusFile::Load(const uint8_t *buf, size_t size)
@@ -541,17 +551,17 @@ bool CusFile::Load(const uint8_t *buf, size_t size)
         skill_set.model_preset = skill_sets_f[i].model_preset;
     }
 
-    if (((hdr->ultimate_offset - hdr->super_offset) % sizeof(CUSSkill125)) == 0)
+    if (version_offset_check(hdr->ultimate_offset, hdr->super_offset, sizeof(CUSSkill125)) && version_offset_check(hdr->evasive_offset, hdr->ultimate_offset, sizeof(CUSSkill125)))
     {
         version = 125;
     }
 
-    else if (((hdr->ultimate_offset - hdr->super_offset) % sizeof(CUSSkill121)) == 0)
+    else if (version_offset_check(hdr->ultimate_offset, hdr->super_offset, sizeof(CUSSkill121)) && version_offset_check(hdr->evasive_offset, hdr->ultimate_offset, sizeof(CUSSkill121)))
     {
         version = 121;
     }
 
-    else if (((hdr->ultimate_offset - hdr->super_offset) % sizeof(CUSSkill119)) == 0)
+    else if (version_offset_check(hdr->ultimate_offset, hdr->super_offset, sizeof(CUSSkill119)) && version_offset_check(hdr->evasive_offset, hdr->ultimate_offset, sizeof(CUSSkill119)))
     {
         version = 119;
     }
@@ -559,8 +569,6 @@ bool CusFile::Load(const uint8_t *buf, size_t size)
     {
         version = 0;
     }
-
-    //DPRINTF("Version = %d\n", version);
 
     if (version == 125)
     {
@@ -931,9 +939,10 @@ void CusFile::SaveSkills125(uint8_t *top, char *str_top, char **str_current, con
         sets_out[i].model2 = skill.model2;
         sets_out[i].model3 = skill.model3;
         sets_out[i].change_skillset = skill.change_skillset;
+        sets_out[i].change_skillset2 = skill.change_skillset2;
+        sets_out[i].change_skillset3 = skill.change_skillset3;
 
-        sets_out[i].new_unk_4E = skill.new_unk_4E;
-        sets_out[i].unk_50 = skill.unk_50;
+        sets_out[i].unk_52 = skill.unk_52;
         sets_out[i].old_unk_44 = skill.old_unk_44;
         sets_out[i].old_unk_48 = skill.old_unk_48;
     }

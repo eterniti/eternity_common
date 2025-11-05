@@ -148,8 +148,9 @@ struct CUSSkill125
     uint16_t model2; // 0x48
     uint16_t model3; // 0x4A - Confirmed: code at 0x16B4EA (1.25.1), model, model2 and model3 are a single array in the game.
     uint16_t change_skillset; // 0x4C
-    uint16_t new_unk_4E;
-    uint32_t unk_50;
+    uint16_t change_skillset2; // 0x4E
+    uint16_t change_skillset3; // 0x50
+    uint16_t unk_52;
     uint32_t old_unk_44; // 0x54
     uint32_t old_unk_48; // 0x58
 };
@@ -211,8 +212,9 @@ struct CusSkill
     uint16_t partset3;
     uint16_t model2;
     uint16_t model3;
-    uint16_t new_unk_4E;
-    uint32_t unk_50;
+    uint16_t change_skillset2;
+    uint16_t change_skillset3;
+    uint16_t unk_52;
     //
 
     TiXmlElement *Decompile(TiXmlNode *root) const;
@@ -227,8 +229,9 @@ struct CusSkill
         partset3 = 0xFFFF;
         model2 = 0xFFFF;
         model3 = 0xFFFF;
-        new_unk_4E = 0xFFFF;
-        unk_50 = 0xFFFFFFFF;
+        change_skillset2 = 0xFFFF;
+        change_skillset3 = 0xFFFF;
+        unk_52 = 0xFFFF;
     }
 };
 
