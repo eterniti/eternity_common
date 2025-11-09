@@ -86,7 +86,7 @@ typedef struct
 
 STATIC_ASSERT_STRUCT(CUSSkillSet, 0x20);
 
-struct CUSSkill
+struct CUSSkillOld // DONT LONGER ACCESS THIS IN XV2PATCHER
 {
     char name[4];
     uint32_t unk_04; // Check for 0 - It seems this is actually part of the name, e.g. char name[8]; even if no vanilla skill uses more than 3 chars + '\0'
@@ -108,9 +108,9 @@ struct CUSSkill
     uint16_t change_skillset; // 0x3E
     uint32_t num_transforms; // 0x40
 };
-STATIC_ASSERT_STRUCT(CUSSkill, 0x44);
+STATIC_ASSERT_STRUCT(CUSSkillOld, 0x44);
 
-struct CUSSkill119 : CUSSkill
+struct CUSSkill119 : CUSSkillOld
 {
     uint32_t unk_44; // New in 1.19
 };
@@ -249,12 +249,12 @@ private:
 
     int version;
 
-    bool LoadSkills(const uint8_t *top, const CUSSkill *sets_in, std::vector<CusSkill> &sets_out, uint32_t num);
+    bool LoadSkills(const uint8_t *top, const CUSSkillOld *sets_in, std::vector<CusSkill> &sets_out, uint32_t num);
     bool LoadSkills119(const uint8_t *top, const CUSSkill119 *sets_in, std::vector<CusSkill> &sets_out, uint32_t num);
     bool LoadSkills121(const uint8_t *top, const CUSSkill121 *sets_in, std::vector<CusSkill> &sets_out, uint32_t num);
     bool LoadSkills125(const uint8_t *top, const CUSSkill125 *sets_in, std::vector<CusSkill> &sets_out, uint32_t num);
 
-    void SaveSkills(uint8_t *top, char *str_top, char **str_current, const std::vector<CusSkill> &sets_in, CUSSkill *sets_out, std::unordered_set<std::string> &strings_list);
+    void SaveSkills(uint8_t *top, char *str_top, char **str_current, const std::vector<CusSkill> &sets_in, CUSSkillOld *sets_out, std::unordered_set<std::string> &strings_list);
     void SaveSkills119(uint8_t *top, char *str_top, char **str_current, const std::vector<CusSkill> &sets_in, CUSSkill119 *sets_out, std::unordered_set<std::string> &strings_list);
     void SaveSkills121(uint8_t *top, char *str_top, char **str_current, const std::vector<CusSkill> &sets_in, CUSSkill121 *sets_out, std::unordered_set<std::string> &strings_list);
     void SaveSkills125(uint8_t *top, char *str_top, char **str_current, const std::vector<CusSkill> &sets_in, CUSSkill125 *sets_out, std::unordered_set<std::string> &strings_list);

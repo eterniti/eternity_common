@@ -329,7 +329,7 @@ void CusFile::Reset()
     awaken_skills.clear();
 }
 
-bool CusFile::LoadSkills(const uint8_t *top, const CUSSkill *sets_in, std::vector<CusSkill> &sets_out, uint32_t num)
+bool CusFile::LoadSkills(const uint8_t *top, const CUSSkillOld *sets_in, std::vector<CusSkill> &sets_out, uint32_t num)
 {
     sets_out.resize(num);
 
@@ -633,22 +633,22 @@ bool CusFile::Load(const uint8_t *buf, size_t size)
     }
     else
     {
-        if (!LoadSkills(buf, (const CUSSkill *)GetOffsetPtr(buf, hdr->super_offset), super_skills, hdr->num_super))
+        if (!LoadSkills(buf, (const CUSSkillOld *)GetOffsetPtr(buf, hdr->super_offset), super_skills, hdr->num_super))
             return false;
 
-        if (!LoadSkills(buf, (const CUSSkill *)GetOffsetPtr(buf, hdr->ultimate_offset), ultimate_skills, hdr->num_ultimate))
+        if (!LoadSkills(buf, (const CUSSkillOld *)GetOffsetPtr(buf, hdr->ultimate_offset), ultimate_skills, hdr->num_ultimate))
             return false;
 
-        if (!LoadSkills(buf, (const CUSSkill *)GetOffsetPtr(buf, hdr->evasive_offset), evasive_skills, hdr->num_evasive))
+        if (!LoadSkills(buf, (const CUSSkillOld *)GetOffsetPtr(buf, hdr->evasive_offset), evasive_skills, hdr->num_evasive))
             return false;
 
-        if (!LoadSkills(buf, (const CUSSkill *)GetOffsetPtr(buf, hdr->unk_offset), unk_skills, hdr->num_unk))
+        if (!LoadSkills(buf, (const CUSSkillOld *)GetOffsetPtr(buf, hdr->unk_offset), unk_skills, hdr->num_unk))
             return false;
 
-        if (!LoadSkills(buf, (const CUSSkill *)GetOffsetPtr(buf, hdr->blast_offset), blast_skills, hdr->num_blast))
+        if (!LoadSkills(buf, (const CUSSkillOld *)GetOffsetPtr(buf, hdr->blast_offset), blast_skills, hdr->num_blast))
             return false;
 
-        if (!LoadSkills(buf, (const CUSSkill *)GetOffsetPtr(buf, hdr->awaken_offset), awaken_skills, hdr->num_awaken))
+        if (!LoadSkills(buf, (const CUSSkillOld *)GetOffsetPtr(buf, hdr->awaken_offset), awaken_skills, hdr->num_awaken))
             return false;
     }
 
@@ -695,7 +695,7 @@ size_t CusFile::CalculateFileSize() const
     else if (version == 119)
         size += total_skills *sizeof(CUSSkill119);
     else
-        size += total_skills *sizeof(CUSSkill);
+        size += total_skills *sizeof(CUSSkillOld);
 
     size += CalculateStringsSize(strings_list, super_skills);
     size += CalculateStringsSize(strings_list, ultimate_skills);
@@ -709,7 +709,7 @@ size_t CusFile::CalculateFileSize() const
     return size;
 }
 
-void CusFile::SaveSkills(uint8_t *top, char *str_top, char **str_current, const std::vector<CusSkill> &sets_in, CUSSkill *sets_out, std::unordered_set<std::string> &strings_list)
+void CusFile::SaveSkills(uint8_t *top, char *str_top, char **str_current, const std::vector<CusSkill> &sets_in, CUSSkillOld *sets_out, std::unordered_set<std::string> &strings_list)
 {
     for (size_t i = 0; i < sets_in.size(); i++)
     {
@@ -1095,12 +1095,12 @@ uint8_t *CusFile::Save(size_t *psize)
     }
     else
     {
-        CUSSkill *super_skills_f = (CUSSkill *)(skill_set_f+skill_sets.size());
-        CUSSkill *ultimate_skills_f = (CUSSkill *)(super_skills_f+super_skills.size());
-        CUSSkill *evasive_skills_f = (CUSSkill *)(ultimate_skills_f+ultimate_skills.size());
-        CUSSkill *unk_skills_f = (CUSSkill *)(evasive_skills_f+evasive_skills.size());
-        CUSSkill *blast_skills_f = (CUSSkill *)(unk_skills_f+unk_skills.size());
-        CUSSkill *awaken_skills_f = (CUSSkill *)(blast_skills_f+blast_skills.size());
+        CUSSkillOld *super_skills_f = (CUSSkillOld *)(skill_set_f+skill_sets.size());
+        CUSSkillOld *ultimate_skills_f = (CUSSkillOld *)(super_skills_f+super_skills.size());
+        CUSSkillOld *evasive_skills_f = (CUSSkillOld *)(ultimate_skills_f+ultimate_skills.size());
+        CUSSkillOld *unk_skills_f = (CUSSkillOld *)(evasive_skills_f+evasive_skills.size());
+        CUSSkillOld *blast_skills_f = (CUSSkillOld *)(unk_skills_f+unk_skills.size());
+        CUSSkillOld *awaken_skills_f = (CUSSkillOld *)(blast_skills_f+blast_skills.size());
         char *strings = (char *)(awaken_skills_f+awaken_skills.size());
         char *current_str = strings;
 
