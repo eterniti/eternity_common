@@ -89,6 +89,25 @@ struct PreBakedAlias
     bool Compile(const TiXmlElement *root);
 };
 
+struct IggyInterface
+{
+    enum Type
+    {
+        FILE,
+        GET,
+        SET
+    };
+
+    std::string name;
+    std::string path;
+    std::string key;
+    std::string default_value;
+    Type type = FILE;
+
+    TiXmlElement *Decompile(TiXmlNode *root) const;
+    bool Compile(const TiXmlElement *root);
+};
+
 struct BcsColorsMap
 {
     std::unordered_map<std::string, uint32_t> map;
@@ -166,6 +185,7 @@ private:
     std::vector<BodyShape> body_shapes;
     std::vector<CusAuraData> cus_aura_datas;
     std::vector<PreBakedAlias> aliases;
+    std::vector<IggyInterface> iggy_interfaces;
     std::vector<uint32_t> any_dual_skill_list;
     std::unordered_map<uint32_t, BcsColorsMap> colors_map;
     std::map<int32_t, AuraExtraData> aura_extra_map;
@@ -200,6 +220,9 @@ public:
 
     inline const std::vector<PreBakedAlias> &GetAliases() const { return aliases; }
     inline std::vector<PreBakedAlias> &GetAliases() { return aliases; }
+
+    inline const std::vector<IggyInterface> &GetIggyInterfaces() const { return iggy_interfaces; }
+    inline std::vector<IggyInterface> &GetIggyInterfaces() { return iggy_interfaces; }
 
     inline const std::vector<uint32_t> &GetAnyDualSkillList() const { return any_dual_skill_list; }
     inline std::vector<uint32_t> &GetAnyDualSkillList() { return any_dual_skill_list; }

@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstring>
 #include "Xv2PreBakedFile.h"
 #include "debug.h"
 
@@ -211,6 +212,99 @@ bool PreBakedAlias::Compile(const TiXmlElement *root)
 
     if (!Utils::ReadParamString(root, "TTC_FILES", ttc_files))
         ttc_files.clear();
+
+    return true;
+}
+
+TiXmlElement *IggyInterface::Decompile(TiXmlNode *root) const
+{
+    TiXmlElement *entry_root = new TiXmlElement("IggyInterface");
+    entry_root->SetAttribute("name", name);
+
+    static const char *type_names[] =
+    {
+        "file",
+        "get",
+        "set"
+    };
+
+    entry_root->SetAttribute("type", type_names[type]);
+
+    if (path.length() > 0)
+        entry_root->SetAttribute("path", path);
+
+    if (key.length() > 0)
+        entry_root->SetAttribute("key", key);
+
+    if (default_value.length() > 0)
+        entry_root->SetAttribute("default", default_value);
+
+    root->LinkEndChild(entry_root);
+    return entry_root;
+}
+
+bool IggyInterface::Compile(const TiXmlElement *root)
+{
+    if (!Utils::ReadAttrString(root, "name", name))
+        return false;
+
+    const char *type_attr = root->Attribute("type");
+    const char *path_attr = root->Attribute("path");
+    const char *key_attr = root->Attribute("key");
+    const char *default_attr = root->Attribute("default");
+
+    path = (path_attr) ? path_attr : "";
+    key = (key_attr) ? key_attr : "";
+    default_value = (default_attr) ? default_attr : "";
+
+    if (!type_attr || strlen(type_attr) == 0)
+    {
+        DPRINTF("%s: type attribute is required for IggyInterface entries.\n", FUNCNAME);
+        return false;
+    }
+    else
+    {
+        static const struct
+        {
+            const char *name;
+            Type type;
+        } type_map[] =
+        {
+            { "file", FILE },
+            { "get", GET },
+            { "set", SET }
+        };
+
+        bool found = false;
+
+        for (const auto &entry : type_map)
+        {
+            if (strcmp(type_attr, entry.name) != 0)
+                continue;
+
+            type = entry.type;
+            found = true;
+            break;
+        }
+
+        if (!found)
+        {
+            DPRINTF("%s: Unknown IggyInterface type \"%s\".\n", FUNCNAME, type_attr);
+            return false;
+        }
+    }
+
+    if (type == FILE && path.length() == 0)
+    {
+        DPRINTF("%s: path attribute is required for file interfaces.\n", FUNCNAME);
+        return false;
+    }
+
+    if (type != FILE && key.length() == 0)
+    {
+        DPRINTF("%s: key attribute is required for non-file IggyInterface entries.\n", FUNCNAME);
+        return false;
+    }
 
     return true;
 }
@@ -481,9 +575,11 @@ void Xv2PreBakedFile::Reset()
     body_shapes.clear();
     cus_aura_datas.clear();
     aliases.clear();
+    iggy_interfaces.clear();
     any_dual_skill_list.clear();
     colors_map.clear();
     aura_extra_map.clear();
+    destruction_map.clear();
 }
 
 TiXmlDocument *Xv2PreBakedFile::Decompile() const
@@ -528,6 +624,11 @@ TiXmlDocument *Xv2PreBakedFile::Decompile() const
             continue;
 
         alias.Decompile(root);
+    }
+
+    for (const IggyInterface &iggy_interface : iggy_interfaces)
+    {
+        iggy_interface.Decompile(root);
     }
 
     if (any_dual_skill_list.size() > 0)
@@ -630,6 +731,24 @@ bool Xv2PreBakedFile::Compile(TiXmlDocument *doc, bool)
                 return false;
 
             aliases.push_back(new_alias);
+        }
+        else if (name == "IggyInterface")
+        {
+            IggyInterface new_interface;
+
+            if (!new_interface.Compile(elem))
+                return false;
+
+            for (const IggyInterface &existing_interface : iggy_interfaces)
+            {
+                if (existing_interface.name == new_interface.name)
+                {
+                    DPRINTF("%s: Duplicated IggyInterface name \"%s\".\n", FUNCNAME, new_interface.name.c_str());
+                    return false;
+                }
+            }
+
+            iggy_interfaces.push_back(new_interface);
         }
         else if (name == "ColorsMap")
         {
