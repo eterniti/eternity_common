@@ -424,7 +424,7 @@ uint8_t *QxdFile::Save(size_t *psize)
                 *file_unk1 = unk;
                 file_unk1++;
             }
-        }
+        }        
 
         if (quest.unk2s.size() > 0)
         {

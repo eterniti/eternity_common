@@ -126,6 +126,10 @@ static std::string DlcToString(uint64_t dlc)
             ret = "Dlc_20";
         break;
 
+        case 0x2000000000000ULL:
+            ret = "Dlc_21";
+        break;
+
         default:
             DPRINTF("%s: Unknown dlc 0x%016I64X.\n", FUNCNAME, dlc);
     }
@@ -187,6 +191,8 @@ static uint64_t StringToDlc(const std::string &dlc)
         return 0x100000000000ULL;
     else if (dlc == "Dlc_20")
         return 0x200000000000ULL;
+    else if (dlc == "Dlc_21")
+        return 0x2000000000000ULL;
     else
     {
         DPRINTF("%s: Unknown DLC: %s\n", FUNCNAME, dlc.c_str());
@@ -456,7 +462,7 @@ bool Xv2PatcherSlotsFile::LoadFromCst(const uint8_t *buf, size_t size, const uin
         {
             DPRINTF("%s: Out of bounds.\n", FUNCNAME);
             return false;
-        }       
+        }
 
         if (entry->is_custom_costume)
             continue;

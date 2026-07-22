@@ -25,6 +25,7 @@ enum QxdQuestType
     QUEST_TYPE_RBS, // Million Raid quest
     QUEST_TYPE_GBB, // Cross Versus
     QUEST_TYPE_EVT, // Festival of Universes
+    QUEST_TYPE_CBF, // Cheelai Broly Friendship
 
     NUM_QUEST_TYPES
 };
@@ -515,6 +516,162 @@ struct PACKED QXDCharacter
     float unk_48;
     float air_speed; // 0x4C
     float boost_speed; // 0x50
+    float unk_54; // New in 1.26
+    uint32_t ait_table_entry; // 0x58
+    uint16_t skills[NUM_SKILL_SLOTS]; // 0x5C
+    uint16_t unk_6E[7]; //  [0] -> misc values (mostly 0 or -1), [1,3] -> only used in chars from HLQ and RBQ (exact decimal quantities) [2,4-6] -> always zero
+    uint16_t transformation; // 0x7C
+    uint16_t special_effect; // 0x7E
+    uint16_t unk_80; // New in 1.21  Found to be always 0xFFFF(-1) except in characters from gbb_data.qxd, where it gets values from 100-105
+    uint16_t unk_82; // New in 1.21  As of 1.21, all entries in all .qxd files are zero.
+
+    QXDCharacter()
+    {
+        id = 0xFFFFFFFF;
+        memset(cms_name, 0, sizeof(cms_name));
+        costume = 0;
+        unk_0C = 0;
+        level = 1;
+        health = unk_18 = ki = stamina = basic_melee = ki_blast = strike_super = ki_super = -1.0f;
+        basic_melee_damage = ki_blast_damage = strike_super_damage = ki_super_damage = -1.0f;
+        unk_44 = unk_48 = air_speed = boost_speed = -1.0f;
+        unk_54 = -1.0f;
+        ait_table_entry = 0;
+        memset(skills, 0xFF, sizeof(skills));
+        memset(unk_6E, 0, sizeof(unk_6E));
+        transformation = special_effect = 0xFFFF;
+        unk_80 = 0xFFFF;
+        unk_82 = 0;
+    }
+
+    bool ComparePartial(const QXDCharacter &rhs) const
+    {
+        if (memcmp(cms_name, rhs.cms_name, sizeof(cms_name)) != 0)
+            return false;
+
+        if (costume != rhs.costume)
+            return false;
+
+        if (unk_0C != rhs.unk_0C)
+            return false;
+
+        if (level != rhs.level)
+            return false;
+
+        if (health != rhs.health)
+            return false;
+
+        if (unk_18 != rhs.unk_18)
+            return false;
+
+        if (ki != rhs.ki)
+            return false;
+
+        if (stamina != rhs.stamina)
+            return false;
+
+        if (basic_melee != rhs.basic_melee)
+            return false;
+
+        if (ki_blast != rhs.ki_blast)
+            return false;
+
+        if (strike_super != rhs.strike_super)
+            return false;
+
+        if (ki_super != rhs.ki_super)
+            return false;
+
+        if (basic_melee_damage != rhs.basic_melee_damage)
+            return false;
+
+        if (ki_blast_damage != rhs.ki_blast_damage)
+            return false;
+
+        if (strike_super_damage != rhs.strike_super_damage)
+            return false;
+
+        if (ki_super_damage != rhs.ki_super_damage)
+            return false;
+
+        if (unk_44 != rhs.unk_44)
+            return false;
+
+        if (unk_48 != rhs.unk_48)
+            return false;
+
+        if (air_speed != rhs.air_speed)
+            return false;
+
+        if (boost_speed != rhs.boost_speed)
+            return false;
+
+        if (unk_54 != rhs.unk_54)
+            return false;
+
+        if (ait_table_entry != rhs.ait_table_entry)
+            return false;
+
+        if (memcmp(skills, rhs.skills, sizeof(skills)) != 0)
+            return false;
+
+        if (memcmp(unk_6E, rhs.unk_6E, sizeof(unk_6E)) != 0)
+            return false;
+
+        if (transformation != rhs.transformation)
+            return false;
+
+        if (special_effect != rhs.special_effect)
+            return false;
+
+        if (unk_80 != rhs.unk_80)
+            return false;
+
+        if (unk_82 != rhs.unk_82)
+            return false;
+
+        return true;
+    }
+
+    inline bool operator==(const QXDCharacter &rhs) const
+    {
+        if (id != rhs.id)
+            return false;
+
+        return ComparePartial(rhs);
+    }
+
+    inline bool operator!=(const QXDCharacter &rhs) const
+    {
+        return !(*this == rhs);
+    }
+};
+CHECK_STRUCT_SIZE(QXDCharacter, 0x84);
+
+// Copy of pre 1.26
+/*struct PACKED QXDCharacter
+{
+    uint32_t id; // 0
+    char cms_name[4]; // 4
+    uint32_t costume; // 8
+    uint32_t unk_0C;
+    uint32_t level; // 0x10
+    float health; // 0x14
+    float unk_18;
+    float ki; // 0x1C
+    float stamina; // 0x20
+    float basic_melee; // 0x24
+    float ki_blast; // 0x28
+    float strike_super; // 0x2C
+    float ki_super; // 0x30
+    float basic_melee_damage; // 0x34
+    float ki_blast_damage; // 0x38
+    float strike_super_damage; // 0x3C
+    float ki_super_damage; // 0x40
+    float unk_44;
+    float unk_48;
+    float air_speed; // 0x4C
+    float boost_speed; // 0x50
     uint32_t ait_table_entry; // 0x54
     uint16_t skills[NUM_SKILL_SLOTS]; // 0x58
     uint16_t unk_6A[7]; //  [0] -> misc values (mostly 0 or -1), [1,3] -> only used in chars from HLQ and RBQ (exact decimal quantities) [2,4-6] -> always zero
@@ -640,7 +797,7 @@ struct PACKED QXDCharacter
         return !(*this == rhs);
     }
 };
-CHECK_STRUCT_SIZE(QXDCharacter, 0x80);
+CHECK_STRUCT_SIZE(QXDCharacter, 0x80);*/
 
 struct PACKED QXDCollectionEntry
 {

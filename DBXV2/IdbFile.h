@@ -200,6 +200,67 @@ typedef struct
 } PACKED IDBEntry122;
 STATIC_ASSERT_STRUCT(IDBEntry122, 0x304);
 
+typedef struct
+{
+    uint32_t type; // 0
+    uint32_t activation_type; // 4
+    uint32_t num_act_times; // 8
+    uint32_t new_unk_0C; // 0xC New in 1.22
+    float timer; // 0x10
+    float ability_values[6]; // 0x14
+    uint32_t unk_28; // 0x2C
+    uint32_t new_unk_48[2]; // 0x30
+    uint32_t activation_chance; // 0x38
+    float multipliers[6]; // 0x4C
+    uint32_t old_unk_48[7]; // 0x54  1.26: 6->7
+    float hea; // 0x70
+    float ki; // 0x74
+    float ki_recovery; // 0x78
+    float stm; // 0x7C
+    float stamina_recovery; // 0x80
+    float enemy_stamina_eraser; // 0x84
+    float old_unk_78; // 0x88
+    float ground_speed; // 0x8C
+    float air_speed; // 0x90
+    float boosting_speed; // 0x94
+    float dash_speed; // 0x98
+    float atk; // 0x9C
+    float basic_ki_attack; // 0xA0
+    float str; // 0xA4
+    float bla; // 0xA8
+    float atk_damage; // 0xAC
+    float ki_damage; // 0xB0
+    float str_damage; // 0xB4
+    float bla_damage; // 0xB8
+    float old_unk_AC[13]; // 0xBC
+} PACKED IDBEffect126;
+STATIC_ASSERT_STRUCT(IDBEffect126, 0xF0);
+
+typedef struct
+{
+    uint16_t id; // 0
+    uint16_t stars; // 2
+    uint16_t name_id; // 4
+    uint16_t desc_id; // 6
+    uint16_t how_id; // 8 New in 1.22
+    uint16_t new_unk_0A; // 0xA
+    uint16_t type; // 0xC
+    uint16_t unk_0A; // 0xE
+    uint32_t new_unk_0C; // 0x10
+    uint16_t old_unk_0C; // 0x14
+    uint16_t old_unk_0E; // 0x16
+    uint32_t buy; // 0x18
+    uint32_t sell; // 0x1C
+    uint32_t racelock; // 0x20
+    uint32_t tp; // 0x24
+    uint32_t stp; // 0x28
+    uint32_t new_unk_2C; // 0x2C
+    uint32_t model; // 0x30
+    uint32_t old_unk_24[3]; // 0x34
+    IDBEffect126 effects[3]; // 0x40
+} PACKED IDBEntry126;
+STATIC_ASSERT_STRUCT(IDBEntry126, 0x310);
+
 #ifdef _MSC_VER
 #pragma pack(pop)
 #endif
@@ -227,7 +288,7 @@ struct IdbEffect
     uint32_t unk_28;
     uint32_t activation_chance;
     float multipliers[6];
-    uint32_t unk_48[6];
+    uint32_t unk_48[7];
     float hea;
     float ki;
     float ki_recovery;
@@ -263,7 +324,7 @@ struct IdbEffect
         unk_28 = activation_chance = 0xFFFFFFFF;
         memset(multipliers, 0, sizeof(multipliers));
         unk_48[0] = unk_48[2] = 0;
-        unk_48[1] = unk_48[3] = unk_48[4] = unk_48[5] = 0xFFFFFFFF;
+        unk_48[1] = unk_48[3] = unk_48[4] = unk_48[5] = unk_48[6] = 0xFFFFFFFF;
         hea = ki = ki_recovery = stm = stamina_recovery = enemy_stamina_eraser = 0.0f;
         unk_78 = 0;
         ground_speed = air_speed = boosting_speed = dash_speed = 0.0f;
@@ -278,7 +339,7 @@ struct IdbEffect
     }
 
     TiXmlElement *Decompile(TiXmlNode *root) const;
-    bool Compile(const TiXmlElement *root);
+    bool Compile(const TiXmlElement *root, int *version=nullptr);
 };
 
 struct IdbEntry

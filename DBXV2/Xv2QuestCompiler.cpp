@@ -1617,6 +1617,9 @@ int Xv2QuestCompiler::GetQuestType(const std::string &name)
     else if (Utils::BeginsWith(name, "EVT_", false))
         return QUEST_TYPE_EVT;
 
+    else if (Utils::BeginsWith(name, "CBF_", false))
+        return QUEST_TYPE_CBF;
+
     return -1;
 }
 
@@ -1725,6 +1728,10 @@ std::string Xv2QuestCompiler::GetDialogueFile(const std::string &name, uint32_t 
     else if (quest_type == QUEST_TYPE_EVT)
     {
         ret = "qet_battle";
+    }
+    else if (quest_type == QUEST_TYPE_CBF)
+    {
+        ret = "qf_" + name;
     }
 
     return ret;
@@ -2015,6 +2022,10 @@ std::string Xv2QuestCompiler::GetTitlePath() const
             file = "qet_title";
         break;
 
+        case QUEST_TYPE_CBF:
+            file = "qf_title";
+        break;
+
         default:
             file = "qe_title";
     }
@@ -2121,6 +2132,10 @@ bool Xv2QuestCompiler::LoadQxd(QxdFile &qxd, bool vanilla) const
 
         case QUEST_TYPE_EVT:
             file = "EVT/evt_data.qxd";
+        break;
+
+        case QUEST_TYPE_CBF:
+            file = "CBF/cbf_data.qxd";
         break;
     }
 
@@ -2767,6 +2782,9 @@ bool Xv2QuestCompiler::CommitTitle()
 
 bool Xv2QuestCompiler::LoadDialogue(const std::string &quest_name, uint32_t episode)
 {
+    if (Utils::BeginsWith(quest_name, "CBF_DELI"))
+        return true;
+
     const std::string path = "data/msg/" + GetDialogueFile(quest_name, episode);
 
     for (int i = 0; i < XV2_LANG_NUM; i++)
@@ -2799,6 +2817,9 @@ bool Xv2QuestCompiler::LoadDialogue(const std::string &quest_name, uint32_t epis
 bool Xv2QuestCompiler::CommitDialogue()
 {
     if (!dialogue_touched)
+        return true;
+
+    if (Utils::BeginsWith(compiled_quest.name, "CBF_DELI"))
         return true;
 
     const std::string path = "data/msg/" + GetDialogueFile(compiled_quest.name, compiled_quest.episode);
@@ -4689,9 +4710,8 @@ bool Xv2QuestCompiler::FindReferencedQxdChars()
             referenced_chars[chara->id] = var_name;
     }
 
-    if (referenced_chars.size() == 0 && referenced_special_chars.size() == 0)
-    {
-        DPRINTF("%s: No qxd referenced chars were found!\n", FUNCNAME);
+    if (referenced_chars.size() == 0 && referenced_special_chars.size() == 0)    {
+
         return false;
     }
 
@@ -7121,13 +7141,13 @@ bool Xv2QuestCompiler::DecompileQxdChar(const QxdCharacter &chara, bool special,
     WriteSkillParam(oss, "awaken", chara.skills[8], QXD_SKILL_AWAKEN, false);
     oss << '\n';
 
-    WriteIntegerParam(oss, "i106", (int16_t)chara.unk_6A[0]);
-    WriteIntegerParam(oss, "i108", (int16_t)chara.unk_6A[1]);
-    WriteIntegerParam(oss, "i112", (int16_t)chara.unk_6A[3]);
+    WriteIntegerParam(oss, "i106", (int16_t)chara.unk_6E[0]);
+    WriteIntegerParam(oss, "i108", (int16_t)chara.unk_6E[1]);
+    WriteIntegerParam(oss, "i112", (int16_t)chara.unk_6E[3]);
 
     // 1.21
-    WriteIntegerParam(oss, "i124", (int16_t)chara.unk_7C);
-    WriteIntegerParam(oss, "i126", (int16_t)chara.unk_7E);
+    WriteIntegerParam(oss, "i124", (int16_t)chara.unk_80);
+    WriteIntegerParam(oss, "i126", (int16_t)chara.unk_82);
 
     indent_level--;
     WriteIndent(oss, true);
@@ -9635,24 +9655,24 @@ bool Xv2QuestCompiler::CompileQxdChar(bool special)
             }
             else if (token.str == "i106")
             {
-                chara.unk_6A[0] = (int16_t)value_int;
+                chara.unk_6E[0] = (int16_t)value_int;
             }
             else if (token.str == "i108")
             {
-                chara.unk_6A[1] = (int16_t)value_int;
+                chara.unk_6E[1] = (int16_t)value_int;
             }
             else if (token.str == "i112")
             {
-                chara.unk_6A[3] = (int16_t)value_int;
+                chara.unk_6E[3] = (int16_t)value_int;
             }
             // 1.21
             else if (token.str == "i124")
             {
-                chara.unk_7C = (int16_t)value_int;
+                chara.unk_80 = (int16_t)value_int;
             }
             else if (token.str == "i126")
             {
-                chara.unk_7E = (int16_t)value_int;
+                chara.unk_82 = (int16_t)value_int;
             }
             else
             {
@@ -11718,8 +11738,11 @@ bool Xv2QuestCompiler::DecompileQuest(const std::string &quest_name, std::ostrin
         return false;
     }
 
-    if (!FindReferencedQxdChars())
+    if (!FindReferencedQxdChars() && !Utils::BeginsWith(quest_name, "CBF_DELI"))
+    {
+        DPRINTF("%s: No qxd referenced chars were found!\n", FUNCNAME);
         return false;
+    }
 
     for (auto &it : referenced_special_chars)
     {

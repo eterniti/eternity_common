@@ -5,7 +5,7 @@
 #include <map>
 #include "BaseFile.h"
 
-#define BEHAVIOUR_MAX	0x22
+#define BEHAVIOUR_MAX	0x2A
 #define DEFAULT_DESTRUCTION_DAMAGE  650
 #define DEFAULT_DESTRUCTION_TIME    3000
 

@@ -3760,6 +3760,18 @@ uint32_t Xenoverse2::CusAuraToAurAura(uint32_t id)
 			
 		case 34:
 			return 60;
+			
+		case 38:
+			return 66;
+			
+		case 39:
+			return 67;
+			
+		case 40: case 41:
+			return 70;
+			
+		case 42:
+			return 71;
     }
 
     return 0xFFFFFFFF;
@@ -3808,19 +3820,27 @@ void Xenoverse2::GetAuraExtra(int32_t id, AuraExtraData &extra)
             extra.bpe_id = 302;
         break;
 		
-		case 57: case 58: case 59: case 60:
+		case 57: case 58: case 59: case 60: case 65: case 66: case 69: case 71:
 			extra.bpe_id = 320;
 		break;
 		
 		case 61:
 			extra.bpe_id = 340;
 		break;
+		
+        case 63: case 67: case 68: case 70:
+			extra.bpe_id = 370;
+		break;
+		
+		case 64:
+			extra.bpe_id = 371;
+		break;
     }
-
-    if (id == 36 || id == 39 || id == 52 || id == 53)
-    {
+	
+	if (id == 36 || id == 39 || id == 52 || id == 53 || id == 67 || id == 70)
+	{
         extra.flag1 = (id != 36);
-        extra.flag2 = true;
+		extra.flag2 = true;
     }
 }
 
