@@ -244,7 +244,7 @@ bool Xv2PatcherSlotsFile::Load(const uint8_t *buf, size_t size)
             std::vector<std::string> fields;
 
             Utils::GetMultipleStrings(costume, fields);
-            if (fields.size() < 8 || fields.size() > 11)
+            if (fields.size() < 8 && fields.size() > 11)
             {
                 DPRINTF("Invalid number of elements: %Id\n", fields.size());
                 return false;
