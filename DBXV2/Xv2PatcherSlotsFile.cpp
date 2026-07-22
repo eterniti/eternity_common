@@ -244,7 +244,7 @@ bool Xv2PatcherSlotsFile::Load(const uint8_t *buf, size_t size)
             std::vector<std::string> fields;
 
             Utils::GetMultipleStrings(costume, fields);
-            if (fields.size() != 8 && fields.size() != 9 && fields.size() != 10)
+            if (fields.size() < 8 || fields.size() > 11)
             {
                 DPRINTF("Invalid number of elements: %Id\n", fields.size());
                 return false;
@@ -276,6 +276,7 @@ bool Xv2PatcherSlotsFile::Load(const uint8_t *buf, size_t size)
             }
 
             entry.flag_cgk = (fields.size() >= 10) ? (Utils::GetSigned(fields[9]) != 0) : false;
+            entry.flag_kfk = (fields.size() >= 11) ? (Utils::GetSigned(fields[10]) != 0) : false;
 
             uint64_t dlc = dlc_low | ((uint64_t)dlc_high << 32);
             entry.dlc = DlcToString(dlc);
@@ -353,6 +354,8 @@ uint8_t *Xv2PatcherSlotsFile::Save(size_t *psize)
 
             raw_string.push_back(',');
             raw_string += ((entry.flag_cgk) ? "1" : "0");
+            raw_string.push_back(',');
+            raw_string += ((entry.flag_kfk) ? "1" : "0");
             raw_string.push_back(']');
         }
 
@@ -433,6 +436,7 @@ bool Xv2PatcherSlotsFile::LoadFromCst(const uint8_t *buf, size_t size, const uin
         }
 
         s_entry.flag_cgk = (entry->flag_cgk2 != 0);
+        s_entry.flag_kfk = (entry->flag_kfk != 0);
 
         chara_slots[pos].entries.push_back(s_entry);
     }
