@@ -419,6 +419,8 @@ public:
     IdbEntry *FindEntryByID(uint32_t id);
     IdbEntry *FindEntryByIdAndType(uint16_t id, uint16_t type);
 
+    int GetVersion() const { return version; }
+
     bool AddEntry(const IdbEntry &entry, bool overwrite_existing);
     bool AddEntryAuto(IdbEntry &entry, uint16_t id_start);
     size_t RemoveEntry(uint16_t id, uint16_t type);

@@ -9,7 +9,7 @@
 #include "Utils.h"
 
 #define XV2_ORIGINAL_NUM_STAGES         0x49 /* updated in 1.20 (0x44->0x49) */
-#define XV2_ORIGINAL_NUM_SS_STAGES      0x26 /* updated in 1.25.1 (0x25->0x26) */
+#define XV2_ORIGINAL_NUM_SS_STAGES      0x27 /* updated in 1.26 (0x26->0x27) */
 #define XV2_MAX_STAGES                  0x7FFFFFFF
 
 #define XV2_STA_NUM_GATES   9	/* Updated in 1.11 */
