@@ -537,7 +537,7 @@ private:
     X2mDepends skill_costume_depend;
     std::vector<X2mBody> skill_bodies;
     bool blast_ss_intended;
-    X2mDepends skill_chara_depend;
+    std::vector<X2mDepends> skill_chara_depends;
     bool auto_int2;
 
     // For costumes
@@ -669,7 +669,7 @@ protected:
 
 public:
 
-    const float X2M_CURRENT_VERSION = 26.0f;
+    const float X2M_CURRENT_VERSION = 27.0f;
 
     const float X2M_MIN_VERSION_CSO = 2.0f;
     const float X2M_MIN_VERSION_PSC = 3.0f;
@@ -724,6 +724,7 @@ public:
     const float X2M_MIN_VERSION_IDB126_FORMAT = 26.0f;
     const float X2M_MIN_VERSION_QXD126_FORMAT = 26.0f;
     const float X2M_MIN_VERSION_KFK_FLAG = 26.0f;
+    const float X2M_MIN_VERSION_MULTIPLE_MODEL = 27.0f;
 
     X2mFile();
     virtual ~X2mFile() override;
@@ -1317,27 +1318,33 @@ public:
     inline bool BlastSkillSsIntended() { return blast_ss_intended; }
     inline void SetBlastSkillSsIntended(bool intended) { blast_ss_intended = intended; }
 
-    inline bool HasSkillCharaDepend() const { return (format_version >= X2M_MIN_VERSION_SKILL_CHARA_DEPEND && skill_chara_depend.id != X2M_INVALID_ID); }
-    inline const X2mDepends &GetSkillCharaDepend() const { return skill_chara_depend; }
-    inline X2mDepends &GetSkillCharaDepend() { return skill_chara_depend; }
+    inline bool HasSkillCharaDepend() const { return (format_version >= X2M_MIN_VERSION_SKILL_CHARA_DEPEND && skill_chara_depends.size() > 0); }
+    inline size_t NumSkillCharaDepends() const { return skill_chara_depends.size(); }
+    inline const X2mDepends &GetSkillCharaDepend(size_t idx) const { return skill_chara_depends[idx]; }
+    inline X2mDepends &GetSkillCharaDepend(size_t idx) { return skill_chara_depends[idx]; }
 
-    bool IsSkillCharaDepends(const uint8_t *guid) const;
-    bool IsSkillCharaDepends(const std::string &guid) const;
-    bool IsSkillCharaDepends(uint16_t id) const;
+    size_t GetSkillCharaDependsIdx(const uint8_t *guid) const;
+    size_t GetSkillCharaDependsIdx(const std::string &guid) const;
+    size_t GetSkillCharaDependsIdx(uint16_t id) const;
 
-    bool SetSkillCharaDepend(const X2mDepends &depends);
-    bool SetSkillCharaDepend(X2mFile *char_x2m);
-    void SetSkillCharaDepend(const uint8_t *guid, const std::string &name);
+    bool SetSkillCharaDepend(const X2mDepends &depends, size_t idx);
+    bool SetSkillCharaDepend(X2mFile *char_x2m, size_t idx);
+    bool SetSkillCharaDepend(const uint8_t *guid, const std::string &name, size_t idx);
 
-    inline void RemoveSkillCharaDepend() { skill_chara_depend.id = X2M_INVALID_ID; }
+    bool AddSkillCharaDepend(const X2mDepends &depends);
+    bool AddSkillCharaDepend(X2mFile *char_x2m);
+    bool AddSkillCharaDepend(const uint8_t *guid, const std::string &name);
+    void AddSkillCharaDependDummy() { skill_chara_depends.push_back(X2mDepends());}
 
-    bool SkillCharaDependHasAttachment() const;
-    bool SetSkillCharaDependAttachment(X2mFile *attachment);
-    bool RemoveSkillCharaDependAttachment();
+    inline void RemoveSkillCharaDepend(size_t idx) { skill_chara_depends.erase(skill_chara_depends.begin()+ idx); }
 
-    X2mFile *LoadSkillCharaDependAttachment();
+    bool SkillCharaDependHasAttachment(size_t idx) const;
+    bool SetSkillCharaDependAttachment(X2mFile *attachment, size_t idx);
+    bool RemoveSkillCharaDependAttachment(size_t idx);
 
-    bool IsSkillCharaDependReferenced() const;
+    X2mFile *LoadSkillCharaDependAttachment(size_t idx);
+
+    bool IsSkillCharaDependReferenced(size_t idx) const;
 
     inline bool IsAutoInt2() const { return auto_int2; }
     inline void SetAutoInt2(bool enable) { auto_int2 = enable; }
@@ -1510,7 +1517,7 @@ public:
     // Skill Ram installs
     bool InstallPupSkill();
     bool InstallAuraSkill();
-    bool InstallCusSkill(uint32_t depends_cms);
+    bool InstallCusSkill(const std::vector<uint32_t> &depends_cms);
     bool InstallSkillName();
     bool InstallSkillDesc();
     bool InstallSkillHow();

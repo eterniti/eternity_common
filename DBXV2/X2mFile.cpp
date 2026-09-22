@@ -1548,7 +1548,7 @@ void X2mFile::Reset()
     skill_costume_depend.id = X2M_INVALID_ID;
     skill_bodies.clear();
     blast_ss_intended = false;
-    skill_chara_depend.id = X2M_INVALID_ID;
+    skill_chara_depends.clear();
     auto_int2 = true;
 
     costume_items.clear();
@@ -2261,11 +2261,14 @@ check_myself:
 
         if (HasSkillCharaDepend())
         {
-            if (!IsSkillCharaDependReferenced())
+            for (size_t i = 0; i < NumSkillCharaDepends(); i++)
             {
-                DPRINTF("%s: Skill Chara Depends is not referenced in the cus entry.\n", FUNCNAME);
-                return false;
+                if (!IsSkillCharaDependReferenced(i))
+                {
+                    DPRINTF("%s: Skill Chara Depends of index %Id is not referenced in the cus entry.\n", FUNCNAME, i);
+                    return false;
 
+                }
             }
         }
 
@@ -2874,8 +2877,11 @@ bool X2mFile::Decompile()
 
         if (HasSkillCharaDepend())
         {
-            if (!skill_chara_depend.Decompile(root))
-                return false;
+            for (const X2mDepends &dep : skill_chara_depends)
+            {
+                if (!dep.Decompile(root))
+                    return false;
+            }
         }
 
         if (HasSkillBodies())
@@ -3536,7 +3542,15 @@ bool X2mFile::Compile()
                 if (dep.type == X2mDependsType::COSTUME)
                     skill_costume_depend = dep;
                 else if (dep.type == X2mDependsType::CHARACTER && format_version >= X2M_MIN_VERSION_SKILL_CHARA_DEPEND)
-                    skill_chara_depend = dep;
+                {
+                    if (skill_chara_depends.size() == 3)
+                    {
+                        DPRINTF("%s: Too many chara depends (limit is 3, this limit is from the game).\n", FUNCNAME);
+                        return false;
+                    }
+
+                    skill_chara_depends.push_back(dep);
+                }
                 else
                 {
                     return false;
@@ -3769,7 +3783,7 @@ X2mFile *X2mFile::CreateDummyPackage()
     dummy->skill_costume_depend = skill_costume_depend;
     dummy->skill_bodies = skill_bodies;
     dummy->blast_ss_intended = blast_ss_intended;
-    dummy->skill_chara_depend = skill_chara_depend;
+    dummy->skill_chara_depends = skill_chara_depends;
     dummy->auto_int2 = auto_int2;
 
     dummy->costume_items = costume_items;
@@ -5428,68 +5442,117 @@ int X2mFile::GetFreeSkillBodyId() const
     return X2M_SKILL_BODY_ID_BEGIN;
 }
 
-bool X2mFile::IsSkillCharaDepends(const uint8_t *guid) const
+size_t X2mFile::GetSkillCharaDependsIdx(const uint8_t *guid) const
 {
-    return (memcmp(skill_chara_depend.guid, guid, 16) == 0);
+    for (size_t i = 0; i < skill_chara_depends.size(); i++)
+        if (memcmp(skill_chara_depends[i].guid, guid, 16) == 0)
+            return i;
+
+    return (size_t)-1;
 }
 
-bool X2mFile::IsSkillCharaDepends(const std::string &guid) const
+size_t X2mFile::GetSkillCharaDependsIdx(const std::string &guid) const
 {
     uint8_t guid_bin[16];
 
     if (!Utils::String2GUID(guid_bin, guid))
         return false;
 
-    return IsSkillCharaDepends(guid_bin);
+    return GetSkillCharaDependsIdx(guid_bin);
 }
 
-bool X2mFile::IsSkillCharaDepends(uint16_t id) const
+size_t X2mFile::GetSkillCharaDependsIdx(uint16_t id) const
 {
-    return (skill_chara_depend.id == id);
+    for (size_t i = 0; i < skill_chara_depends.size(); i++)
+        if (skill_chara_depends[i].id == id)
+            return i;
+
+    return (size_t)-1;
 }
 
-bool X2mFile::SetSkillCharaDepend(const X2mDepends &depends)
+bool X2mFile::SetSkillCharaDepend(const X2mDepends &depends, size_t idx)
 {
-    skill_chara_depend = depends;
+    if (idx >= skill_chara_depends.size())
+        return false;
+
+    skill_chara_depends[idx] = depends;
     return true;
 }
 
-bool X2mFile::SetSkillCharaDepend(X2mFile *char_x2m)
+bool X2mFile::SetSkillCharaDepend(X2mFile *char_x2m, size_t idx)
 {
     if (char_x2m->GetType() != X2mType::NEW_CHARACTER)
         return false;
 
-    skill_chara_depend.type = X2mDependsType::CHARACTER;
-    memcpy(skill_chara_depend.guid, char_x2m->mod_guid, 16);
-    skill_chara_depend.name = char_x2m->GetModName();
-    skill_chara_depend.id = X2M_CHARA_DEPENDS_ID;
+    if (idx >= skill_chara_depends.size())
+        return false;
+
+    skill_chara_depends[idx].type = X2mDependsType::CHARACTER;
+    memcpy(skill_chara_depends[idx].guid, char_x2m->mod_guid, 16);
+    skill_chara_depends[idx].name = char_x2m->GetModName();
+    skill_chara_depends[idx].id = X2M_CHARA_DEPENDS_ID;
 
     return true;
 }
 
-void X2mFile::SetSkillCharaDepend(const uint8_t *guid, const std::string &name)
+bool  X2mFile::SetSkillCharaDepend(const uint8_t *guid, const std::string &name, size_t idx)
 {
-    skill_chara_depend.type = X2mDependsType::CHARACTER;
-    memcpy(skill_chara_depend.guid, guid, 16);
-    skill_chara_depend.name = name;
-    skill_chara_depend.id = X2M_CHARA_DEPENDS_ID;
+    if (idx >= skill_chara_depends.size())
+        return false;
+
+    skill_chara_depends[idx].type = X2mDependsType::CHARACTER;
+    memcpy(skill_chara_depends[idx].guid, guid, 16);
+    skill_chara_depends[idx].name = name;
+    skill_chara_depends[idx].id = X2M_CHARA_DEPENDS_ID;
+
+    return true;
 }
 
-bool X2mFile::SkillCharaDependHasAttachment() const
+bool X2mFile::AddSkillCharaDepend(const X2mDepends &depends)
+{
+    if (skill_chara_depends.size() >= 3)
+        return false;
+
+    skill_chara_depends.push_back(X2mDepends());
+    return SetSkillCharaDepend(depends, skill_chara_depends.size()-1);
+}
+
+bool X2mFile::AddSkillCharaDepend(X2mFile *char_x2m)
+{
+    if (skill_chara_depends.size() >= 3)
+        return false;
+
+    skill_chara_depends.push_back(X2mDepends());
+    return SetSkillCharaDepend(char_x2m, skill_chara_depends.size()-1);
+}
+
+bool X2mFile::AddSkillCharaDepend(const uint8_t *guid, const std::string &name)
+{
+    if (skill_chara_depends.size() >= 3)
+        return false;
+
+    skill_chara_depends.push_back(X2mDepends());
+    return SetSkillCharaDepend(guid, name, skill_chara_depends.size()-1);
+}
+
+bool X2mFile::SkillCharaDependHasAttachment(size_t idx) const
 {
     if (IsDummyMode())
         return false;
 
-    const std::string att_path = X2M_SKILLS_CHARA_ATTACHMENTS + Utils::GUID2String(skill_chara_depend.guid) + ".x2m";
+    if (idx >= skill_chara_depends.size())
+        return false;
+
+    const std::string att_path = X2M_SKILLS_CHARA_ATTACHMENTS + Utils::GUID2String(skill_chara_depends[idx].guid) + ".x2m";
     return FileExists(att_path);
 }
 
-bool X2mFile::SetSkillCharaDependAttachment(X2mFile *attachment)
+bool X2mFile::SetSkillCharaDependAttachment(X2mFile *attachment, size_t idx)
 {
     if (attachment->type != X2mType::NEW_CHARACTER)
         return false;
 
-    if (memcmp(skill_chara_depend.guid, attachment->mod_guid, 16) != 0)
+    if (memcmp(skill_chara_depends[idx].guid, attachment->mod_guid, 16) != 0)
         return false;
 
     size_t size;
@@ -5498,25 +5561,25 @@ bool X2mFile::SetSkillCharaDependAttachment(X2mFile *attachment)
     if (!buf)
         return false;
 
-    const std::string att_path = X2M_SKILLS_CHARA_ATTACHMENTS + Utils::GUID2String(skill_chara_depend.guid) + ".x2m";
+    const std::string att_path = X2M_SKILLS_CHARA_ATTACHMENTS + Utils::GUID2String(skill_chara_depends[idx].guid) + ".x2m";
     bool ret = WriteFile(att_path, buf, size);
     delete[] buf;
 
     return ret;
 }
 
-bool X2mFile::RemoveSkillCharaDependAttachment()
+bool X2mFile::RemoveSkillCharaDependAttachment(size_t idx)
 {
-    const std::string att_path = X2M_SKILLS_CHARA_ATTACHMENTS + Utils::GUID2String(skill_chara_depend.guid) + ".x2m";
+    const std::string att_path = X2M_SKILLS_CHARA_ATTACHMENTS + Utils::GUID2String(skill_chara_depends[idx].guid) + ".x2m";
     return RemoveFile(att_path);
 }
 
-X2mFile *X2mFile::LoadSkillCharaDependAttachment()
+X2mFile *X2mFile::LoadSkillCharaDependAttachment(size_t idx)
 {
     if (!HasSkillCharaDepend())
         return nullptr;
 
-    const std::string att_path = X2M_SKILLS_CHARA_ATTACHMENTS + Utils::GUID2String(skill_chara_depend.guid) + ".x2m";
+    const std::string att_path = X2M_SKILLS_CHARA_ATTACHMENTS + Utils::GUID2String(skill_chara_depends[idx].guid) + ".x2m";
     size_t size;
     uint8_t *buf = ReadFile(att_path, &size);
     if (!buf)
@@ -5539,9 +5602,13 @@ X2mFile *X2mFile::LoadSkillCharaDependAttachment()
     return ret;
 }
 
-bool X2mFile::IsSkillCharaDependReferenced() const
+bool X2mFile::IsSkillCharaDependReferenced(size_t idx) const
 {
-    return (skill_entry.model == skill_chara_depend.id);
+    for (size_t i = 0; i < 3; i++)
+        if (skill_entry.Model(i) == skill_chara_depends[idx].id)
+            return true;
+
+    return false;
 }
 
 size_t X2mFile::GetNumCostumePartSets(uint8_t race) const
@@ -10051,7 +10118,7 @@ setup_data:
     return true;
 }
 
-bool X2mFile::InstallCusSkill(uint32_t depends_cms)
+bool X2mFile::InstallCusSkill(const std::vector<uint32_t> &depends_cms)
 {
     if (type != X2mType::NEW_SKILL)
         return false;
@@ -10073,10 +10140,8 @@ bool X2mFile::InstallCusSkill(uint32_t depends_cms)
         }
     }
 
-    if (HasSkillCharaDepend())
-    {
-        skill_entry.model = (uint16_t)depends_cms;
-    }
+    for (size_t i = 0; i < depends_cms.size(); i++)
+        skill_entry.SetModel(i, (uint16_t)depends_cms[i]);
 
     if (skill_type == X2mSkillType::BLAST && blast_ss_intended)
     {

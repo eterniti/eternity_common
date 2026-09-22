@@ -233,6 +233,33 @@ struct CusSkill
         change_skillset3 = 0xFFFF;
         unk_52 = 0xFFFF;
     }
+
+    uint16_t Model(size_t idx) const {
+        switch (idx)
+        {
+            case 0:
+                return model;
+            case 1:
+                return model2;
+            case 2:
+                return model3;
+        }
+
+        return 0xFFFF;
+    }
+
+    void SetModel(size_t idx, uint16_t model)
+    {
+        switch (idx)
+        {
+            case 0:
+                this->model = model;
+            case 1:
+                this->model2 = model;
+            case 2:
+                this->model3 = model;
+        }
+    }
 };
 
 class CusFile : public BaseFile
