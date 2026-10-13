@@ -108,6 +108,13 @@ enum class X2mItemType
     SUPER_SOUL
 };
 
+enum class X2mTextType
+{
+    NAME,
+    DESC,
+    HOW
+};
+
 extern const std::vector<std::string> x2m_cr_code;
 
 struct X2mSlotEntry
@@ -630,6 +637,9 @@ private:
     bool AddCostumeIdb(IdbFile *cost_idb, IdbEntry &entry, uint16_t id_start);
 
     void InstallColors();
+
+    bool InstallCostumeTextCommon(bool accessory, X2mTextType text_type);
+    bool UninstallCostumeTextCommon(bool accessory, X2mTextType text_type);
 
     // /////
     // These functions are intended for dummy mode (mods restoration)
@@ -1546,6 +1556,8 @@ public:
     bool InstallCostumeAccessoryNames();
     bool InstallCostumeCostumeDescs();
     bool InstallCostumeAccessoryDescs();
+    bool InstallCostumeCostumeHows();
+    bool InstallCostumeAccessoryHows();
     bool InstallCostumeIdb();
     bool InstallCostumeFile();
 
@@ -1558,6 +1570,8 @@ public:
     bool UninstallCostumeAccessoryNames();
     bool UninstallCostumeCostumeDescs();
     bool UninstallCostumeAccessoryDescs();
+    bool UninstallCostumeCostumeHows();
+    bool UninstallCostumeAccessoryHows();
     bool UninstallCostumeIdb();
     bool UninstallCostumeFile();
 

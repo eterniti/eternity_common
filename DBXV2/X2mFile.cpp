@@ -2904,6 +2904,8 @@ bool X2mFile::Decompile()
         for (X2mItem &item : costume_items)
         {
             item.idb.id = item.idb.name_id = item.idb.desc_id = X2M_DUMMY_ID16;
+            item.has_how = true;
+
             if (!item.Decompile(root))
                 return false;
         }
@@ -10401,7 +10403,7 @@ bool X2mFile::InstallSkillHow()
 
     if (skill_how[XV2_LANG_ENGLISH].length() == 0)
     {
-        // This is for case where previous version had description and current one doesn't.
+        // This is for case where previous version had how and current one doesn't.
         return UninstallSkillHow();
     }
 
@@ -11418,6 +11420,87 @@ static void RemoveCostumeNameReferences(uint16_t name_id)
     }
 }
 
+static void RemoveCostumeDescReferences(uint16_t desc_id)
+{
+    for (IdbEntry &entry : *game_top_idb)
+    {
+        if (entry.desc_id == desc_id)
+            entry.desc_id = 0xFFFF;
+    }
+
+    for (IdbEntry &entry : *game_bottom_idb)
+    {
+        if (entry.desc_id == desc_id)
+            entry.desc_id = 0xFFFF;
+    }
+
+    for (IdbEntry &entry : *game_gloves_idb)
+    {
+        if (entry.desc_id == desc_id)
+            entry.desc_id = 0xFFFF;
+    }
+
+    for (IdbEntry &entry : *game_shoes_idb)
+    {
+        if (entry.desc_id == desc_id)
+            entry.desc_id = 0xFFFF;
+    }
+}
+
+static void RemoveCostumeHowReferences(uint16_t how_id)
+{
+    for (IdbEntry &entry : *game_top_idb)
+    {
+        if (entry.how_id == how_id)
+            entry.how_id = 0xFFFF;
+    }
+
+    for (IdbEntry &entry : *game_bottom_idb)
+    {
+        if (entry.how_id == how_id)
+            entry.how_id = 0xFFFF;
+    }
+
+    for (IdbEntry &entry : *game_gloves_idb)
+    {
+        if (entry.how_id == how_id)
+            entry.how_id = 0xFFFF;
+    }
+
+    for (IdbEntry &entry : *game_shoes_idb)
+    {
+        if (entry.how_id == how_id)
+            entry.how_id = 0xFFFF;
+    }
+}
+
+static void RemoveAccessoryNameReferences(uint16_t name_id)
+{
+    for (IdbEntry &entry : *game_accesory_idb)
+    {
+        if (entry.name_id == name_id)
+            entry.name_id = 0xFFFF;
+    }
+}
+
+static void RemoveAccessoryDescReferences(uint16_t desc_id)
+{
+    for (IdbEntry &entry : *game_accesory_idb)
+    {
+        if (entry.desc_id == desc_id)
+            entry.desc_id = 0xFFFF;
+    }
+}
+
+static void RemoveAccessoryHowReferences(uint16_t how_id)
+{
+    for (IdbEntry &entry : *game_accesory_idb)
+    {
+        if (entry.how_id == how_id)
+            entry.how_id = 0xFFFF;
+    }
+}
+
 static std::string ChooseCostumeEntryName(const IdbEntry &idb)
 {
     std::string str = "wear_";
@@ -11456,280 +11539,6 @@ static std::string ChooseCostumeEntryName(const IdbEntry &idb)
     }
 
     return str;
-}
-
-bool X2mFile::InstallCostumeCostumeNames()
-{
-    if (type != X2mType::NEW_COSTUME)
-        return false;
-
-    if (update_costume_entry.idb_entries.size() != 0 && update_costume_entry.idb_entries.size() != costume_items.size())
-    {
-        DPRINTF("%s: This function shouldn't have been called in this state.\n", FUNCNAME);
-        return false;
-    }
-
-    if (update_costume_entry.partsets.size() == 0)
-    {
-        DPRINTF("%s: This function should have been called after InstallCostumePartSet.\n", FUNCNAME);
-        return false;
-    }
-
-    // Delete any existing name before
-    for (size_t i = 0; i < update_costume_entry.idb_entries.size(); i++)
-    {
-        uint16_t idb_id = update_costume_entry.idb_entries[i];
-        uint8_t type = update_costume_entry.costume_types[i];
-
-        if (type == COSTUME_ACCESSORY)
-            continue;
-
-        IdbEntry *entry = nullptr;
-
-        if (type == COSTUME_TOP)
-        {
-            entry = game_top_idb->FindEntryByID(idb_id);
-        }
-        else if (type == COSTUME_BOTTOM)
-        {
-            entry = game_bottom_idb->FindEntryByID(idb_id);
-        }
-        else if (type == COSTUME_GLOVES)
-        {
-            entry = game_gloves_idb->FindEntryByID(idb_id);
-        }
-        else if (type == COSTUME_SHOES)
-        {
-            entry = game_shoes_idb->FindEntryByID(idb_id);
-        }
-
-        if (!entry)
-        {
-            DPRINTF("%s: Internal error, cannot find installed idb entry for update.\n", FUNCNAME);
-            return false;
-        }
-
-        uint16_t name_id = entry->name_id;
-        if (name_id == 0xFFFF)
-            continue;
-
-        RemoveCostumeNameReferences(name_id);
-
-        int ls = 0, le = XV2_LANG_NUM;
-        if (global_lang >= 0)
-        {
-            ls = global_lang;
-            le = global_lang+1;
-        }
-
-        for (int l = ls; l < le; l++)
-        {
-            if (!Xenoverse2::RemoveCacCostumeName(name_id, l, (l==ls)))
-            {
-                DPRINTF("%s: Internal error, fail in RemoveCacCostumeName.\n", FUNCNAME);
-                return false;
-            }
-        }
-    }
-
-    // Now add new names
-    for (size_t i = 0; i < costume_items.size(); i++)
-    {
-        X2mItem &item = costume_items[i];
-        bool name_found = false;
-
-        if (item.item_type == X2mItemType::ACCESSORY)
-            continue;
-
-        for (size_t prev = 0; prev < i; prev++)
-        {
-            const X2mItem &prev_item = costume_items[prev];
-
-            if (prev_item.item_type == X2mItemType::ACCESSORY)
-                continue;
-
-            if (prev_item.item_name == item.item_name)
-            {
-                item.idb.name_id = prev_item.idb.name_id;
-                name_found = true;
-                break;
-            }
-        }
-
-        if (name_found)
-            continue;
-
-        int ls = 0, le = XV2_LANG_NUM;
-        if (global_lang >= 0)
-        {
-            ls = global_lang;
-            le = global_lang+1;
-        }
-
-        for (int l = ls; l < le; l++)
-        {
-            const std::string *name;
-
-            if (item.item_name[l].length() != 0)
-                name = &item.item_name[l];
-            else
-                name = &item.item_name[XV2_LANG_ENGLISH];            
-
-            if (!Xenoverse2::AddCacCostumeName(ChooseCostumeEntryName(item.idb), *name, l, &item.idb.name_id))
-            {
-                DPRINTF("%s: AddCacCostumeName failed.\n", FUNCNAME);
-                return false;
-            }
-        }
-    }
-
-    return true;
-}
-
-static void RemoveAccessoryNameReferences(uint16_t name_id)
-{
-    for (IdbEntry &entry : *game_accesory_idb)
-    {
-        if (entry.name_id == name_id)
-            entry.name_id = 0xFFFF;
-    }
-}
-
-bool X2mFile::InstallCostumeAccessoryNames()
-{
-    if (type != X2mType::NEW_COSTUME)
-        return false;
-
-    if (update_costume_entry.idb_entries.size() != 0 && update_costume_entry.idb_entries.size() != costume_items.size())
-    {
-        DPRINTF("%s: This function shouldn't have been called in this state.\n", FUNCNAME);
-        return false;
-    }
-
-    if (update_costume_entry.partsets.size() == 0)
-    {
-        DPRINTF("%s: This function should have been called after InstallCostumePartSet.\n", FUNCNAME);
-        return false;
-    }
-
-    // Delete any existing name before
-    for (size_t i = 0; i < update_costume_entry.idb_entries.size(); i++)
-    {
-        uint16_t idb_id = update_costume_entry.idb_entries[i];
-        uint8_t type = update_costume_entry.costume_types[i];
-
-        if (type != COSTUME_ACCESSORY)
-            continue;
-
-        IdbEntry *entry = game_accesory_idb->FindEntryByID(idb_id);
-        if (!entry)
-        {
-            DPRINTF("%s: Internal error, cannot find installed idb entry for update.\n", FUNCNAME);
-            return false;
-        }
-
-        uint16_t name_id = entry->name_id;
-        if (name_id == 0xFFFF)
-            continue;
-
-        RemoveAccessoryNameReferences(name_id);
-
-        int ls = 0, le = XV2_LANG_NUM;
-        if (global_lang >= 0)
-        {
-            ls = global_lang;
-            le = global_lang+1;
-        }
-
-        for (int l = ls; l < le; l++)
-        {
-            if (!Xenoverse2::RemoveAccesoryName(name_id, l, (l==ls)))
-            {
-                DPRINTF("%s: Internal error, fail in RemoveAccesoryName.\n", FUNCNAME);
-                return false;
-            }
-        }
-    }
-
-    // Now add new names
-    for (size_t i = 0; i < costume_items.size(); i++)
-    {
-        X2mItem &item = costume_items[i];
-        bool name_found = false;
-
-        if (item.item_type != X2mItemType::ACCESSORY)
-            continue;
-
-        for (size_t prev = 0; prev < i; prev++)
-        {
-            const X2mItem &prev_item = costume_items[prev];
-
-            if (prev_item.item_type != X2mItemType::ACCESSORY)
-                continue;
-
-            if (prev_item.item_name == item.item_name)
-            {
-                item.idb.name_id = prev_item.idb.name_id;
-                name_found = true;
-                break;
-            }
-        }
-
-        if (name_found)
-            continue;
-
-        int ls = 0, le = XV2_LANG_NUM;
-        if (global_lang >= 0)
-        {
-            ls = global_lang;
-            le = global_lang+1;
-        }
-
-        for (int l = ls; l < le; l++)
-        {
-            const std::string *name;
-
-            if (item.item_name[l].length() != 0)
-                name = &item.item_name[l];
-            else
-                name = &item.item_name[XV2_LANG_ENGLISH];
-
-            if (!Xenoverse2::AddAccesoryName(*name, l, &item.idb.name_id))
-            {
-                DPRINTF("%s: AddAccesoryName failed.\n", FUNCNAME);
-                return false;
-            }
-        }
-    }
-
-    return true;
-}
-
-static void RemoveCostumeDescReferences(uint16_t desc_id)
-{
-    for (IdbEntry &entry : *game_top_idb)
-    {
-        if (entry.desc_id == desc_id)
-            entry.desc_id = 0xFFFF;
-    }
-
-    for (IdbEntry &entry : *game_bottom_idb)
-    {
-        if (entry.desc_id == desc_id)
-            entry.desc_id = 0xFFFF;
-    }
-
-    for (IdbEntry &entry : *game_gloves_idb)
-    {
-        if (entry.desc_id == desc_id)
-            entry.desc_id = 0xFFFF;
-    }
-
-    for (IdbEntry &entry : *game_shoes_idb)
-    {
-        if (entry.desc_id == desc_id)
-            entry.desc_id = 0xFFFF;
-    }
 }
 
 static std::string ChooseCostumeEntryDesc(const IdbEntry &idb)
@@ -11773,7 +11582,47 @@ static std::string ChooseCostumeEntryDesc(const IdbEntry &idb)
     return str;
 }
 
-bool X2mFile::InstallCostumeCostumeDescs()
+static std::string ChooseCostumeEntryHow(const IdbEntry &idb)
+{
+    std::string str = "wear_how_";
+
+    if (idb.racelock == IDB_RACE_HUM || idb.racelock == IDB_RACE_SYM || idb.racelock == (IDB_RACE_HUM|IDB_RACE_SYM))
+    {
+        str += "hum_";
+    }
+    else if (idb.racelock == IDB_RACE_HUF || idb.racelock == IDB_RACE_SYF || idb.racelock == (IDB_RACE_HUF|IDB_RACE_SYF))
+    {
+        str += "huf_";
+    }
+    else if (idb.racelock == IDB_RACE_NMC)
+    {
+        str += "nmc_";
+    }
+    else if (idb.racelock == IDB_RACE_FRI)
+    {
+        str += "fri_";
+    }
+    else if (idb.racelock == IDB_RACE_MAM)
+    {
+        str += "mam_";
+    }
+    else if (idb.racelock == IDB_RACE_MAF)
+    {
+        str += "maf_";
+    }
+    else if (idb.racelock == (IDB_RACE_MAM|IDB_RACE_MAF))
+    {
+        str += "mar_";
+    }
+    else
+    {
+        str += "cmn_";
+    }
+
+    return str;
+}
+
+bool X2mFile::InstallCostumeTextCommon(bool accessory, X2mTextType text_type)
 {
     if (type != X2mType::NEW_COSTUME)
         return false;
@@ -11790,32 +11639,116 @@ bool X2mFile::InstallCostumeCostumeDescs()
         return false;
     }
 
-    // Delete any existing desc before
+    bool (* remove_func)(uint32_t lang, int idx, bool update_idb);
+    void (* remove_references)(uint16_t idx);
+    bool (* add_costume_func)(const std::string &entry_name, const std::string &name, int lang, uint16_t *ret_idx);
+    bool (* add_accessory_func)(const std::string &name, int lang, uint16_t *ret_idx);
+    std::string (* choose_entry_name)(const IdbEntry &);
+
+    if (text_type == X2mTextType::NAME)
+    {
+        if (!accessory)
+        {
+            remove_func = Xenoverse2::RemoveCacCostumeName;
+            remove_references = RemoveCostumeNameReferences;
+            add_costume_func = Xenoverse2::AddCacCostumeName;
+            add_accessory_func = nullptr;
+            choose_entry_name = ChooseCostumeEntryName;
+        }
+        else
+        {
+            remove_func = Xenoverse2::RemoveAccesoryName;
+            remove_references = RemoveAccessoryNameReferences;
+            add_costume_func = nullptr;
+            add_accessory_func = Xenoverse2::AddAccesoryName;
+            choose_entry_name = nullptr;
+        }
+    }
+    else if (text_type == X2mTextType::DESC)
+    {
+        if (!accessory)
+        {
+            remove_func = Xenoverse2::RemoveCacCostumeDesc;
+            remove_references = RemoveCostumeDescReferences;
+            add_costume_func = Xenoverse2::AddCacCostumeDesc;
+            add_accessory_func = nullptr;
+            choose_entry_name = ChooseCostumeEntryDesc;
+        }
+        else
+        {
+            remove_func = Xenoverse2::RemoveAccesoryDesc;
+            remove_references = RemoveAccessoryDescReferences;
+            add_costume_func = nullptr;
+            add_accessory_func = Xenoverse2::AddAccesoryDesc;
+            choose_entry_name = nullptr;
+        }
+    }
+    else if (text_type == X2mTextType::HOW)
+    {
+        if (!accessory)
+        {
+            remove_func = Xenoverse2::RemoveCacCostumeHow;
+            remove_references = RemoveCostumeHowReferences;
+            add_costume_func = Xenoverse2::AddCacCostumeHow;
+            add_accessory_func = nullptr;
+            choose_entry_name = ChooseCostumeEntryHow;
+        }
+        else
+        {
+            remove_func = Xenoverse2::RemoveAccesoryHow;
+            remove_references = RemoveAccessoryHowReferences;
+            add_costume_func = nullptr;
+            add_accessory_func = Xenoverse2::AddAccesoryHow;
+            choose_entry_name = nullptr;
+        }
+    }
+    else
+    {
+        DPRINTF("%s: Fatal bug, unrecognized text type, should never happen.\n", FUNCNAME);
+        exit(-1);
+    }
+
+    // Delete any existing name before
     for (size_t i = 0; i < update_costume_entry.idb_entries.size(); i++)
     {
         uint16_t idb_id = update_costume_entry.idb_entries[i];
         uint8_t type = update_costume_entry.costume_types[i];
 
-        if (type == COSTUME_ACCESSORY)
-            continue;
-
         IdbEntry *entry = nullptr;
 
-        if (type == COSTUME_TOP)
+        if (!accessory)
         {
-            entry = game_top_idb->FindEntryByID(idb_id);
+            if (type == COSTUME_ACCESSORY)
+                continue;
+
+            if (type == COSTUME_TOP)
+            {
+                entry = game_top_idb->FindEntryByID(idb_id);
+            }
+            else if (type == COSTUME_BOTTOM)
+            {
+                entry = game_bottom_idb->FindEntryByID(idb_id);
+            }
+            else if (type == COSTUME_GLOVES)
+            {
+                entry = game_gloves_idb->FindEntryByID(idb_id);
+            }
+            else if (type == COSTUME_SHOES)
+            {
+                entry = game_shoes_idb->FindEntryByID(idb_id);
+            }
         }
-        else if (type == COSTUME_BOTTOM)
+        else
         {
-            entry = game_bottom_idb->FindEntryByID(idb_id);
-        }
-        else if (type == COSTUME_GLOVES)
-        {
-            entry = game_gloves_idb->FindEntryByID(idb_id);
-        }
-        else if (type == COSTUME_SHOES)
-        {
-            entry = game_shoes_idb->FindEntryByID(idb_id);
+            if (type != COSTUME_ACCESSORY)
+                continue;
+
+            entry = game_accesory_idb->FindEntryByID(idb_id);
+            if (!entry)
+            {
+                DPRINTF("%s: Internal error, cannot find installed idb entry for update.\n", FUNCNAME);
+                return false;
+            }
         }
 
         if (!entry)
@@ -11824,11 +11757,25 @@ bool X2mFile::InstallCostumeCostumeDescs()
             return false;
         }
 
-        uint16_t desc_id = entry->desc_id;
-        if (desc_id == 0xFFFF)
+        uint16_t text_id = 0xFFFF;
+
+        if (text_type == X2mTextType::NAME)
+        {
+            text_id = entry->name_id;
+        }
+        else if (text_type == X2mTextType::DESC)
+        {
+            text_id = entry->desc_id;
+        }
+        else if (text_type == X2mTextType::HOW)
+        {
+            text_id = entry->how_id;
+        }
+
+        if (text_id == 0xFFFF || text_id == 0)
             continue;
 
-        RemoveCostumeDescReferences(desc_id);
+        remove_references(text_id);
 
         int ls = 0, le = XV2_LANG_NUM;
         if (global_lang >= 0)
@@ -11839,39 +11786,76 @@ bool X2mFile::InstallCostumeCostumeDescs()
 
         for (int l = ls; l < le; l++)
         {
-            if (!Xenoverse2::RemoveCacCostumeDesc(desc_id, l, (l==ls)))
+            if (!remove_func(text_id, l, (l==ls)))
             {
-                DPRINTF("%s: Internal error, fail in RemoveCacCostumeDesc.\n", FUNCNAME);
+                DPRINTF("%s: Internal error, fail in a Remove text function (is_accesory=%d, text_type=%d)\n", FUNCNAME, accessory, static_cast<int>(text_type));
                 return false;
             }
         }
     }
 
-    // Now add new descs
+    // Now add new names
     for (size_t i = 0; i < costume_items.size(); i++)
     {
         X2mItem &item = costume_items[i];
-        bool desc_found = false;
+        bool text_found = false;
 
-        if (item.item_type == X2mItemType::ACCESSORY)
-            continue;
+        if (!accessory)
+        {
+            if (item.item_type == X2mItemType::ACCESSORY)
+                continue;
+        }
+        else
+        {
+            if (item.item_type != X2mItemType::ACCESSORY)
+                continue;
+        }
 
         for (size_t prev = 0; prev < i; prev++)
         {
             const X2mItem &prev_item = costume_items[prev];
 
-            if (prev_item.item_type == X2mItemType::ACCESSORY)
-                continue;
-
-            if (prev_item.item_desc == item.item_desc)
+            if (!accessory)
             {
-                item.idb.desc_id = prev_item.idb.desc_id;
-                desc_found = true;
-                break;
+                if (prev_item.item_type == X2mItemType::ACCESSORY)
+                    continue;
+            }
+            else
+            {
+                if (prev_item.item_type != X2mItemType::ACCESSORY)
+                    continue;
+            }
+
+            if (text_type == X2mTextType::NAME)
+            {
+                if (prev_item.item_name == item.item_name)
+                {
+                    item.idb.name_id = prev_item.idb.name_id;
+                    text_found = true;
+                    break;
+                }
+            }
+            else if (text_type == X2mTextType::DESC)
+            {
+                if (prev_item.item_desc == item.item_desc)
+                {
+                    item.idb.desc_id = prev_item.idb.desc_id;
+                    text_found = true;
+                    break;
+                }
+            }
+            else if (text_type == X2mTextType::HOW)
+            {
+                if (prev_item.item_how == item.item_how)
+                {
+                    item.idb.how_id = prev_item.idb.how_id;
+                    text_found = true;
+                    break;
+                }
             }
         }
 
-        if (desc_found)
+        if (text_found)
             continue;
 
         int ls = 0, le = XV2_LANG_NUM;
@@ -11883,141 +11867,88 @@ bool X2mFile::InstallCostumeCostumeDescs()
 
         for (int l = ls; l < le; l++)
         {
-            const std::string *desc;
+            const std::string *text;
+            uint16_t *out_id;
 
-            if (item.item_desc[l].length() != 0)
-                desc = &item.item_desc[l];
-            else
-                desc = &item.item_desc[XV2_LANG_ENGLISH];
-
-            if (!Xenoverse2::AddCacCostumeDesc(ChooseCostumeEntryDesc(item.idb), *desc, l, &item.idb.desc_id))
+            if (text_type == X2mTextType::NAME)
             {
-                DPRINTF("%s: AddCacCostumeDesc failed.\n", FUNCNAME);
-                return false;
+                if (item.item_name[l].length() != 0)
+                    text = &item.item_name[l];
+                else
+                    text = &item.item_name[XV2_LANG_ENGLISH];
+
+                out_id = &item.idb.name_id;
             }
+            else if (text_type == X2mTextType::DESC)
+            {
+                if (item.item_desc[l].length() != 0)
+                    text = &item.item_desc[l];
+                else
+                    text = &item.item_desc[XV2_LANG_ENGLISH];
+
+                out_id = &item.idb.desc_id;
+            }
+            else if (text_type == X2mTextType::HOW)
+            {
+                if (item.item_how[l].length() != 0)
+                    text = &item.item_how[l];
+                else
+                    text = &item.item_how[XV2_LANG_ENGLISH];
+
+                out_id = &item.idb.how_id;
+            }
+
+            if (!accessory)
+            {
+                if (!add_costume_func(choose_entry_name(item.idb), *text, l, out_id))
+                {
+                    DPRINTF("%s: add_costume_func failed.\n", FUNCNAME);
+                    return false;
+                }
+            }
+            else
+            {
+                if (!add_accessory_func(*text, l, out_id))
+                {
+                    DPRINTF("%s: add_accessory_func failed.\n", FUNCNAME);
+                    return false;
+                }
+            }
+
         }
     }
 
     return true;
 }
 
-static void RemoveAccessoryDescReferences(uint16_t desc_id)
+bool X2mFile::InstallCostumeCostumeNames()
 {
-    for (IdbEntry &entry : *game_accesory_idb)
-    {
-        if (entry.desc_id == desc_id)
-            entry.desc_id = 0xFFFF;
-    }
+    return InstallCostumeTextCommon(false, X2mTextType::NAME);
+}
+
+bool X2mFile::InstallCostumeAccessoryNames()
+{
+    return InstallCostumeTextCommon(true, X2mTextType::NAME);
+}
+
+bool X2mFile::InstallCostumeCostumeDescs()
+{
+    return InstallCostumeTextCommon(false, X2mTextType::DESC);
 }
 
 bool X2mFile::InstallCostumeAccessoryDescs()
 {
-    if (type != X2mType::NEW_COSTUME)
-        return false;
+    return InstallCostumeTextCommon(true, X2mTextType::DESC);
+}
 
-    if (update_costume_entry.idb_entries.size() != 0 && update_costume_entry.idb_entries.size() != costume_items.size())
-    {
-        DPRINTF("%s: This function shouldn't have been called in this state.\n", FUNCNAME);
-        return false;
-    }
+bool X2mFile::InstallCostumeCostumeHows()
+{
+    return InstallCostumeTextCommon(false, X2mTextType::HOW);
+}
 
-    if (update_costume_entry.partsets.size() == 0)
-    {
-        DPRINTF("%s: This function should have been called after InstallCostumePartSet.\n", FUNCNAME);
-        return false;
-    }
-
-    // Delete any existing desc before
-    for (size_t i = 0; i < update_costume_entry.idb_entries.size(); i++)
-    {
-        uint16_t idb_id = update_costume_entry.idb_entries[i];
-        uint8_t type = update_costume_entry.costume_types[i];
-
-        if (type != COSTUME_ACCESSORY)
-            continue;
-
-        IdbEntry *entry = game_accesory_idb->FindEntryByID(idb_id);
-        if (!entry)
-        {
-            DPRINTF("%s: Internal error, cannot find installed idb entry for update.\n", FUNCNAME);
-            return false;
-        }
-
-        uint16_t desc_id = entry->desc_id;
-        if (desc_id == 0xFFFF)
-            continue;
-
-        RemoveAccessoryDescReferences(desc_id);
-
-        int ls = 0, le = XV2_LANG_NUM;
-        if (global_lang >= 0)
-        {
-            ls = global_lang;
-            le = global_lang+1;
-        }
-
-        for (int l = ls; l < le; l++)
-        {
-            if (!Xenoverse2::RemoveAccesoryDesc(desc_id, l, (l==ls)))
-            {
-                DPRINTF("%s: Internal error, fail in RemoveAccesoryDesc.\n", FUNCNAME);
-                return false;
-            }
-        }
-    }
-
-    // Now add new descs
-    for (size_t i = 0; i < costume_items.size(); i++)
-    {
-        X2mItem &item = costume_items[i];
-        bool desc_found = false;
-
-        if (item.item_type != X2mItemType::ACCESSORY)
-            continue;
-
-        for (size_t prev = 0; prev < i; prev++)
-        {
-            const X2mItem &prev_item = costume_items[prev];
-
-            if (prev_item.item_type != X2mItemType::ACCESSORY)
-                continue;
-
-            if (prev_item.item_desc == item.item_desc)
-            {
-                item.idb.desc_id = prev_item.idb.desc_id;
-                desc_found = true;
-                break;
-            }
-        }
-
-        if (desc_found)
-            continue;
-
-        int ls = 0, le = XV2_LANG_NUM;
-        if (global_lang >= 0)
-        {
-            ls = global_lang;
-            le = global_lang+1;
-        }
-
-        for (int l = ls; l < le; l++)
-        {
-            const std::string *desc;
-
-            if (item.item_desc[l].length() != 0)
-                desc = &item.item_desc[l];
-            else
-                desc = &item.item_desc[XV2_LANG_ENGLISH];
-
-            if (!Xenoverse2::AddAccesoryDesc(*desc, l, &item.idb.desc_id))
-            {
-                DPRINTF("%s: AddAccesoryDesc failed.\n", FUNCNAME);
-                return false;
-            }
-        }
-    }
-
-    return true;
+bool X2mFile::InstallCostumeAccessoryHows()
+{
+    return InstallCostumeTextCommon(true, X2mTextType::HOW);
 }
 
 bool X2mFile::AddCostumeIdb(IdbFile *cost_idb, IdbEntry &entry, uint16_t id_start)
@@ -12403,7 +12334,7 @@ bool X2mFile::UninstallCostumePartSets()
     return true;
 }
 
-bool X2mFile::UninstallCostumeCostumeNames()
+bool X2mFile::UninstallCostumeTextCommon(bool accessory, X2mTextType text_type)
 {
     if (type != X2mType::NEW_COSTUME)
         return false;
@@ -12411,33 +12342,98 @@ bool X2mFile::UninstallCostumeCostumeNames()
     if (update_costume_entry.idb_entries.size() != update_costume_entry.costume_types.size())
         return false;
 
+    bool (* remove_func)(uint32_t name_idx, int lang, bool update_idb);
+    void (* remove_references)(uint16_t idx);
+
+    if (text_type == X2mTextType::NAME)
+    {
+        if (!accessory)
+        {
+            remove_func = Xenoverse2::RemoveCacCostumeName;
+            remove_references = RemoveCostumeNameReferences;
+        }
+        else
+        {
+            remove_func = Xenoverse2::RemoveAccesoryName;
+            remove_references = RemoveAccessoryNameReferences;
+        }
+    }
+    else if (text_type == X2mTextType::DESC)
+    {
+        if (!accessory)
+        {
+            remove_func = Xenoverse2::RemoveCacCostumeDesc;
+            remove_references = RemoveCostumeDescReferences;
+        }
+        else
+        {
+            remove_func = Xenoverse2::RemoveAccesoryDesc;
+            remove_references = RemoveAccessoryDescReferences;
+        }
+    }
+    else if (text_type == X2mTextType::HOW)
+    {
+        if (!accessory)
+        {
+            remove_func = Xenoverse2::RemoveCacCostumeHow;
+            remove_references = RemoveCostumeHowReferences;
+        }
+        else
+        {
+            remove_func = Xenoverse2::RemoveAccesoryHow;
+            remove_references = RemoveAccessoryHowReferences;
+        }
+    }
+    else
+    {
+        DPRINTF("%s: Critical bug. Should not happen.", FUNCNAME);
+        exit(-1);
+    }
+
     for (size_t i = 0; i < update_costume_entry.idb_entries.size(); i++)
     {
         uint16_t id = update_costume_entry.idb_entries[i];
         uint8_t type = update_costume_entry.costume_types[i];
-
-        if (type == COSTUME_ACCESSORY)
-            continue;
-
         IdbFile *idb;
 
-        if (type == COSTUME_TOP)
-            idb = game_top_idb;
-        else if (type == COSTUME_BOTTOM)
-            idb = game_bottom_idb;
-        else if (type == COSTUME_GLOVES)
-            idb = game_gloves_idb;
+        if (!accessory)
+        {
+            if (type == COSTUME_ACCESSORY)
+                continue;
+
+            if (type == COSTUME_TOP)
+                idb = game_top_idb;
+            else if (type == COSTUME_BOTTOM)
+                idb = game_bottom_idb;
+            else if (type == COSTUME_GLOVES)
+                idb = game_gloves_idb;
+            else
+                idb = game_shoes_idb;
+        }
         else
-            idb = game_shoes_idb;
+        {
+            if (type != COSTUME_ACCESSORY)
+                continue;
+
+            idb = game_accesory_idb;
+        }
 
         IdbEntry *entry = idb->FindEntryByID(id);
         if (entry)
         {
-            uint16_t name_id = entry->name_id;
-            if (name_id == 0xFFFF)
+            uint16_t text_id = 0xFFFF;
+
+            if (text_type == X2mTextType::NAME)
+                text_id = entry->name_id;
+            else if (text_type == X2mTextType::DESC)
+                text_id = entry->desc_id;
+            else if (text_type == X2mTextType::HOW)
+                text_id = entry->how_id;
+
+            if (text_id == 0xFFFF || text_id == 0)
                 continue;
 
-            RemoveCostumeNameReferences(name_id);
+            remove_references(text_id);
 
             int ls = 0, le = XV2_LANG_NUM;
             if (global_lang >= 0)
@@ -12448,9 +12444,9 @@ bool X2mFile::UninstallCostumeCostumeNames()
 
             for (int l = ls; l < le; l++)
             {
-                if (!Xenoverse2::RemoveCacCostumeName(name_id, l, (l==ls)))
+                if (!remove_func(text_id, l, (l==ls)))
                 {
-                    DPRINTF("%s: RemoveCacCostumeName failed.\n", FUNCNAME);
+                    DPRINTF("%s: remove_func failed.\n", FUNCNAME);
                     return false;
                 }
             }
@@ -12459,158 +12455,36 @@ bool X2mFile::UninstallCostumeCostumeNames()
     }
 
     return true;
+}
+
+bool X2mFile::UninstallCostumeCostumeNames()
+{
+    return UninstallCostumeTextCommon(false, X2mTextType::NAME);
 }
 
 bool X2mFile::UninstallCostumeAccessoryNames()
 {
-    if (type != X2mType::NEW_COSTUME)
-        return false;
-
-    if (update_costume_entry.idb_entries.size() != update_costume_entry.costume_types.size())
-        return false;
-
-    for (size_t i = 0; i < update_costume_entry.idb_entries.size(); i++)
-    {
-        uint16_t id = update_costume_entry.idb_entries[i];
-        uint8_t type = update_costume_entry.costume_types[i];
-
-        if (type != COSTUME_ACCESSORY)
-            continue;
-
-        IdbEntry *entry = game_accesory_idb->FindEntryByID(id);
-        if (entry)
-        {
-            uint16_t name_id = entry->name_id;
-            if (name_id == 0xFFFF)
-                continue;
-
-            RemoveAccessoryNameReferences(name_id);
-
-            int ls = 0, le = XV2_LANG_NUM;
-            if (global_lang >= 0)
-            {
-                ls = global_lang;
-                le = global_lang+1;
-            }
-
-            for (int l = ls; l < le; l++)
-            {
-                if (!Xenoverse2::RemoveAccesoryName(name_id, l, (l==ls)))
-                {
-                    DPRINTF("%s: RemoveAccesoryName failed.\n", FUNCNAME);
-                    return false;
-                }
-            }
-
-        }
-    }
-
-    return true;
+    return UninstallCostumeTextCommon(true, X2mTextType::NAME);
 }
 
 bool X2mFile::UninstallCostumeCostumeDescs()
 {
-    if (type != X2mType::NEW_COSTUME)
-        return false;
-
-    if (update_costume_entry.idb_entries.size() != update_costume_entry.costume_types.size())
-        return false;
-
-    for (size_t i = 0; i < update_costume_entry.idb_entries.size(); i++)
-    {
-        uint16_t id = update_costume_entry.idb_entries[i];
-        uint8_t type = update_costume_entry.costume_types[i];
-
-        if (type == COSTUME_ACCESSORY)
-            continue;
-
-        IdbFile *idb;
-
-        if (type == COSTUME_TOP)
-            idb = game_top_idb;
-        else if (type == COSTUME_BOTTOM)
-            idb = game_bottom_idb;
-        else if (type == COSTUME_GLOVES)
-            idb = game_gloves_idb;
-        else
-            idb = game_shoes_idb;
-
-        IdbEntry *entry = idb->FindEntryByID(id);
-        if (entry)
-        {
-            uint16_t desc_id = entry->desc_id;
-            if (desc_id == 0xFFFF)
-                continue;
-
-            RemoveCostumeDescReferences(desc_id);
-
-            int ls = 0, le = XV2_LANG_NUM;
-            if (global_lang >= 0)
-            {
-                ls = global_lang;
-                le = global_lang+1;
-            }
-
-            for (int l = ls; l < le; l++)
-            {
-                if (!Xenoverse2::RemoveCacCostumeDesc(desc_id, l, (l==ls)))
-                {
-                    DPRINTF("%s: RemoveCacCostumeDesc failed.\n", FUNCNAME);
-                    return false;
-                }
-            }
-
-        }
-    }
-
-    return true;
+    return UninstallCostumeTextCommon(false, X2mTextType::DESC);
 }
 
 bool X2mFile::UninstallCostumeAccessoryDescs()
 {
-    if (type != X2mType::NEW_COSTUME)
-        return false;
+    return UninstallCostumeTextCommon(true, X2mTextType::DESC);
+}
 
-    if (update_costume_entry.idb_entries.size() != update_costume_entry.costume_types.size())
-        return false;
+bool X2mFile::UninstallCostumeCostumeHows()
+{
+    return UninstallCostumeTextCommon(false, X2mTextType::HOW);
+}
 
-    for (size_t i = 0; i < update_costume_entry.idb_entries.size(); i++)
-    {
-        uint16_t id = update_costume_entry.idb_entries[i];
-        uint8_t type = update_costume_entry.costume_types[i];
-
-        if (type != COSTUME_ACCESSORY)
-            continue;
-
-        IdbEntry *entry = game_accesory_idb->FindEntryByID(id);
-        if (entry)
-        {
-            uint16_t desc_id = entry->desc_id;
-            if (desc_id == 0xFFFF)
-                continue;
-
-            RemoveAccessoryDescReferences(desc_id);
-
-            int ls = 0, le = XV2_LANG_NUM;
-            if (global_lang >= 0)
-            {
-                ls = global_lang;
-                le = global_lang+1;
-            }
-
-            for (int l = ls; l < le; l++)
-            {
-                if (!Xenoverse2::RemoveAccesoryDesc(desc_id, l, (l==ls)))
-                {
-                    DPRINTF("%s: RemoveAccesoryDesc failed.\n", FUNCNAME);
-                    return false;
-                }
-            }
-
-        }
-    }
-
-    return true;
+bool X2mFile::UninstallCostumeAccessoryHows()
+{
+    return UninstallCostumeTextCommon(true, X2mTextType::HOW);
 }
 
 bool X2mFile::UninstallCostumeIdb()

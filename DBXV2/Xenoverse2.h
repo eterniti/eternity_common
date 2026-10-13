@@ -125,6 +125,10 @@ extern std::vector<MsgFile *> game_pet_names;
 extern std::vector<MsgFile *> game_cac_costume_descs;
 extern std::vector<MsgFile *> game_accesory_descs;
 
+extern std::vector<MsgFile *> game_cac_costume_hows;
+extern std::vector<MsgFile *> game_accesory_hows;
+extern std::vector<MsgFile *> game_talisman_hows;
+
 extern IdbFile *game_bottom_idb;
 extern IdbFile *game_gloves_idb;
 extern IdbFile *game_shoes_idb;
@@ -214,6 +218,7 @@ namespace Xenoverse2
     bool InitLobbyText(int only_this_lang=-1);
     bool InitCacCostumeNames(int only_this_lang=-1);
     bool InitCacCostumeDescs(int only_this_lang=-1);
+    bool InitCacCostumeHows(int only_this_lang=-1);
     bool InitTalismanNames(int only_this_lang=-1);
     bool InitTalismanDescs(int only_this_lang=-1);
     bool InitTalismanHows(int only_this_lang=-1);
@@ -249,6 +254,7 @@ namespace Xenoverse2
     bool CommitLobbyText();
     bool CommitCacCostumeNames();
     bool CommitCacCostumeDescs();
+    bool CommitCacCostumeHows();
     bool CommitTalismanNames();
     bool CommitTalismanDescs();
     bool CommitTalismanHows();
@@ -358,6 +364,16 @@ namespace Xenoverse2
     bool SetAccesoryDesc(uint32_t desc_idx, const std::string &desc, int lang);
     bool AddAccesoryDesc(const std::string &desc, int lang, uint16_t *ret_idx);
     bool RemoveAccesoryDesc(uint32_t desc_idx, int lang, bool update_idb);
+
+    bool GetCacCostumeHow(uint32_t how_idx, std::string &how, int lang=XV2_LANG_ENGLISH);
+    bool SetCacCostumeHow(uint32_t how_idx, const std::string &how, int lang);
+    bool AddCacCostumeHow(const std::string &entry_name, const std::string &how, int lang, uint16_t *ret_idx);
+    bool RemoveCacCostumeHow(uint32_t how_idx, int lang, bool update_idb);
+
+    bool GetAccesoryHow(uint32_t how_idx, std::string &how, int lang=XV2_LANG_ENGLISH);
+    bool SetAccesoryHow(uint32_t how_idx, const std::string &how, int lang);
+    bool AddAccesoryHow(const std::string &how, int lang, uint16_t *ret_idx);
+    bool RemoveAccesoryHow(uint32_t how_idx, int lang, bool update_idb);
 
     bool GetTalismanName(uint32_t name_idx, std::string &name, int lang=XV2_LANG_ENGLISH);
     bool SetTalismanName(uint32_t name_idx, const std::string &name, int lang);

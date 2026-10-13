@@ -65,6 +65,8 @@
 #define GAME_ACCESORY_DESCS_PATH    "data/msg/proper_noun_accessory_info_"
 #define GAME_TALISMAN_DESCS_PATH    "data/msg/proper_noun_talisman_info_"
 
+#define GAME_CAC_COSTUME_HOWS_PATH  "data/msg/proper_noun_costume_how_"
+#define GAME_ACCESORY_HOWS_PATH    "data/msg/proper_noun_accessory_how_"
 #define GAME_TALISMAN_HOWS_PATH    "data/msg/proper_noun_talisman_how_"
 
 #define GAME_BOTTOM_IDB_PATH "data/system/item/costume_bottom_item.idb"
@@ -198,6 +200,8 @@ std::vector<MsgFile *> game_cac_costume_descs;
 std::vector<MsgFile *> game_accesory_descs;
 std::vector<MsgFile *> game_talisman_descs;
 
+std::vector<MsgFile *> game_cac_costume_hows;
+std::vector<MsgFile *> game_accesory_hows;
 std::vector<MsgFile *> game_talisman_hows;
 
 std::vector<MsgFile *> game_shop_texts;
@@ -1233,226 +1237,142 @@ bool Xenoverse2::CommitLobbyText()
     return SaveMsgs(GAME_LOBBY_TEXT_PATH, game_lobby_texts, true);
 }
 
-bool Xenoverse2::InitCacCostumeNames(int only_this_lang)
+static bool InitCacCostumeTextCommon(std::vector<MsgFile *> &msgs, const std::string &base_path, int only_this_lang)
 {
     if (!xv2fs)
         return false;
 
-    for (MsgFile *msg : game_cac_costume_names)
+    for (MsgFile *msg : msgs)
     {
         if (msg)
             delete msg;
     }
 
-    for (MsgFile *msg : game_accesory_names)
-    {
-        if (msg)
-            delete msg;
-    }
-
-    game_cac_costume_names.clear();
-    game_accesory_names.clear();
-
-    game_cac_costume_names.resize(XV2_LANG_NUM);
-    game_accesory_names.resize(XV2_LANG_NUM);
+    msgs.clear();
+    msgs.resize(XV2_LANG_NUM);
 
     for (int i = 0; i < XV2_LANG_NUM; i++)
     {
         if (global_lang >= 0 && i != global_lang)
         {
-            game_cac_costume_names[i] = nullptr;
-            game_accesory_names[i] = nullptr;
+            msgs[i] = nullptr;
             continue;
         }
 
         if (global_lang < 0 && only_this_lang >= 0 && i != only_this_lang)
             continue;
 
-        {
-            std::string path = GAME_CAC_COSTUME_NAMES_PATH + xv2_lang_codes[i] + ".msg";
-            game_cac_costume_names[i] = new MsgFile();
+        std::string path = base_path + xv2_lang_codes[i] + ".msg";
+        msgs[i] = new MsgFile();
 
-            if (!xv2fs->LoadFile(game_cac_costume_names[i], path))
-                return false;
+        if (!xv2fs->LoadFile(msgs[i], path))
+            return false;
+    }
+
+    return true;
+}
+
+static bool CommitCacCostumeTextCommon(std::vector<MsgFile *> &msgs, const std::string &base_path)
+{
+    if (!xv2fs)
+        return false;
+
+    if (msgs.size() != XV2_LANG_NUM)
+        return true; // Yes, true
+
+    size_t ls = 0, le = XV2_LANG_NUM;
+    if (global_lang >= 0)
+    {
+        ls = global_lang;
+        le = global_lang+1;
+    }
+
+    size_t num_entries = msgs[ls]->GetNumEntries();
+
+    for (size_t i = ls; i < le; i++)
+    {
+        if (i != ls && msgs[i]->GetNumEntries() != num_entries)
+        {
+            DPRINTF("%s: Failure in saving %s* files."
+                    "This program requires the files for all languages to be synchronized.\n", base_path, FUNCNAME);
+
+            return false;
         }
 
-        {
-            std::string path = GAME_ACCESORY_NAMES_PATH + xv2_lang_codes[i] + ".msg";
-            game_accesory_names[i] = new MsgFile();            
+        std::string path = base_path + xv2_lang_codes[i] + ".msg";
 
-            if (!xv2fs->LoadFile(game_accesory_names[i], path))
-                return false;            
+        if (!xv2fs->SaveFile(msgs[i], path))
+        {
+            DPRINTF("Failed saving file \"%s\"\n", path.c_str());
+            return false;
         }
     }
+
+    return true;
+}
+
+bool Xenoverse2::InitCacCostumeNames(int only_this_lang)
+{
+    if (!InitCacCostumeTextCommon(game_cac_costume_names, GAME_CAC_COSTUME_NAMES_PATH, only_this_lang))
+        return false;
+
+    if (!InitCacCostumeTextCommon(game_accesory_names, GAME_ACCESORY_NAMES_PATH, only_this_lang))
+        return false;
 
     return true;
 }
 
 bool Xenoverse2::CommitCacCostumeNames()
 {
-    if (!xv2fs || game_cac_costume_names.size() != XV2_LANG_NUM || game_accesory_names.size() != XV2_LANG_NUM)
-        return false;    
+    if (!CommitCacCostumeTextCommon(game_cac_costume_names, GAME_CAC_COSTUME_NAMES_PATH))
+        return false;
 
-    size_t ls = 0, le = XV2_LANG_NUM;
-    if (global_lang >= 0)
-    {
-        ls = global_lang;
-        le = global_lang+1;
-    }
-
-    size_t num_entries = game_cac_costume_names[ls]->GetNumEntries();
-
-    for (size_t i = ls; i < le; i++)
-    {
-        if (i != ls && game_cac_costume_names[i]->GetNumEntries() != num_entries)
-        {
-            DPRINTF("%s: Failure in saving proper_noun_costume_name_* files."
-                    "This program requires the files for all languages to be synchronized.\n", FUNCNAME);
-
-            return false;
-        }
-
-        std::string path = GAME_CAC_COSTUME_NAMES_PATH + xv2_lang_codes[i] + ".msg";
-
-        if (!xv2fs->SaveFile(game_cac_costume_names[i], path))
-        {
-            DPRINTF("Failed saving file \"%s\"\n", path.c_str());
-            return false;
-        }
-    }
-
-    num_entries = game_accesory_names[ls]->GetNumEntries();
-
-    for (size_t i = ls; i < le; i++)
-    {
-        if (i != ls && game_accesory_names[i]->GetNumEntries() != num_entries)
-        {
-            DPRINTF("%s: Failure in saving proper_noun_accessory_name_* files."
-                    "This program requires the files for all languages to be synchronized.\n", FUNCNAME);
-
-            return false;
-        }
-
-        std::string path = GAME_ACCESORY_NAMES_PATH + xv2_lang_codes[i] + ".msg";
-
-        if (!xv2fs->SaveFile(game_accesory_names[i], path))
-        {
-            DPRINTF("Failed saving file \"%s\"\n", path.c_str());
-            return false;
-        }
-    }
+    if (!CommitCacCostumeTextCommon(game_accesory_names, GAME_ACCESORY_NAMES_PATH))
+        return false;
 
     return true;
 }
 
 bool Xenoverse2::InitCacCostumeDescs(int only_this_lang)
 {
-    if (!xv2fs)
+    if (!InitCacCostumeTextCommon(game_cac_costume_descs, GAME_CAC_COSTUME_DESCS_PATH, only_this_lang))
         return false;
 
-    for (MsgFile *msg : game_cac_costume_descs)
-    {
-        if (msg)
-            delete msg;
-    }
-
-    for (MsgFile *msg : game_accesory_descs)
-    {
-        if (msg)
-            delete msg;
-    }
-
-    game_cac_costume_descs.clear();
-    game_accesory_descs.clear();
-
-    game_cac_costume_descs.resize(XV2_LANG_NUM);
-    game_accesory_descs.resize(XV2_LANG_NUM);
-
-    for (int i = 0; i < XV2_LANG_NUM; i++)
-    {
-        if (global_lang >= 0 && i != global_lang)
-        {
-            game_cac_costume_descs[i] = nullptr;
-            game_accesory_descs[i] = nullptr;
-            continue;
-        }
-
-        if (global_lang >= 0 && only_this_lang >= 0 && i != only_this_lang)
-            continue;
-
-        {
-            std::string path = GAME_CAC_COSTUME_DESCS_PATH + xv2_lang_codes[i] + ".msg";
-            game_cac_costume_descs[i] = new MsgFile();
-
-            if (!xv2fs->LoadFile(game_cac_costume_descs[i], path))
-                return false;
-        }
-
-        {
-            std::string path = GAME_ACCESORY_DESCS_PATH + xv2_lang_codes[i] + ".msg";
-            game_accesory_descs[i] = new MsgFile();
-
-            if (!xv2fs->LoadFile(game_accesory_descs[i], path))
-                return false;
-        }
-    }
+    if (!InitCacCostumeTextCommon(game_accesory_descs, GAME_ACCESORY_DESCS_PATH, only_this_lang))
+        return false;
 
     return true;
 }
 
 bool Xenoverse2::CommitCacCostumeDescs()
 {
-    if (!xv2fs || game_cac_costume_descs.size() != XV2_LANG_NUM)
+    if (!CommitCacCostumeTextCommon(game_cac_costume_descs, GAME_CAC_COSTUME_DESCS_PATH))
         return false;
 
-    size_t ls = 0, le = XV2_LANG_NUM;
-    if (global_lang >= 0)
-    {
-        ls = global_lang;
-        le = global_lang+1;
-    }
+    if (!CommitCacCostumeTextCommon(game_accesory_descs, GAME_ACCESORY_DESCS_PATH))
+        return false;
 
-    size_t num_entries = game_cac_costume_descs[ls]->GetNumEntries();
+    return true;
+}
 
-    for (size_t i = ls; i < le; i++)
-    {
-        if (i != ls && game_cac_costume_descs[i]->GetNumEntries() != num_entries)
-        {
-            DPRINTF("%s: Failure in saving proper_noun_costume_info_* files."
-                    "This program requires the files for all languages to be synchronized.\n", FUNCNAME);
+bool Xenoverse2::InitCacCostumeHows(int only_this_lang)
+{
+    if (!InitCacCostumeTextCommon(game_cac_costume_hows, GAME_CAC_COSTUME_HOWS_PATH, only_this_lang))
+        return false;
 
-            return false;
-        }
+    if (!InitCacCostumeTextCommon(game_accesory_hows, GAME_ACCESORY_HOWS_PATH, only_this_lang))
+        return false;
 
-        std::string path = GAME_CAC_COSTUME_DESCS_PATH + xv2_lang_codes[i] + ".msg";
+    return true;
+}
 
-        if (!xv2fs->SaveFile(game_cac_costume_descs[i], path))
-        {
-            DPRINTF("Failed saving file \"%s\"\n", path.c_str());
-            return false;
-        }
-    }    
+bool Xenoverse2::CommitCacCostumeHows()
+{
+    if (!CommitCacCostumeTextCommon(game_cac_costume_hows, GAME_CAC_COSTUME_HOWS_PATH))
+        return false;
 
-    num_entries = game_accesory_descs[ls]->GetNumEntries();
-
-    for (size_t i = ls; i < le; i++)
-    {
-        if (i != ls && game_accesory_descs[i]->GetNumEntries() != num_entries)
-        {
-            DPRINTF("%s: Failure in saving proper_noun_accessory_info_* files."
-                    "This program requires the files for all languages to be synchronized.\n", FUNCNAME);
-
-            return false;
-        }
-
-        std::string path = GAME_ACCESORY_DESCS_PATH + xv2_lang_codes[i] + ".msg";
-
-        if (!xv2fs->SaveFile(game_accesory_descs[i], path))
-        {
-            DPRINTF("Failed saving file \"%s\"\n", path.c_str());
-            return false;
-        }
-    }
+    if (!CommitCacCostumeTextCommon(game_accesory_hows, GAME_ACCESORY_HOWS_PATH))
+        return false;
 
     return true;
 }
@@ -2764,12 +2684,12 @@ static bool UpdateIdbHows(IdbFile *idb, uint32_t how_idx)
     return true;
 }
 
-bool Xenoverse2::AddCacCostumeName(const std::string &entry_name, const std::string &name, int lang, uint16_t *ret_idx)
+static bool AddCacCostumeTextCommon(std::vector<MsgFile *> &msgs, const std::string &entry_name, const std::string &text, int lang, uint16_t *ret_idx)
 {
-    if (!xv2fs || game_cac_costume_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
+    if (!xv2fs || msgs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
         return false;
 
-    size_t idx = game_cac_costume_names[lang]->GetNumEntries();
+    size_t idx = msgs[lang]->GetNumEntries();
     if (idx >= 0xFFFF)
     {
         DPRINTF("%s: Overflow of ids.\n", FUNCNAME);
@@ -2781,43 +2701,86 @@ bool Xenoverse2::AddCacCostumeName(const std::string &entry_name, const std::str
 
     MsgEntry entry;
     entry.lines.resize(1);
-    entry.lines[0] = EscapeHtml(name);
+    entry.lines[0] = Xenoverse2::EscapeHtml(text);
 
     for (int i = 300; ; i++)
     {
         std::string final_entry_name = entry_name + Utils::ToString(i);
 
-        if (!game_cac_costume_names[lang]->FindEntryByName(final_entry_name))
+        if (!msgs[lang]->FindEntryByName(final_entry_name))
         {
             entry.name = final_entry_name;
-            return game_cac_costume_names[lang]->AddEntry(entry, true);
+            return msgs[lang]->AddEntry(entry, true);
         }
     }
 
     return false; // should never be here
 }
 
-bool Xenoverse2::RemoveCacCostumeName(uint32_t name_idx, int lang, bool update_idb)
+bool RemoveCacCostumeTextCommon(std::vector<MsgFile *> &msgs, uint32_t text_idx, int lang, bool update_idb, bool accessory, bool (* update_idb_func)(IdbFile *, uint32_t))
 {
-    if (!RemoveMsgTextByIndex(game_cac_costume_names, name_idx, lang))
+    if (!Xenoverse2::RemoveMsgTextByIndex(msgs, text_idx, lang))
         return false;
 
     if (!update_idb)
         return true;
 
-    if (!UpdateIdbNames(game_top_idb, name_idx))
+    if (accessory)
+        return update_idb_func(game_accesory_idb, text_idx);
+
+    if (!update_idb_func(game_top_idb, text_idx))
         return false;
 
-    if (!UpdateIdbNames(game_bottom_idb, name_idx))
+    if (!update_idb_func(game_bottom_idb, text_idx))
         return false;
 
-    if (!UpdateIdbNames(game_gloves_idb, name_idx))
+    if (!update_idb_func(game_gloves_idb, text_idx))
         return false;
 
-    if (!UpdateIdbNames(game_shoes_idb, name_idx))
+    if (!update_idb_func(game_shoes_idb, text_idx))
         return false;
 
     return true;
+}
+
+static bool AddAccesoryTextCommon(std::vector<MsgFile *> &msgs, const std::string &base_entry_name, const std::string &text, int lang, uint16_t *ret_idx)
+{
+    if (!xv2fs || msgs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
+        return false;
+
+    size_t idx = msgs[lang]->GetNumEntries();
+    if (idx >= 0xFFFF)
+    {
+        DPRINTF("%s: Overflow of ids.\n", FUNCNAME);
+        return false;
+    }
+
+    if (ret_idx)
+        *ret_idx = (uint16_t)idx;
+
+    MsgEntry entry;
+
+    for (size_t i = idx; ; i++)
+    {
+         entry.name = base_entry_name + Utils::ToStringAndPad((int)i, 3);
+         if (!msgs[lang]->FindEntryByName(entry.name))
+             break;
+    }
+
+    entry.lines.resize(1);
+    entry.lines[0] = Xenoverse2::EscapeHtml(text);
+
+    return msgs[lang]->AddEntry(entry, true);
+}
+
+bool Xenoverse2::AddCacCostumeName(const std::string &entry_name, const std::string &name, int lang, uint16_t *ret_idx)
+{
+    return AddCacCostumeTextCommon(game_cac_costume_names, entry_name, name, lang, ret_idx);
+}
+
+bool Xenoverse2::RemoveCacCostumeName(uint32_t name_idx, int lang, bool update_idb)
+{
+    return RemoveCacCostumeTextCommon(game_cac_costume_names, name_idx, lang, update_idb, false, UpdateIdbNames);
 }
 
 bool Xenoverse2::GetAccesoryName(uint32_t name_idx, std::string &name, int lang)
@@ -2832,46 +2795,12 @@ bool Xenoverse2::SetAccesoryName(uint32_t name_idx, const std::string &name, int
 
 bool Xenoverse2::AddAccesoryName(const std::string &name, int lang, uint16_t *ret_idx)
 {
-    if (!xv2fs || game_accesory_names.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    size_t idx = game_accesory_names[lang]->GetNumEntries();
-    if (idx >= 0xFFFF)
-    {
-        DPRINTF("%s: Overflow of ids.\n", FUNCNAME);
-        return false;
-    }
-
-    if (ret_idx)
-        *ret_idx = (uint16_t)idx;
-
-    MsgEntry entry;
-
-    for (size_t i = idx; ; i++)
-    {
-         entry.name = "accessory_" + Utils::ToStringAndPad((int)i, 3);
-         if (!game_accesory_names[lang]->FindEntryByName(entry.name))
-             break;
-    }
-
-    entry.lines.resize(1);
-    entry.lines[0] = EscapeHtml(name);
-
-    return game_accesory_names[lang]->AddEntry(entry, true);
+    return AddAccesoryTextCommon(game_accesory_names, "accessory_", name, lang, ret_idx);
 }
 
 bool Xenoverse2::RemoveAccesoryName(uint32_t name_idx, int lang, bool update_idb)
 {
-    if (!RemoveMsgTextByIndex(game_accesory_names, name_idx, lang))
-        return false;
-
-    if (!update_idb)
-        return true;
-
-    if (!UpdateIdbNames(game_accesory_idb, name_idx))
-        return false;
-
-    return true;
+    return RemoveCacCostumeTextCommon(game_accesory_names, name_idx, lang, update_idb, true, UpdateIdbNames);
 }
 
 bool Xenoverse2::GetCacCostumeDesc(uint32_t desc_idx, std::string &desc, int lang)
@@ -2886,58 +2815,12 @@ bool Xenoverse2::SetCacCostumeDesc(uint32_t desc_idx, const std::string &desc, i
 
 bool Xenoverse2::AddCacCostumeDesc(const std::string &entry_name, const std::string &desc, int lang, uint16_t *ret_idx)
 {
-    if (!xv2fs || game_cac_costume_descs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    size_t idx = game_cac_costume_descs[lang]->GetNumEntries();
-    if (idx >= 0xFFFF)
-    {
-        DPRINTF("%s: Overflow of ids.\n", FUNCNAME);
-        return false;
-    }
-
-    if (ret_idx)
-        *ret_idx = (uint16_t)idx;
-
-    MsgEntry entry;
-    entry.lines.resize(1);
-    entry.lines[0] = EscapeHtml(desc);
-
-    for (int i = 300; ; i++)
-    {
-        std::string final_entry_name = entry_name + Utils::ToString(i);
-
-        if (!game_cac_costume_descs[lang]->FindEntryByName(final_entry_name))
-        {
-            entry.name = final_entry_name;
-            return game_cac_costume_descs[lang]->AddEntry(entry, true);
-        }
-    }
-
-    return false; // should not be here never
+    return AddCacCostumeTextCommon(game_cac_costume_descs, entry_name, desc, lang, ret_idx);
 }
 
 bool Xenoverse2::RemoveCacCostumeDesc(uint32_t desc_idx, int lang, bool update_idb)
 {
-    if (!RemoveMsgTextByIndex(game_cac_costume_descs, desc_idx, lang))
-        return false;
-
-    if (!update_idb)
-        return true;
-
-    if (!UpdateIdbDescs(game_top_idb, desc_idx))
-        return false;
-
-    if (!UpdateIdbDescs(game_bottom_idb, desc_idx))
-        return false;
-
-    if (!UpdateIdbDescs(game_gloves_idb, desc_idx))
-        return false;
-
-    if (!UpdateIdbDescs(game_shoes_idb, desc_idx))
-        return false;
-
-    return true;
+    return RemoveCacCostumeTextCommon(game_cac_costume_descs, desc_idx, lang, update_idb, false, UpdateIdbDescs);
 }
 
 bool Xenoverse2::GetAccesoryDesc(uint32_t desc_idx, std::string &desc, int lang)
@@ -2952,46 +2835,100 @@ bool Xenoverse2::SetAccesoryDesc(uint32_t desc_idx, const std::string &desc, int
 
 bool Xenoverse2::AddAccesoryDesc(const std::string &desc, int lang, uint16_t *ret_idx)
 {
-    if (!xv2fs || game_accesory_descs.size() != XV2_LANG_NUM || lang < 0 || lang >= XV2_LANG_NUM)
-        return false;
-
-    size_t idx = game_accesory_descs[lang]->GetNumEntries();
-    if (idx >= 0xFFFF)
-    {
-        DPRINTF("%s: Overflow of ids.\n", FUNCNAME);
-        return false;
-    }
-
-    if (ret_idx)
-        *ret_idx = (uint16_t)idx;
-
-    MsgEntry entry;
-
-    for (size_t i = idx; ; i++)
-    {
-        entry.name = "accessory_eff_" + Utils::ToStringAndPad((int)i, 3);
-        if (!game_accesory_descs[lang]->FindEntryByName(entry.name))
-            break;
-    }
-
-    entry.lines.resize(1);
-    entry.lines[0] = EscapeHtml(desc);
-
-    return game_accesory_descs[lang]->AddEntry(entry, true);
+    return AddAccesoryTextCommon(game_accesory_descs, "accessory_eff_", desc, lang, ret_idx);
 }
 
 bool Xenoverse2::RemoveAccesoryDesc(uint32_t desc_idx, int lang, bool update_idb)
-{    
-    if (!RemoveMsgTextByIndex(game_accesory_descs, desc_idx, lang))
-        return false;
+{
+    return RemoveCacCostumeTextCommon(game_accesory_descs, desc_idx, lang, update_idb, true, UpdateIdbDescs);
+}
 
-    if (!update_idb)
-        return true;
+bool Xenoverse2::GetCacCostumeHow(uint32_t how_idx, std::string &how, int lang)
+{
+    if (game_cac_costume_hows.size() != XV2_LANG_NUM)
+    {
+        if (!InitCacCostumeHows())
+            return false;
+    }
 
-    if (!UpdateIdbDescs(game_accesory_idb, desc_idx))
-        return false;
+    return GetMsgTextByIndex(game_cac_costume_hows, how_idx, how, lang);
+}
 
-    return true;
+bool Xenoverse2::SetCacCostumeHow(uint32_t how_idx, const std::string &how, int lang)
+{
+    if (game_cac_costume_hows.size() != XV2_LANG_NUM)
+    {
+        if (!InitCacCostumeHows())
+            return false;
+    }
+
+    return SetMsgTextByIndex(game_cac_costume_hows, how_idx, how, lang);
+}
+
+bool Xenoverse2::AddCacCostumeHow(const std::string &entry_name, const std::string &how, int lang, uint16_t *ret_idx)
+{
+    if (game_cac_costume_hows.size() != XV2_LANG_NUM)
+    {
+        if (!InitCacCostumeHows())
+            return false;
+    }
+
+    return AddCacCostumeTextCommon(game_cac_costume_hows, entry_name, how, lang, ret_idx);
+}
+
+bool Xenoverse2::RemoveCacCostumeHow(uint32_t how_idx, int lang, bool update_idb)
+{
+    if (game_cac_costume_hows.size() != XV2_LANG_NUM)
+    {
+        if (!InitCacCostumeHows())
+            return false;
+    }
+
+    return RemoveCacCostumeTextCommon(game_cac_costume_hows, how_idx, lang, update_idb, false, UpdateIdbHows);
+}
+
+bool Xenoverse2::GetAccesoryHow(uint32_t how_idx, std::string &how, int lang)
+{
+    if (game_accesory_hows.size() != XV2_LANG_NUM)
+    {
+        if (!InitCacCostumeHows())
+            return false;
+    }
+
+    return GetMsgTextByIndex(game_accesory_hows, how_idx, how, lang);
+}
+
+bool Xenoverse2::SetAccesoryHow(uint32_t how_idx, const std::string &how, int lang)
+{
+    if (game_accesory_hows.size() != XV2_LANG_NUM)
+    {
+        if (!InitCacCostumeHows())
+            return false;
+    }
+
+    return SetMsgTextByIndex(game_accesory_hows, how_idx, how, lang);
+}
+
+bool Xenoverse2::AddAccesoryHow(const std::string &how, int lang, uint16_t *ret_idx)
+{
+    if (game_accesory_hows.size() != XV2_LANG_NUM)
+    {
+        if (!InitCacCostumeHows())
+            return false;
+    }
+
+    return AddAccesoryTextCommon(game_accesory_hows, "accessory_how_", how, lang, ret_idx);
+}
+
+bool Xenoverse2::RemoveAccesoryHow(uint32_t how_idx, int lang, bool update_idb)
+{
+    if (game_accesory_hows.size() != XV2_LANG_NUM)
+    {
+        if (!InitCacCostumeHows())
+            return false;
+    }
+
+    return RemoveCacCostumeTextCommon(game_cac_costume_hows, how_idx, lang, update_idb, true, UpdateIdbHows);
 }
 
 static bool AddTalismanTextCommon(std::vector<MsgFile *> &msgs, const std::string &text, const std::string &prefix, int lang, uint16_t *ret_idx)
